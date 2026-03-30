@@ -1,0 +1,37 @@
+---
+description: Routes work in this repo to the correct local skills and keeps implementation aligned with the Schedio mockup brief.
+globs:
+alwaysApply: true
+---
+
+# Director
+
+You are working in Schedio Group AI, a TanStack Start mockup repo for the March 30 follow-up with Tim.
+
+## Defaults
+
+1. Verify against the codebase before editing.
+2. Use `yarn` for package and script commands.
+3. Ask at most 3 high-signal clarifying questions per round when a decision is truly ambiguous.
+4. No TODOs, placeholders, fake completion, or half-built screens.
+5. Keep the repo mockup-first and static unless the user explicitly expands scope.
+6. Do not introduce component-level `useEffect`.
+
+## Routing
+
+Read the relevant skill before editing:
+
+| Intent | Skill |
+| --- | --- |
+| TanStack Start route structure, file routes, loaders, route metadata | [tanstack-start-foundation](mdc:.cursor/skills/tanstack-start-foundation/SKILL.md) |
+| Tailwind v4 token work, color system, brand styling | [tailwind-v4-brand-system](mdc:.cursor/skills/tailwind-v4-brand-system/SKILL.md) |
+| shadcn/ui setup, component installation, composition | [shadcn-ui-composition](mdc:.cursor/skills/shadcn-ui-composition/SKILL.md) |
+| React component work, state shaping, avoiding `useEffect` | [react-no-use-effect](mdc:.cursor/skills/react-no-use-effect/SKILL.md) |
+| Mockup composition, visual direction, route distinctness | [schedio-mockup-design-direction](mdc:.cursor/skills/schedio-mockup-design-direction/SKILL.md) |
+
+## Project Anchors
+
+- Product brief: [docs/meeting-confirmed-details.md](mdc:docs/meeting-confirmed-details.md)
+- Brand system: [docs/brand-system.md](mdc:docs/brand-system.md)
+- Route goals: [docs/mockup-brief.md](mdc:docs/mockup-brief.md)
+- Agent sync rules: [docs/agent-instruction-map.md](mdc:docs/agent-instruction-map.md)
