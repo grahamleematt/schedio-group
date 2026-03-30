@@ -10,6 +10,22 @@ const toneClasses: Record<MockupTone, string> = {
   review: 'surface-review',
 }
 
+const titleClasses: Record<MockupTone, string> = {
+  trust:
+    'font-heading text-4xl font-extrabold tracking-[-0.045em] sm:text-[3.55rem]',
+  operations:
+    'font-ops text-[2.55rem] font-semibold tracking-[-0.055em] sm:text-[3.45rem]',
+  review:
+    'font-heading text-4xl font-extrabold tracking-[-0.045em] sm:text-[3.35rem]',
+}
+
+const descriptionClasses: Record<MockupTone, string> = {
+  trust: 'max-w-3xl text-base leading-7 sm:text-lg',
+  operations:
+    'font-ops ops-hero-copy max-w-3xl text-[1.02rem] leading-7 sm:text-[1.1rem]',
+  review: 'max-w-3xl text-base leading-7 sm:text-lg',
+}
+
 type MockupShellProps = {
   label: string
   title: string
@@ -33,7 +49,7 @@ export function MockupShell({
     <main className="page-wrap page-frame">
       <section
         className={cn(
-          'brand-panel overflow-hidden rounded-[2rem] px-6 py-6 sm:px-8 sm:py-8',
+          'brand-panel overflow-hidden rounded-[2rem] px-5 py-5 sm:px-8 sm:py-8',
           toneClasses[tone]
         )}
       >
@@ -49,7 +65,8 @@ export function MockupShell({
                   key={badge}
                   variant="secondary"
                   className={cn(
-                    'rounded-full border px-3 py-1 text-[0.7rem] tracking-[0.12em] uppercase',
+                    'border px-3 py-1 text-[0.7rem] tracking-[0.12em] uppercase',
+                    tone === 'operations' ? 'rounded-xl font-mono' : 'rounded-full',
                     tone === 'review'
                       ? 'border-white/14 bg-white/10 text-white'
                       : 'border-[var(--brand-border)] bg-white/80 text-[var(--brand-slate)]'
@@ -62,7 +79,8 @@ export function MockupShell({
             <div className="space-y-3">
               <h1
                 className={cn(
-                  'font-heading max-w-4xl text-4xl leading-tight font-extrabold tracking-[-0.04em] sm:text-5xl',
+                  'max-w-4xl leading-[1.02]',
+                  titleClasses[tone],
                   tone === 'review' ? 'text-white' : 'text-[var(--brand-slate)]'
                 )}
               >
@@ -70,7 +88,7 @@ export function MockupShell({
               </h1>
               <p
                 className={cn(
-                  'max-w-3xl text-base leading-7 sm:text-lg',
+                  descriptionClasses[tone],
                   tone === 'review' ? 'text-white/78' : 'text-[var(--brand-muted)]'
                 )}
               >
@@ -85,7 +103,9 @@ export function MockupShell({
                 'rounded-[1.5rem] border p-5 shadow-sm',
                 tone === 'review'
                   ? 'border-white/12 bg-white/8 text-white'
-                  : 'border-[var(--brand-border)] bg-white/82 text-[var(--brand-text)]'
+                  : tone === 'operations'
+                    ? 'border-[rgba(0,61,166,0.14)] bg-white/88 text-[var(--brand-text)]'
+                    : 'border-[var(--brand-border)] bg-white/82 text-[var(--brand-text)]'
               )}
             >
               {sidebar}
@@ -94,7 +114,7 @@ export function MockupShell({
         </div>
       </section>
 
-      <div className="mt-6 space-y-6">{children}</div>
+      <div className="section-stack">{children}</div>
     </main>
   )
 }

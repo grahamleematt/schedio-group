@@ -74,7 +74,7 @@ function ReviewConsolePage() {
     >
       <section className="grid gap-4 md:grid-cols-3">
         {metrics.map((metric) => (
-          <MetricCard key={metric.label} {...metric} />
+          <MetricCard key={metric.label} tone="operations" {...metric} />
         ))}
       </section>
 
@@ -89,17 +89,17 @@ function ReviewConsolePage() {
                 Suggested naming, confidence, and publish readiness in one place.
               </p>
             </div>
-            <div className="flex flex-wrap gap-3">
-              <div className="relative min-w-[220px]">
+            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap">
+              <div className="relative w-full sm:min-w-[220px] sm:flex-1">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--brand-muted)]" />
                 <Input
                   defaultValue=""
                   placeholder="Search document queue"
-                  className="h-11 rounded-full border-[var(--brand-border)] bg-white pl-9"
+                  className="h-11 w-full rounded-full border-[var(--brand-border)] bg-white pl-9"
                 />
               </div>
               <Select defaultValue={activeDistrict.id}>
-                <SelectTrigger className="h-11 min-w-[220px] rounded-full border-[var(--brand-border)] bg-white">
+                <SelectTrigger className="h-11 w-full rounded-full border-[var(--brand-border)] bg-white sm:min-w-[220px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -111,8 +111,8 @@ function ReviewConsolePage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="overflow-hidden rounded-[1.5rem] border border-[var(--brand-border)]">
-              <Table>
+            <div className="data-table-frame overflow-hidden rounded-[1.5rem] border border-[var(--brand-border)]">
+              <Table className="data-table-min font-ops">
                 <TableHeader>
                   <TableRow className="bg-[rgba(0,61,166,0.04)]">
                     <TableHead>Document</TableHead>

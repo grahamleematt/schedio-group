@@ -23,7 +23,7 @@ export default function Header() {
             </span>
           </Link>
 
-          <div className="flex flex-wrap items-center gap-1">
+          <div className="flex flex-wrap items-center gap-1.5">
             <Link
               to="/"
               className="nav-pill"
@@ -55,7 +55,7 @@ export default function Header() {
           </div>
         </div>
 
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto hidden items-center gap-3 lg:flex">
           <Badge
             variant="outline"
             className="rounded-full border-[rgba(0,61,166,0.18)] bg-[rgba(0,61,166,0.06)] px-3 py-1 text-[0.72rem] tracking-[0.12em] uppercase text-[var(--brand-blue)]"

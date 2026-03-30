@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { ArrowUpRight, Building2 } from 'lucide-react'
+import { ArrowUpRight, Building2, ShieldCheck } from 'lucide-react'
 import { MetricCard } from '#/components/metric-card'
 import { MockupShell } from '#/components/mockup-shell'
 import { StatusBadge } from '#/components/status-badge'
@@ -80,6 +80,10 @@ function PortalTrustPage() {
               {district.name}
             </h2>
           </div>
+          <div className="inline-flex items-center gap-2 rounded-full bg-[rgba(0,61,166,0.08)] px-3 py-1 text-xs font-semibold text-[var(--brand-blue)]">
+            <ShieldCheck className="size-3.5" />
+            Original files stay preserved
+          </div>
           <p className="text-sm leading-6 text-[var(--brand-muted)]">
             Users can upload for multiple entities, but the experience keeps the
             selected district in view at all times so routing mistakes feel hard
@@ -99,14 +103,15 @@ function PortalTrustPage() {
         </div>
       }
     >
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid gap-4 lg:grid-cols-3">
         {metrics.map((metric) => (
-          <MetricCard key={metric.label} {...metric} />
+          <MetricCard key={metric.label} tone="trust" {...metric} />
         ))}
       </section>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_380px]">
         <UploadDropzone
+          tone="trust"
           title="Upload everything you have without decoding the filing structure first."
           subtitle="The portal frames intake around district context, drag-and-drop simplicity, and the promise that originals stay preserved while the system organizes downstream."
           points={[
@@ -180,7 +185,7 @@ function PortalTrustPage() {
                 {batches.map((batch) => (
                   <article
                     key={batch.id}
-                    className="rounded-[1.5rem] border border-[var(--brand-border)] bg-white px-4 py-4"
+                    className="rounded-[1.5rem] border border-[var(--brand-border)] bg-white px-4 py-4 sm:px-5"
                   >
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="space-y-2">
@@ -195,7 +200,7 @@ function PortalTrustPage() {
                     </div>
                     <div className="mt-4 space-y-2">
                       <Progress value={batch.progress} className="h-2.5 rounded-full" />
-                      <div className="flex items-center justify-between text-xs text-[var(--brand-muted)]">
+                      <div className="flex flex-col gap-1 text-xs text-[var(--brand-muted)] sm:flex-row sm:items-center sm:justify-between">
                         <span>{batch.channel}</span>
                         <span>{batch.submittedAt}</span>
                       </div>
@@ -208,7 +213,7 @@ function PortalTrustPage() {
                 {docs.map((document) => (
                   <article
                     key={document.id}
-                    className="rounded-[1.5rem] border border-[var(--brand-border)] bg-white px-4 py-4"
+                    className="rounded-[1.5rem] border border-[var(--brand-border)] bg-white px-4 py-4 sm:px-5"
                   >
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="space-y-1">
@@ -263,7 +268,7 @@ function PortalTrustPage() {
             {processingStages.map((stage, index) => (
               <div
                 key={stage}
-                className="flex items-start gap-4 rounded-2xl border border-[var(--brand-border)] bg-white px-4 py-4"
+                className="flex items-start gap-4 rounded-2xl border border-[var(--brand-border)] bg-white px-4 py-4 sm:px-5"
               >
                 <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[rgba(0,61,166,0.08)] font-semibold text-[var(--brand-blue)]">
                   {index + 1}

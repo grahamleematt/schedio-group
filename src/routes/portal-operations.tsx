@@ -68,18 +68,32 @@ function PortalOperationsPage() {
       ]}
       sidebar={
         <div className="space-y-4">
-          <div className="flex items-center gap-3 rounded-2xl border border-[var(--brand-border)] bg-white px-4 py-4">
+          <div className="flex items-center gap-3 rounded-2xl border border-[rgba(0,61,166,0.14)] bg-white px-4 py-4">
             <Activity className="size-4 text-[var(--brand-blue)]" />
             <div>
-              <p className="text-xs font-semibold tracking-[0.12em] uppercase text-[var(--brand-blue)]">
+              <p className="ops-label text-[var(--brand-blue)]">
                 Active district
               </p>
-              <p className="mt-1 text-sm font-semibold text-[var(--brand-slate)]">
+              <p className="font-ops mt-1 text-sm font-semibold text-[var(--brand-slate)]">
                 {district.name}
               </p>
             </div>
           </div>
-          <p className="text-sm leading-6 text-[var(--brand-muted)]">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl border border-[rgba(0,61,166,0.14)] bg-[rgba(0,61,166,0.04)] px-3 py-3">
+              <p className="ops-label text-[var(--brand-blue)]">Visibility</p>
+              <p className="mt-2 font-ops text-sm font-medium text-[var(--brand-slate)]">
+                Queue state shown early
+              </p>
+            </div>
+            <div className="rounded-xl border border-[rgba(0,61,166,0.14)] bg-[rgba(0,61,166,0.04)] px-3 py-3">
+              <p className="ops-label text-[var(--brand-blue)]">Use case</p>
+              <p className="mt-2 font-ops text-sm font-medium text-[var(--brand-slate)]">
+                Shared client operators
+              </p>
+            </div>
+          </div>
+          <p className="font-ops text-sm leading-6 text-[var(--brand-text)]">
             The emphasis here is less “gentle front door” and more “working
             command surface” while still staying appropriate for clients.
           </p>
@@ -88,11 +102,12 @@ function PortalOperationsPage() {
     >
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {metrics.map((metric) => (
-          <MetricCard key={metric.label} {...metric} />
+          <MetricCard key={metric.label} tone="operations" {...metric} />
         ))}
       </section>
 
       <UploadDropzone
+        tone="operations"
         title="Status-heavy intake that still feels like one coherent client workflow."
         subtitle="Uploads, batch progress, and handoff cues live together here. This route is useful if Tim responds to a more operational dashboard posture without wanting to expose internal-only tools."
         points={[
@@ -103,27 +118,27 @@ function PortalOperationsPage() {
       />
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_400px]">
-        <Card className="brand-panel rounded-[1.75rem] border-[var(--brand-border)] shadow-none">
+        <Card className="brand-panel rounded-[1.75rem] border-[rgba(0,61,166,0.14)] shadow-none">
           <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <CardTitle className="font-heading text-2xl text-[var(--brand-slate)]">
+              <CardTitle className="font-ops text-[2rem] font-semibold tracking-[-0.05em] text-[var(--brand-slate)]">
                 Batch command center
               </CardTitle>
-              <p className="mt-2 text-sm leading-6 text-[var(--brand-muted)]">
+              <p className="mt-2 font-ops text-sm leading-6 text-[var(--brand-text)]">
                 A more dashboard-like read on intake packages, still within a client-safe surface.
               </p>
             </div>
-            <div className="flex flex-wrap gap-3">
-              <div className="relative min-w-[220px]">
+            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap">
+              <div className="relative w-full sm:min-w-[220px] sm:flex-1">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--brand-muted)]" />
                 <Input
                   defaultValue=""
                   placeholder="Search batches"
-                  className="h-11 rounded-full border-[var(--brand-border)] bg-white pl-9"
+                  className="h-11 w-full rounded-full border-[var(--brand-border)] bg-white pl-9"
                 />
               </div>
               <Select defaultValue={district.id}>
-                <SelectTrigger className="h-11 min-w-[220px] rounded-full border-[var(--brand-border)] bg-white">
+                <SelectTrigger className="h-11 w-full rounded-full border-[var(--brand-border)] bg-white sm:min-w-[220px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -135,8 +150,8 @@ function PortalOperationsPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="overflow-hidden rounded-[1.5rem] border border-[var(--brand-border)] bg-white">
-              <Table>
+            <div className="data-table-frame overflow-hidden rounded-[1.5rem] border border-[var(--brand-border)] bg-white">
+              <Table className="data-table-min font-ops">
                 <TableHeader>
                   <TableRow className="bg-[rgba(0,61,166,0.04)]">
                     <TableHead>Batch</TableHead>
@@ -175,13 +190,13 @@ function PortalOperationsPage() {
           </CardContent>
         </Card>
 
-        <Card className="brand-panel rounded-[1.75rem] border-[var(--brand-border)] shadow-none">
+        <Card className="brand-panel rounded-[1.75rem] border-[rgba(0,61,166,0.14)] shadow-none">
           <CardHeader>
-            <CardTitle className="font-heading text-2xl text-[var(--brand-slate)]">
+            <CardTitle className="font-ops text-[2rem] font-semibold tracking-[-0.05em] text-[var(--brand-slate)]">
               Stage pressure
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
             {processingStages.map((stage, index) => {
               const value = [14, 34, 72, 91, 100][index] ?? 0
               const icon =
@@ -196,16 +211,16 @@ function PortalOperationsPage() {
               return (
                 <div
                   key={stage}
-                  className="rounded-[1.5rem] border border-[var(--brand-border)] bg-white px-4 py-4"
+                  className="rounded-[1.35rem] border border-[rgba(0,61,166,0.14)] bg-white px-4 py-4"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
                       {icon}
-                      <p className="text-sm font-semibold text-[var(--brand-slate)]">
+                      <p className="font-ops text-sm font-semibold text-[var(--brand-slate)]">
                         {stage}
                       </p>
                     </div>
-                    <span className="text-xs font-semibold text-[var(--brand-muted)]">
+                    <span className="font-mono text-xs font-semibold text-[var(--brand-muted)]">
                       {value}%
                     </span>
                   </div>
@@ -218,9 +233,9 @@ function PortalOperationsPage() {
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-        <Card className="brand-panel rounded-[1.75rem] border-[var(--brand-border)] shadow-none">
+        <Card className="brand-panel rounded-[1.75rem] border-[rgba(0,61,166,0.14)] shadow-none">
           <CardHeader>
-            <CardTitle className="font-heading text-2xl text-[var(--brand-slate)]">
+            <CardTitle className="font-ops text-[2rem] font-semibold tracking-[-0.05em] text-[var(--brand-slate)]">
               Recent activity
             </CardTitle>
           </CardHeader>
@@ -233,7 +248,7 @@ function PortalOperationsPage() {
             ].map((item) => (
               <div
                 key={item}
-                className="rounded-2xl border border-[var(--brand-border)] bg-white px-4 py-4 text-sm leading-6 text-[var(--brand-text)]"
+                className="rounded-[1.25rem] border border-[rgba(0,61,166,0.14)] bg-[rgba(0,61,166,0.03)] px-4 py-4 font-ops text-sm leading-6 text-[var(--brand-text)]"
               >
                 {item}
               </div>
@@ -241,9 +256,9 @@ function PortalOperationsPage() {
           </CardContent>
         </Card>
 
-        <Card className="brand-panel rounded-[1.75rem] border-[var(--brand-border)] shadow-none">
+        <Card className="brand-panel rounded-[1.75rem] border-[rgba(0,61,166,0.14)] shadow-none">
           <CardHeader>
-            <CardTitle className="font-heading text-2xl text-[var(--brand-slate)]">
+            <CardTitle className="font-ops text-[2rem] font-semibold tracking-[-0.05em] text-[var(--brand-slate)]">
               Document register
             </CardTitle>
           </CardHeader>
@@ -251,16 +266,16 @@ function PortalOperationsPage() {
             {docs.map((document) => (
               <article
                 key={document.id}
-                className="grid gap-4 rounded-[1.5rem] border border-[var(--brand-border)] bg-white px-4 py-4 sm:grid-cols-[minmax(0,1fr)_auto]"
+                className="grid gap-4 rounded-[1.35rem] border border-[rgba(0,61,166,0.14)] bg-white px-4 py-4 sm:grid-cols-[minmax(0,1fr)_auto]"
               >
                 <div className="space-y-2">
                   <div className="flex flex-wrap items-center gap-3">
-                    <p className="text-sm font-semibold text-[var(--brand-slate)]">
+                    <p className="font-ops text-sm font-semibold text-[var(--brand-slate)]">
                       {document.organizedName}
                     </p>
                     <StatusBadge label={document.status} />
                   </div>
-                  <p className="text-xs leading-5 text-[var(--brand-muted)]">
+                  <p className="font-mono text-[0.72rem] leading-5 text-[var(--brand-muted)]">
                     Original: {document.originalName} · {document.pageCount} pages · {document.updatedAt}
                   </p>
                 </div>
