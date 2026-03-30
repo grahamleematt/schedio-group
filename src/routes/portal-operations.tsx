@@ -1,10 +1,18 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { Activity, ArrowUpRight, Clock3, Files, Search, TimerReset } from 'lucide-react'
+import {
+  Activity,
+  AlertTriangle,
+  ArrowUpRight,
+  Clock3,
+  Link2,
+  Search,
+  ShieldCheck,
+} from 'lucide-react'
 import { MetricCard } from '#/components/metric-card'
 import { MockupShell } from '#/components/mockup-shell'
 import { StatusBadge } from '#/components/status-badge'
 import { UploadDropzone } from '#/components/upload-dropzone'
-import { buttonVariants } from '#/components/ui/button'
+import { Button, buttonVariants } from '#/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import { Progress } from '#/components/ui/progress'
 import { Input } from '#/components/ui/input'
@@ -15,92 +23,164 @@ import {
   SelectTrigger,
   SelectValue,
 } from '#/components/ui/select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
-import { getBatchesByDistrict, getDistrict, getDocumentsByDistrict, processingStages, uploadBatches } from '#/lib/mock-data'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '#/components/ui/table'
+import {
+  getBatchesByDistrict,
+  getCategoryCountsByDistrict,
+  getClientFacingBatchStatus,
+  getClientFacingRecordStatus,
+  getClientDocumentsByDistrict,
+  getDistrict,
+  getDocumentClassLabel,
+  getExceptionCountsByDistrict,
+  getLinkedRecordSummary,
+  getManifestStateLabel,
+} from '#/lib/mock-data'
 import { cn } from '#/lib/utils'
 
-const districtId = 'north-county'
+const districtId = 'sterling-cab'
 const district = getDistrict(districtId)
 const batches = getBatchesByDistrict(districtId)
-const docs = getDocumentsByDistrict(districtId)
+const docs = getClientDocumentsByDistrict(districtId)
+const categoryCounts = getCategoryCountsByDistrict(districtId)
+const exceptionCounts = getExceptionCountsByDistrict(districtId)
 
 export const Route = createFileRoute('/portal-operations')({
   head: () => ({
-    meta: [{ title: 'Portal Operations | Schedio Group AI' }],
+    meta: [{ title: 'Client Operations | Schedio Group' }],
   }),
   component: PortalOperationsPage,
 })
 
 function PortalOperationsPage() {
+  const manifestReviewed = docs.filter(
+    (document) => document.documentManifestState === 'reviewed'
+  ).length
+  const linkedTotal = docs.filter((document) => document.linkedRecords.length > 0).length
+  const availableCount = docs.filter(
+    (document) => getClientFacingRecordStatus(document) === 'Available in Egnyte'
+  ).length
+  const sourcePreservedCount = docs.filter((document) => document.sourcePreserved).length
+  const stagePressure = [
+    {
+      stage: 'Incoming',
+      count: docs.filter((document) => document.custodyState === 'incoming').length,
+      note: 'Source records have landed in Egnyte custody and are waiting for package drafting.',
+    },
+    {
+      stage: 'Processing',
+      count: docs.filter((document) => document.custodyState === 'processing').length,
+      note: 'Document and run manifests are still being drafted around the preserved originals.',
+    },
+    {
+      stage: 'Classified',
+      count: docs.filter((document) => document.custodyState === 'classified').length,
+      note: 'Records are organized into formal classes and can be tracked as one evidence package.',
+    },
+    {
+      stage: 'Engineering review',
+      count: docs.filter((document) => getClientFacingRecordStatus(document) === 'Engineering review').length,
+      note: 'Linked evidence gaps or governed drafting questions are still under engineering review.',
+    },
+    {
+      stage: 'Available in Egnyte',
+      count: availableCount,
+      note: 'Approved records can be opened directly from Egnyte with custody traceability intact.',
+    },
+  ].map((item) => ({
+    ...item,
+    value: docs.length === 0 ? 0 : Math.round((item.count / docs.length) * 100),
+  }))
+
   const metrics = [
     {
-      label: 'Batches today',
-      value: '6',
-      note: 'High-visibility intake volume for shared client logins and district coordinators.',
-    },
-    {
-      label: 'Active documents',
+      label: 'Records in custody',
       value: String(docs.length),
-      note: 'Same flow as the trust portal, but with more emphasis on operational load and stage detail.',
+      note: 'This view keeps class, manifest progress, linked evidence, and custody visibility in one client-safe workspace.',
     },
     {
-      label: 'Avg. first-pass time',
-      value: '18 min',
-      note: 'A performance-flavored metric to make workflow momentum more concrete.',
+      label: 'Manifests under review',
+      value: String(manifestReviewed),
+      note: 'These records are past basic classification and are waiting on governed engineering review.',
     },
     {
-      label: 'Ready for handoff',
-      value: '12',
-      note: 'Shows when organized documents can move on to Ignite access and client follow-through.',
+      label: 'Linked evidence chains',
+      value: String(linkedTotal),
+      note: 'Task orders, invoices, change orders, and supporting proof are tracked as one package instead of isolated files.',
+    },
+    {
+      label: 'Available in Egnyte',
+      value: String(availableCount),
+      note: 'Only governed records with completed authority steps are shown as available in the source repository.',
     },
   ]
 
   return (
     <MockupShell
       tone="operations"
-      label="Client-facing concept two"
-      title="Operations-forward portal with denser status visibility and batch-level control."
-      description="This route keeps the same client-safe workflow as the trust portal, but it surfaces more timestamps, counts, and queue state for users who want to see more of the process."
-      badges={[
-        'Status-first',
-        'Client-safe dashboard',
-        district.region,
-      ]}
-      sidebar={
+      meta={`${district.name} • client operations transparency`}
+      title="Operational custody view"
+      description="Monitor package completeness, manifest progress, linked evidence coverage, and Egnyte readiness without stepping into drafting or approval authority."
+      actions={
+        <>
+          <Button className="rounded-full bg-[var(--brand-blue)] px-5 text-white hover:bg-[color-mix(in_oklab,var(--brand-blue)_86%,black_14%)]">
+            Create package
+          </Button>
+          <a
+            href={docs[0]?.igniteUrl}
+            target="_blank"
+            rel="noreferrer"
+            className={cn(
+              buttonVariants({ variant: 'outline' }),
+              'rounded-full border-[var(--brand-border)] bg-white text-[var(--brand-slate)] no-underline'
+            )}
+          >
+            Open in Egnyte
+            <ArrowUpRight className="size-4" />
+          </a>
+        </>
+      }
+      aside={
         <div className="space-y-4">
           <div className="flex items-center gap-3 rounded-2xl border border-[rgba(0,61,166,0.14)] bg-white px-4 py-4">
             <Activity className="size-4 text-[var(--brand-blue)]" />
             <div>
-              <p className="ops-label text-[var(--brand-blue)]">
-                Active district
-              </p>
+              <p className="ops-label text-[var(--brand-blue)]">Active district</p>
               <p className="font-ops mt-1 text-sm font-semibold text-[var(--brand-slate)]">
                 {district.name}
               </p>
             </div>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="rounded-xl border border-[rgba(0,61,166,0.14)] bg-[rgba(0,61,166,0.04)] px-3 py-3">
-              <p className="ops-label text-[var(--brand-blue)]">Visibility</p>
+              <p className="ops-label text-[var(--brand-blue)]">Preserved</p>
               <p className="mt-2 font-ops text-sm font-medium text-[var(--brand-slate)]">
-                Queue state shown early
+                {sourcePreservedCount} records
               </p>
             </div>
             <div className="rounded-xl border border-[rgba(0,61,166,0.14)] bg-[rgba(0,61,166,0.04)] px-3 py-3">
-              <p className="ops-label text-[var(--brand-blue)]">Use case</p>
+              <p className="ops-label text-[var(--brand-blue)]">Engineering review</p>
               <p className="mt-2 font-ops text-sm font-medium text-[var(--brand-slate)]">
-                Shared client operators
+                {manifestReviewed} active
               </p>
             </div>
           </div>
           <p className="font-ops text-sm leading-6 text-[var(--brand-text)]">
-            The emphasis here is less “gentle front door” and more “working
-            command surface” while still staying appropriate for clients.
+            This concept is still client-facing, but it exposes more of the governed
+            package mechanics: manifest progress, linked evidence coverage, and
+            source preservation in Egnyte.
           </p>
         </div>
       }
     >
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {metrics.map((metric) => (
           <MetricCard key={metric.label} tone="operations" {...metric} />
         ))}
@@ -108,24 +188,27 @@ function PortalOperationsPage() {
 
       <UploadDropzone
         tone="operations"
-        title="Status-heavy intake that still feels like one coherent client workflow."
-        subtitle="Uploads, batch progress, and handoff cues live together here. This route is useful if Tim responds to a more operational dashboard posture without wanting to expose internal-only tools."
+        kicker="Governed package intake"
+        title="Create a custody-aware evidence package"
+        subtitle="Start a new submission package with class visibility, manifest progress, linked evidence expectations, and Egnyte custody posture visible from the first step."
+        primaryActionLabel="Create package"
+        secondaryActionLabel="View custody rules"
         points={[
-          'Recent uploads, stage counts, and timestamps are visible near the intake surface.',
-          'Status signals help clients understand where their package is without contacting the team.',
-          'Ignite remains the final document destination, not something the portal tries to replace.',
+          'Source records land in Egnyte first, then SG DREAM drafts meaning through document and run manifests.',
+          'Linked evidence, missing support, and engineering review stay visible without exposing approval actions to clients.',
+          'The final client-facing signal is Egnyte availability, not opaque internal processing jargon.',
         ]}
       />
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_400px]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.15fr)_400px]">
         <Card className="brand-panel rounded-[1.75rem] border-[rgba(0,61,166,0.14)] shadow-none">
           <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <CardTitle className="font-ops text-[2rem] font-semibold tracking-[-0.05em] text-[var(--brand-slate)]">
-                Batch command center
+                Package command center
               </CardTitle>
               <p className="mt-2 font-ops text-sm leading-6 text-[var(--brand-text)]">
-                A more dashboard-like read on intake packages, still within a client-safe surface.
+                Track custody state, manifest progress, linked evidence, and engineering review in one client-safe table.
               </p>
             </div>
             <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap">
@@ -133,7 +216,7 @@ function PortalOperationsPage() {
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--brand-muted)]" />
                 <Input
                   defaultValue=""
-                  placeholder="Search batches"
+                  placeholder="Search packages"
                   className="h-11 w-full rounded-full border-[var(--brand-border)] bg-white pl-9"
                 />
               </div>
@@ -143,44 +226,48 @@ function PortalOperationsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={district.id}>{district.name}</SelectItem>
-                  <SelectItem value="brazos-basin">Brazos Basin Drainage District</SelectItem>
-                  <SelectItem value="gulf-harbor">Gulf Harbor School Facilities</SelectItem>
+                  <SelectItem value="sterling-md">Sterling Ranch Metro District</SelectItem>
+                  <SelectItem value="ridgeview">Sterling Ranch MD4</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="data-table-frame overflow-hidden rounded-[1.5rem] border border-[var(--brand-border)] bg-white">
+            <div className="data-table-frame overflow-x-auto overflow-y-hidden rounded-[1.5rem] border border-[var(--brand-border)] bg-white">
               <Table className="data-table-min font-ops">
                 <TableHeader>
                   <TableRow className="bg-[rgba(0,61,166,0.04)]">
-                    <TableHead>Batch</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Docs</TableHead>
-                    <TableHead>Source</TableHead>
-                    <TableHead>Submitted</TableHead>
+                    <TableHead>Package</TableHead>
+                    <TableHead>Custody</TableHead>
+                    <TableHead>Manifest</TableHead>
+                    <TableHead>Linked evidence</TableHead>
+                    <TableHead>Engineering review</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {uploadBatches.map((batch) => (
+                  {batches.map((batch) => (
                     <TableRow key={batch.id}>
                       <TableCell>
-                        <div>
+                        <div className="space-y-1">
                           <p className="font-semibold text-[var(--brand-slate)]">
                             {batch.name}
                           </p>
                           <p className="text-xs text-[var(--brand-muted)]">
-                            {batch.submittedBy}
+                            {batch.documentCount} records via {batch.channel}
                           </p>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <StatusBadge label={batch.status} />
+                        <StatusBadge label={getClientFacingBatchStatus(batch)} />
                       </TableCell>
-                      <TableCell>{batch.documentCount}</TableCell>
-                      <TableCell>{batch.channel}</TableCell>
+                      <TableCell className="text-[var(--brand-text)]">
+                        {getManifestStateLabel(batch.manifestState)}
+                      </TableCell>
+                      <TableCell className="text-[var(--brand-text)]">
+                        {batch.linkedChains} connected chains
+                      </TableCell>
                       <TableCell className="text-[var(--brand-muted)]">
-                        {batch.submittedAt}
+                        {batch.exceptionCount === 0 ? 'Clear' : `${batch.exceptionCount} active`}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -190,93 +277,148 @@ function PortalOperationsPage() {
           </CardContent>
         </Card>
 
+        <div className="grid gap-6">
+          <Card className="brand-panel rounded-[1.75rem] border-[rgba(0,61,166,0.14)] shadow-none">
+            <CardHeader>
+              <CardTitle className="font-ops text-[2rem] font-semibold tracking-[-0.05em] text-[var(--brand-slate)]">
+                Document classes
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {categoryCounts
+                .filter((item) => item.count > 0)
+                .map((item) => (
+                  <div
+                    key={item.documentClass}
+                    className="flex items-center justify-between rounded-[1.35rem] border border-[rgba(0,61,166,0.14)] bg-white px-4 py-4"
+                  >
+                    <p className="font-ops text-sm font-semibold text-[var(--brand-slate)]">
+                      {item.label}
+                    </p>
+                    <span className="font-mono text-xs font-semibold text-[var(--brand-blue)]">
+                      {item.count}
+                    </span>
+                  </div>
+                ))}
+            </CardContent>
+          </Card>
+
+          <Card className="brand-panel rounded-[1.75rem] border-[rgba(0,61,166,0.14)] shadow-none">
+            <CardHeader>
+              <CardTitle className="font-ops text-[2rem] font-semibold tracking-[-0.05em] text-[var(--brand-slate)]">
+                Exception watch
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {exceptionCounts.map((item) => (
+                <div
+                  key={item.flag}
+                  className="flex items-center justify-between rounded-[1.35rem] border border-[rgba(0,61,166,0.14)] bg-[rgba(0,61,166,0.03)] px-4 py-4"
+                >
+                  <div className="flex items-center gap-3">
+                    <AlertTriangle className="size-4 text-[var(--brand-blue)]" />
+                    <p className="font-ops text-sm font-semibold text-[var(--brand-slate)]">
+                      {item.label}
+                    </p>
+                  </div>
+                  <span className="font-mono text-xs font-semibold text-[var(--brand-blue)]">
+                    {item.count}
+                  </span>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
         <Card className="brand-panel rounded-[1.75rem] border-[rgba(0,61,166,0.14)] shadow-none">
           <CardHeader>
             <CardTitle className="font-ops text-[2rem] font-semibold tracking-[-0.05em] text-[var(--brand-slate)]">
-              Stage pressure
+              Client-visible stages
             </CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
-            {processingStages.map((stage, index) => {
-              const value = [14, 34, 72, 91, 100][index] ?? 0
+          <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-1">
+            {stagePressure.map((item) => {
               const icon =
-                stage === 'Received' ? (
-                  <Files className="size-4 text-[var(--brand-blue)]" />
-                ) : stage === 'Ready for review' ? (
-                  <TimerReset className="size-4 text-[var(--brand-blue)]" />
+                item.stage === 'Engineering review' ? (
+                  <ShieldCheck className="size-4 text-[var(--brand-blue)]" />
+                ) : item.stage === 'Available in Egnyte' ? (
+                  <Link2 className="size-4 text-[var(--brand-blue)]" />
                 ) : (
                   <Clock3 className="size-4 text-[var(--brand-blue)]" />
                 )
 
               return (
                 <div
-                  key={stage}
+                  key={item.stage}
                   className="rounded-[1.35rem] border border-[rgba(0,61,166,0.14)] bg-white px-4 py-4"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
                       {icon}
                       <p className="font-ops text-sm font-semibold text-[var(--brand-slate)]">
-                        {stage}
+                        {item.stage}
                       </p>
                     </div>
                     <span className="font-mono text-xs font-semibold text-[var(--brand-muted)]">
-                      {value}%
+                      {item.count} records
                     </span>
                   </div>
-                  <Progress value={value} className="mt-3 h-2.5 rounded-full" />
+                  <Progress value={item.value} className="mt-3 h-2.5 rounded-full" />
+                  <p className="mt-3 text-sm leading-6 text-[var(--brand-text)]">
+                    {item.note}
+                  </p>
                 </div>
               )
             })}
           </CardContent>
         </Card>
-      </div>
-
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-        <Card className="brand-panel rounded-[1.75rem] border-[rgba(0,61,166,0.14)] shadow-none">
-          <CardHeader>
-            <CardTitle className="font-ops text-[2rem] font-semibold tracking-[-0.05em] text-[var(--brand-slate)]">
-              Recent activity
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {[
-              'Batch 251 reached ready-for-review with 18 files retained in original traceability order.',
-              'District switch confirmed before upload for shared operator session.',
-              'Three organized records published to Ignite with client-visible timestamps.',
-              'One low-confidence scan flagged for human review before rename approval.',
-            ].map((item) => (
-              <div
-                key={item}
-                className="rounded-[1.25rem] border border-[rgba(0,61,166,0.14)] bg-[rgba(0,61,166,0.03)] px-4 py-4 font-ops text-sm leading-6 text-[var(--brand-text)]"
-              >
-                {item}
-              </div>
-            ))}
-          </CardContent>
-        </Card>
 
         <Card className="brand-panel rounded-[1.75rem] border-[rgba(0,61,166,0.14)] shadow-none">
           <CardHeader>
             <CardTitle className="font-ops text-[2rem] font-semibold tracking-[-0.05em] text-[var(--brand-slate)]">
-              Document register
+              Record register
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {docs.map((document) => (
               <article
                 key={document.id}
-                className="grid gap-4 rounded-[1.35rem] border border-[rgba(0,61,166,0.14)] bg-white px-4 py-4 sm:grid-cols-[minmax(0,1fr)_auto]"
+                className="grid grid-cols-1 gap-4 rounded-[1.35rem] border border-[rgba(0,61,166,0.14)] bg-white px-4 py-4 sm:grid-cols-[minmax(0,1fr)_auto]"
               >
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <div className="flex flex-wrap items-center gap-3">
                     <p className="font-ops text-sm font-semibold text-[var(--brand-slate)]">
                       {document.organizedName}
                     </p>
-                    <StatusBadge label={document.status} />
+                    <StatusBadge label={getClientFacingRecordStatus(document)} />
+                    <span className="rounded-full bg-[rgba(0,61,166,0.07)] px-2.5 py-1 text-[0.72rem] font-semibold text-[var(--brand-blue)]">
+                      {getDocumentClassLabel(document.documentClass)}
+                    </span>
                   </div>
                   <p className="font-mono text-[0.72rem] leading-5 text-[var(--brand-muted)]">
-                    Original: {document.originalName} · {document.pageCount} pages · {document.updatedAt}
+                    Original: {document.originalName} • {document.pageCount} pages • {document.updatedAt}
+                  </p>
+                  <p className="text-sm leading-6 text-[var(--brand-text)]">
+                    {getLinkedRecordSummary(document)}
+                  </p>
+                  <div className="flex flex-wrap gap-2 text-xs text-[var(--brand-muted)]">
+                    <span className="rounded-full bg-[rgba(0,61,166,0.04)] px-3 py-1">
+                      Manifest {getManifestStateLabel(document.documentManifestState)}
+                    </span>
+                    <span className="rounded-full bg-[rgba(0,61,166,0.04)] px-3 py-1">
+                      Custody path retained
+                    </span>
+                    {document.linkedRecords.length > 0 ? (
+                      <span className="rounded-full bg-[rgba(0,61,166,0.04)] px-3 py-1">
+                        {document.linkedRecords.length} linked
+                        {document.linkedRecords.length > 1 ? ' records' : ' record'}
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="font-mono text-[0.7rem] leading-5 text-[var(--brand-muted)]">
+                    {document.custodyPath}
                   </p>
                 </div>
 
@@ -289,7 +431,7 @@ function PortalOperationsPage() {
                     'rounded-full border-[var(--brand-border)] bg-white text-[var(--brand-slate)] no-underline'
                   )}
                 >
-                  Ignite
+                  Egnyte
                   <ArrowUpRight className="size-4" />
                 </a>
               </article>

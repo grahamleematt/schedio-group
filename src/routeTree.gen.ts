@@ -9,11 +9,17 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ReviewWorkbenchRouteImport } from './routes/review-workbench'
 import { Route as ReviewConsoleRouteImport } from './routes/review-console'
 import { Route as PortalTrustRouteImport } from './routes/portal-trust'
 import { Route as PortalOperationsRouteImport } from './routes/portal-operations'
 import { Route as IndexRouteImport } from './routes/index'
 
+const ReviewWorkbenchRoute = ReviewWorkbenchRouteImport.update({
+  id: '/review-workbench',
+  path: '/review-workbench',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReviewConsoleRoute = ReviewConsoleRouteImport.update({
   id: '/review-console',
   path: '/review-console',
@@ -40,12 +46,14 @@ export interface FileRoutesByFullPath {
   '/portal-operations': typeof PortalOperationsRoute
   '/portal-trust': typeof PortalTrustRoute
   '/review-console': typeof ReviewConsoleRoute
+  '/review-workbench': typeof ReviewWorkbenchRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/portal-operations': typeof PortalOperationsRoute
   '/portal-trust': typeof PortalTrustRoute
   '/review-console': typeof ReviewConsoleRoute
+  '/review-workbench': typeof ReviewWorkbenchRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,18 +61,30 @@ export interface FileRoutesById {
   '/portal-operations': typeof PortalOperationsRoute
   '/portal-trust': typeof PortalTrustRoute
   '/review-console': typeof ReviewConsoleRoute
+  '/review-workbench': typeof ReviewWorkbenchRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/portal-operations' | '/portal-trust' | '/review-console'
+  fullPaths:
+    | '/'
+    | '/portal-operations'
+    | '/portal-trust'
+    | '/review-console'
+    | '/review-workbench'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/portal-operations' | '/portal-trust' | '/review-console'
+  to:
+    | '/'
+    | '/portal-operations'
+    | '/portal-trust'
+    | '/review-console'
+    | '/review-workbench'
   id:
     | '__root__'
     | '/'
     | '/portal-operations'
     | '/portal-trust'
     | '/review-console'
+    | '/review-workbench'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -72,10 +92,18 @@ export interface RootRouteChildren {
   PortalOperationsRoute: typeof PortalOperationsRoute
   PortalTrustRoute: typeof PortalTrustRoute
   ReviewConsoleRoute: typeof ReviewConsoleRoute
+  ReviewWorkbenchRoute: typeof ReviewWorkbenchRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/review-workbench': {
+      id: '/review-workbench'
+      path: '/review-workbench'
+      fullPath: '/review-workbench'
+      preLoaderRoute: typeof ReviewWorkbenchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/review-console': {
       id: '/review-console'
       path: '/review-console'
@@ -112,6 +140,7 @@ const rootRouteChildren: RootRouteChildren = {
   PortalOperationsRoute: PortalOperationsRoute,
   PortalTrustRoute: PortalTrustRoute,
   ReviewConsoleRoute: ReviewConsoleRoute,
+  ReviewWorkbenchRoute: ReviewWorkbenchRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

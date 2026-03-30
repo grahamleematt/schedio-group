@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import { Badge } from '#/components/ui/badge'
 import { cn } from '#/lib/utils'
 
 type MockupTone = 'trust' | 'operations' | 'review'
@@ -11,72 +10,58 @@ const toneClasses: Record<MockupTone, string> = {
 }
 
 const titleClasses: Record<MockupTone, string> = {
-  trust:
-    'font-heading text-4xl font-extrabold tracking-[-0.045em] sm:text-[3.55rem]',
+  trust: 'font-heading text-[2.1rem] font-bold tracking-[-0.045em] sm:text-[2.65rem]',
   operations:
-    'font-ops text-[2.55rem] font-semibold tracking-[-0.055em] sm:text-[3.45rem]',
+    'font-ops text-[2.15rem] font-semibold tracking-[-0.055em] sm:text-[2.8rem]',
   review:
-    'font-heading text-4xl font-extrabold tracking-[-0.045em] sm:text-[3.35rem]',
+    'font-heading text-[2.1rem] font-bold tracking-[-0.045em] sm:text-[2.65rem]',
 }
 
 const descriptionClasses: Record<MockupTone, string> = {
-  trust: 'max-w-3xl text-base leading-7 sm:text-lg',
+  trust: 'max-w-3xl text-sm leading-6 text-[var(--brand-muted)] sm:text-base',
   operations:
-    'font-ops ops-hero-copy max-w-3xl text-[1.02rem] leading-7 sm:text-[1.1rem]',
-  review: 'max-w-3xl text-base leading-7 sm:text-lg',
+    'font-ops max-w-3xl text-sm leading-6 text-[var(--brand-text)] sm:text-base',
+  review: 'max-w-3xl text-sm leading-6 text-white/76 sm:text-base',
 }
 
 type MockupShellProps = {
-  label: string
+  meta: string
   title: string
   description: string
   tone: MockupTone
-  badges?: string[]
-  sidebar?: ReactNode
+  actions?: ReactNode
+  aside?: ReactNode
   children: ReactNode
 }
 
 export function MockupShell({
-  label,
+  meta,
   title,
   description,
   tone,
-  badges = [],
-  sidebar,
+  actions,
+  aside,
   children,
 }: MockupShellProps) {
   return (
     <main className="page-wrap page-frame">
       <section
         className={cn(
-          'brand-panel overflow-hidden rounded-[2rem] px-5 py-5 sm:px-8 sm:py-8',
+          'brand-panel overflow-hidden rounded-[2rem] px-5 py-5 sm:px-7 sm:py-6',
           toneClasses[tone]
         )}
       >
         <div className="route-grid items-start">
           <div className="space-y-4">
-            <div className="eyebrow">
-              <span className="size-2 rounded-full bg-[var(--brand-blue)]" />
-              {label}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {badges.map((badge) => (
-                <Badge
-                  key={badge}
-                  variant="secondary"
-                  className={cn(
-                    'border px-3 py-1 text-[0.7rem] tracking-[0.12em] uppercase',
-                    tone === 'operations' ? 'rounded-xl font-mono' : 'rounded-full',
-                    tone === 'review'
-                      ? 'border-white/14 bg-white/10 text-white'
-                      : 'border-[var(--brand-border)] bg-white/80 text-[var(--brand-slate)]'
-                  )}
-                >
-                  {badge}
-                </Badge>
-              ))}
-            </div>
-            <div className="space-y-3">
+            <p
+              className={cn(
+                tone === 'operations' ? 'ops-label' : 'eyebrow',
+                tone === 'review' ? 'text-white/70' : 'text-[var(--brand-blue)]'
+              )}
+            >
+              {meta}
+            </p>
+            <div className="space-y-2">
               <h1
                 className={cn(
                   'max-w-4xl leading-[1.02]',
@@ -86,18 +71,12 @@ export function MockupShell({
               >
                 {title}
               </h1>
-              <p
-                className={cn(
-                  descriptionClasses[tone],
-                  tone === 'review' ? 'text-white/78' : 'text-[var(--brand-muted)]'
-                )}
-              >
-                {description}
-              </p>
+              <p className={descriptionClasses[tone]}>{description}</p>
             </div>
+            {actions ? <div className="flex flex-wrap gap-3">{actions}</div> : null}
           </div>
 
-          {sidebar ? (
+          {aside ? (
             <aside
               className={cn(
                 'rounded-[1.5rem] border p-5 shadow-sm',
@@ -108,7 +87,7 @@ export function MockupShell({
                     : 'border-[var(--brand-border)] bg-white/82 text-[var(--brand-text)]'
               )}
             >
-              {sidebar}
+              {aside}
             </aside>
           ) : null}
         </div>

@@ -3,16 +3,22 @@ import { Button } from '#/components/ui/button'
 import { cn } from '#/lib/utils'
 
 type UploadDropzoneProps = {
+  kicker?: string
   title: string
   subtitle: string
   points: string[]
+  primaryActionLabel?: string
+  secondaryActionLabel?: string
   tone?: 'trust' | 'operations'
 }
 
 export function UploadDropzone({
+  kicker = 'New submission',
   title,
   subtitle,
   points,
+  primaryActionLabel = 'Add files',
+  secondaryActionLabel = 'View requirements',
   tone = 'trust',
 }: UploadDropzoneProps) {
   return (
@@ -43,7 +49,7 @@ export function UploadDropzone({
               )}
             >
               <Upload className="size-3.5" />
-              Upload Intake
+              {kicker}
             </div>
             <div>
               <h2
@@ -69,16 +75,16 @@ export function UploadDropzone({
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-3">
             <Button className="rounded-full bg-[var(--brand-blue)] px-5 text-white hover:bg-[color-mix(in_oklab,var(--brand-blue)_85%,black_15%)]">
-              Start Upload
+              {primaryActionLabel}
             </Button>
             <Button
               variant="outline"
               className="rounded-full border-[var(--brand-border)] bg-white px-5 text-[var(--brand-slate)]"
             >
               <WandSparkles className="size-4" />
-              Preview Filing Rules
+              {secondaryActionLabel}
             </Button>
           </div>
         </div>

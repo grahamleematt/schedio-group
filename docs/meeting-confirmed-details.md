@@ -9,7 +9,7 @@ Confirmed needs from Tim:
 - The main request is a standardized portal where clients can drag and drop documents instead of relying on scattered intake paths.
 - One user may upload for multiple districts or entities, so the interface must make routing obvious and hard to get wrong.
 - Clients need visibility into where their submissions are in process.
-- Clients should be able to access organized documents, but the product does not need to replace Ignite in the first phase.
+- Clients should be able to access organized documents, but the product does not need to replace the underlying repository in the first phase.
 - The source documents are mixed: clean PDFs, scanned county-recorded documents, and other inconsistent inputs.
 - The workflow must preserve original-file traceability while still organizing records into a consistent structure.
 - The system should feel trustworthy, reviewable, and operational rather than speculative or overly automated.
@@ -26,5 +26,8 @@ Transcript anchors used for planning:
 How those details map into this repo:
 
 - Two client-facing mockups focus on intake, routing, and status visibility.
-- One internal review mockup shows human oversight, traceability, and publishing control.
-- Document access is modeled as `portal list + Ignite handoff`.
+- Two internal workflow roles show how the governed package is prepared and approved.
+- Document access in the current mock is modeled through Egnyte custody language because the SG DREAM governance materials use repository/custody framing rather than pure upload tooling language.
+- The internal story is intentionally split:
+  - drafting prepares the governed package
+  - approval changes authority state

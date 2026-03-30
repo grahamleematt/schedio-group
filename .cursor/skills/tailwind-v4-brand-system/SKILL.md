@@ -14,4 +14,4 @@ This repo uses Tailwind CSS v4 with CSS-variable tokens defined in `src/styles.c
 - Keep the Schedio palette centered on blue, slate, ink, surface, and muted gray.
 - Use Tailwind utilities for layout and composition, but use CSS variables for brand consistency.
 - Avoid off-brand drift, especially purple accents, generic startup gradients, and random utility-only color choices.
-- Distinguish the three mockups through hierarchy, density, and tone more than through unrelated color changes.
+- Distinguish the four views through hierarchy, density, and tone more than through unrelated color changes.

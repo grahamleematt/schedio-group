@@ -26,7 +26,8 @@
 
 - `portal-trust`: calm, guided, welcoming, confidence-building
 - `portal-operations`: denser, more status-forward, more dashboard-like
-- `review-console`: internal, traceability-first, controlled and reviewable
+- `review-workbench`: internal, file-first, analytical, preparation-focused
+- `review-console`: internal, authority-first, controlled, approval-oriented, and auditable
 
 ## Token Ownership
 

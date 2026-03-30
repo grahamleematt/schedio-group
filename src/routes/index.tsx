@@ -1,109 +1,194 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { ArrowRight, ShieldCheck, Workflow, Wrench } from 'lucide-react'
-import { buttonVariants } from '#/components/ui/button'
+import { ArrowRight } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card'
+import {
+  archiveFacts,
+  clientDocumentClassOrder,
+  getDocumentClassLabel,
+} from '#/lib/mock-data'
 import { cn } from '#/lib/utils'
 
-const mockups = [
+const conceptGroups = [
   {
-    title: 'Portal Trust',
-    to: '/portal-trust',
-    icon: ShieldCheck,
-    summary:
-      'A calm client-facing intake experience centered on confidence, clarity, and easy district routing.',
-    angle: 'Best for showing the reassuring, “dummy proof” front door Tim described.',
+    title: 'Client-facing concepts',
+    description:
+      'Two directions for the same external SG DREAM experience: custody-first intake and higher-transparency operations visibility.',
+    cards: [
+      {
+        title: 'Client Intake',
+        to: '/portal-trust',
+        audience: 'Client-facing',
+        style: 'trust',
+        summary: 'Guided custody and intake.',
+        angle:
+          'The calmest front door for clients who need to submit evidence, preserve original files, and watch packages move from incoming custody to classified records.',
+        ctaLabel: 'Open client intake',
+      },
+      {
+        title: 'Client Operations',
+        to: '/portal-operations',
+        audience: 'Client-facing',
+        style: 'operations',
+        summary: 'Operational transparency view.',
+        angle:
+          'A denser client workspace for package completeness, manifest progress, linked evidence visibility, and engineering review in progress without exposing internal approval authority.',
+        ctaLabel: 'Open client operations',
+      },
+    ],
   },
   {
-    title: 'Portal Operations',
-    to: '/portal-operations',
-    icon: Workflow,
-    summary:
-      'A denser dashboard flavor that keeps the same client flow but makes processing state and recent activity more visible.',
-    angle: 'Best for showing status transparency without jumping all the way to admin tooling.',
-  },
-  {
-    title: 'Review Console',
-    to: '/review-console',
-    icon: Wrench,
-    summary:
-      'An internal review surface focused on original-file traceability, rename suggestions, and audit-friendly oversight.',
-    angle: 'Best for showing the human-in-the-loop side that protects Tim’s PE responsibility.',
+    title: 'Internal governance workflow',
+    description:
+      'These are not alternate concepts. They are the two internal SG DREAM roles: drafting prepares the governed package, then approval moves authority state.',
+    cards: [
+      {
+        title: 'Drafting Workbench',
+        to: '/review-workbench',
+        audience: 'Internal drafting',
+        style: 'workbench',
+        summary: 'Analyst drafting workspace.',
+        angle:
+          'The file-first workspace for assembling document and run manifests, drafting rationale, selecting determination method, and preparing the engineering position for approval.',
+        ctaLabel: 'Open drafting workbench',
+      },
+      {
+        title: 'Approval Console',
+        to: '/review-console',
+        audience: 'Internal approval',
+        style: 'review',
+        summary: 'Governance and approval console.',
+        angle:
+          'The darker governance surface for verifying capability separation, reviewing draft rationale, approving authority transitions, and moving governed records into relied or locked state.',
+        ctaLabel: 'Open approval console',
+      },
+    ],
   },
 ]
 
 export const Route = createFileRoute('/')({
   head: () => ({
-    meta: [{ title: 'Schedio Group AI Mockups' }],
+    meta: [{ title: 'Schedio Group | SG DREAM Views' }],
   }),
   component: App,
 })
 
 function App() {
+  const classSummary = clientDocumentClassOrder
+    .map((documentClass) => getDocumentClassLabel(documentClass))
+    .join(' • ')
+
   return (
     <main className="page-wrap page-frame">
       <section className="brand-panel surface-trust rounded-[2rem] px-6 py-8 sm:px-8 sm:py-10">
-        <div className="route-grid items-start">
-          <div className="space-y-5">
-            <div className="eyebrow">
-              <span className="size-2 rounded-full bg-[var(--brand-blue)]" />
-              Schedio Group AI Mockup Set
-            </div>
-            <div className="space-y-4">
-              <h1 className="font-heading max-w-4xl text-4xl font-extrabold tracking-[-0.04em] text-[var(--brand-slate)] sm:text-6xl">
-                Three distinct product directions for Tim’s March 30 follow-up.
-              </h1>
-              <p className="max-w-3xl text-base leading-7 text-[var(--brand-muted)] sm:text-lg">
-                This repo is intentionally mockup-first: two client-facing portal
-                concepts plus one internal review console, all built around the
-                March 12 meeting notes and a portal-first intake workflow.
-              </p>
-            </div>
+        <div className="space-y-6">
+          <img
+            src="/schedio-logo.svg"
+            alt="Schedio Group"
+            className="h-12 w-auto sm:h-14"
+          />
+          <div className="space-y-3">
+            <h1 className="font-heading max-w-4xl text-4xl font-bold tracking-[-0.045em] text-[var(--brand-slate)] sm:text-5xl">
+              SG DREAM shown through four views.
+            </h1>
+            <p className="max-w-3xl text-sm leading-6 text-[var(--brand-muted)] sm:text-base">
+              The first two screens show client-facing intake concepts. The last two
+              show the internal governance workflow: drafting prepares the governed
+              package, then approval changes authority state.
+            </p>
+            <p className="max-w-3xl text-sm leading-6 text-[var(--brand-text)]">
+              Records stay preserved as immutable evidence in Egnyte, then move into
+              manifests, linked evidence chains, and governed determination packages
+              across {archiveFacts.fileCount} files in a {archiveFacts.totalEntries}
+              -entry archive. Core classes: {classSummary}.
+            </p>
           </div>
-
-          <aside className="brand-panel-muted rounded-[1.5rem] p-5">
-            <p className="eyebrow">Confirmed from the meeting</p>
-            <ul className="mt-4 space-y-3 text-sm leading-6 text-[var(--brand-text)]">
-              <li>Drag-and-drop intake should standardize scattered submission paths.</li>
-              <li>Users may upload for multiple districts under one login context.</li>
-              <li>Clients need status visibility and document access without replacing Ignite.</li>
-              <li>The experience must feel trustworthy, reviewable, and operational.</li>
-            </ul>
-          </aside>
         </div>
       </section>
 
-      <section className="mt-6 grid gap-5 lg:grid-cols-3">
-        {mockups.map((mockup) => {
-          const Icon = mockup.icon
+      <div className="section-stack">
+        {conceptGroups.map((group) => (
+          <section key={group.title} className="space-y-4">
+            <div className="space-y-2">
+              <p className="text-xs font-semibold tracking-[0.14em] uppercase text-[var(--brand-blue)]">
+                {group.title}
+              </p>
+              <p className="max-w-3xl text-sm leading-6 text-[var(--brand-muted)]">
+                {group.description}
+              </p>
+            </div>
 
-          return (
-            <Card
-              key={mockup.to}
-              className="brand-panel rounded-[1.75rem] border-[var(--brand-border)] shadow-none"
-            >
-              <CardHeader className="space-y-4 pb-4">
-                <div className="inline-flex size-11 items-center justify-center rounded-2xl bg-[rgba(0,61,166,0.08)] text-[var(--brand-blue)]">
-                  <Icon className="size-5" />
-                </div>
-                <div className="space-y-2">
-                  <CardTitle className="font-heading text-2xl text-[var(--brand-slate)]">
-                    {mockup.title}
-                  </CardTitle>
-                  <CardDescription className="text-sm leading-6 text-[var(--brand-muted)]">
-                    {mockup.summary}
-                  </CardDescription>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-5">
-                <p className="rounded-2xl bg-[rgba(0,61,166,0.04)] px-4 py-4 text-sm leading-6 text-[var(--brand-text)]">
-                  {mockup.angle}
-                </p>
-                <LinkButton label="Open mockup" to={mockup.to} />
-              </CardContent>
-            </Card>
-          )
-        })}
-      </section>
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              {group.cards.map((mockup) => (
+                <Card
+                  key={mockup.to}
+                  className={cn(
+                    'rounded-[1.75rem] shadow-none',
+                    mockup.style === 'review'
+                      ? 'border-white/10 bg-[linear-gradient(135deg,rgba(41,46,52,0.98),rgba(23,29,39,0.98))] text-white'
+                      : mockup.style === 'workbench'
+                        ? 'border-[rgba(0,61,166,0.16)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(239,244,251,0.96))] text-[var(--brand-slate)]'
+                        : 'brand-panel border-[var(--brand-border)]'
+                  )}
+                >
+                  <CardHeader className="space-y-4 pb-4">
+                    <div className="space-y-2">
+                      <p
+                        className={cn(
+                          'text-xs font-semibold tracking-[0.14em] uppercase',
+                          mockup.style === 'operations' || mockup.style === 'workbench'
+                            ? 'font-mono text-[var(--brand-blue)]'
+                            : mockup.style === 'review'
+                              ? 'text-white/62'
+                              : 'text-[var(--brand-blue)]'
+                        )}
+                      >
+                        {mockup.audience}
+                      </p>
+                      <CardTitle
+                        className={cn(
+                          mockup.style === 'operations' || mockup.style === 'workbench'
+                            ? 'font-ops text-[2rem] font-semibold tracking-[-0.055em]'
+                            : 'font-heading text-2xl font-bold tracking-[-0.04em]',
+                          mockup.style === 'review'
+                            ? 'text-white'
+                            : 'text-[var(--brand-slate)]'
+                        )}
+                      >
+                        {mockup.title}
+                      </CardTitle>
+                      <CardDescription
+                        className={cn(
+                          'text-sm leading-6',
+                          mockup.style === 'review'
+                            ? 'text-white/74'
+                            : 'text-[var(--brand-muted)]'
+                        )}
+                      >
+                        {mockup.summary}
+                      </CardDescription>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-5">
+                    <p
+                      className={cn(
+                        'rounded-2xl px-4 py-4 text-sm leading-6',
+                        mockup.style === 'review'
+                          ? 'border border-white/10 bg-white/6 text-white/84'
+                          : mockup.style === 'workbench'
+                            ? 'border border-[rgba(0,61,166,0.12)] bg-white/82 text-[var(--brand-text)]'
+                            : 'bg-[rgba(0,61,166,0.04)] text-[var(--brand-text)]'
+                      )}
+                    >
+                      {mockup.angle}
+                    </p>
+                    <LinkButton label={mockup.ctaLabel} to={mockup.to} />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
     </main>
   )
 }
@@ -112,12 +197,9 @@ function LinkButton({ label, to }: { label: string; to: string }) {
   return (
     <Link
       to={to}
-      className={cn(
-        buttonVariants({ variant: 'default', size: 'lg' }),
-        'w-full justify-between rounded-full bg-[var(--brand-blue)] px-5 text-white no-underline hover:bg-[color-mix(in_oklab,var(--brand-blue)_86%,black_14%)]'
-      )}
+      className="inline-flex h-11 w-full items-center justify-between rounded-full bg-[var(--brand-blue)] px-5 text-sm font-semibold text-white no-underline shadow-sm transition-colors hover:bg-[color-mix(in_oklab,var(--brand-blue)_86%,black_14%)]"
     >
-      {label}
+      <span className="text-white">{label}</span>
       <ArrowRight className="size-4" />
     </Link>
   )

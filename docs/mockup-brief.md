@@ -3,40 +3,52 @@
 ## `/portal-trust`
 
 Goal:
-Show the cleanest and most reassuring version of the client portal.
+Show the calmest client-facing custody and intake experience.
 
 What it should communicate:
 
-- Drag-and-drop intake is simple.
-- District context is explicit.
-- Clients can see where their documents are in the process.
-- Ignite remains the final handoff point.
+- Evidence packages are easy to submit.
+- Original records stay preserved in Egnyte.
+- Clients can see custody progress without seeing internal governance controls.
+- Linked records and formal document classes feel understandable and trustworthy.
 
 ## `/portal-operations`
 
 Goal:
-Show the same core portal flow with more process detail and more operational visibility.
+Show the denser client-facing operations transparency view.
 
 What it should communicate:
 
-- The workflow is still client-safe.
-- Status, counts, and timestamps are easier to scan.
-- Users can understand activity without needing internal admin access.
+- Package completeness and manifest progress are visible.
+- Linked evidence coverage and missing support are visible.
+- Engineering review can be understood without exposing approval authority.
+
+## `/review-workbench`
+
+Goal:
+Show the analyst drafting workspace where governed meaning is prepared.
+
+What it should communicate:
+
+- The PDF/source record is the primary artifact.
+- Draft rationale, document manifest, run manifest, and evidence hierarchy are assembled here.
+- This role prepares the package that approval will later act on.
 
 ## `/review-console`
 
 Goal:
-Show the internal human-review side that protects trust and preserves traceability.
+Show the governance and approval console where authority state changes are decided.
 
 What it should communicate:
 
-- Suggested naming and classification are reviewable.
-- Originals remain linked to organized outputs.
-- Publish to Ignite looks like a deliberate last step.
+- Drafting and approval are separate capabilities.
+- Approval decisions center on rationale, custody transition, and governance checks.
+- The source record remains available for spot-checking, but it is secondary to the authority decision.
 
 ## Shared Constraints
 
 - Static mockups only
 - No real integrations
 - No reimbursement-estimate concept in this version
-- Distinct visual flavors within one coherent brand system
+- Four views that now tell one SG DREAM system story:
+  two client concepts, then drafting prepares, then approval decides
