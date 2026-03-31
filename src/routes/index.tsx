@@ -1,6 +1,12 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { ArrowRight } from 'lucide-react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '#/components/ui/card'
 import {
   archiveFacts,
   clientDocumentClassOrder,
@@ -58,7 +64,7 @@ const conceptGroups = [
         style: 'review',
         summary: 'Governance and approval console.',
         angle:
-          'The darker governance surface for verifying capability separation, reviewing draft rationale, approving authority transitions, and moving governed records into relied or locked state.',
+          'The governance surface for verifying capability separation, reviewing draft rationale, approving authority transitions, and moving governed records into relied or locked state.',
         ctaLabel: 'Open approval console',
       },
     ],
@@ -87,18 +93,19 @@ function App() {
             className="h-12 w-auto sm:h-14"
           />
           <div className="space-y-3">
-            <h1 className="font-heading max-w-4xl text-4xl font-bold tracking-[-0.045em] text-[var(--brand-slate)] sm:text-5xl">
+            <h1 className="font-heading max-w-4xl text-4xl font-bold tracking-[-0.045em] text-text-strong sm:text-5xl">
               SG DREAM shown through four views.
             </h1>
-            <p className="max-w-3xl text-sm leading-6 text-[var(--brand-muted)] sm:text-base">
-              The first two screens show client-facing intake concepts. The last two
-              show the internal governance workflow: drafting prepares the governed
-              package, then approval changes authority state.
+            <p className="max-w-3xl text-sm leading-6 text-text-muted sm:text-base">
+              The first two screens show client-facing intake concepts. The last
+              two show the internal governance workflow: drafting prepares the
+              governed package, then approval changes authority state.
             </p>
-            <p className="max-w-3xl text-sm leading-6 text-[var(--brand-text)]">
-              Records stay preserved as immutable evidence in Egnyte, then move into
-              manifests, linked evidence chains, and governed determination packages
-              across {archiveFacts.fileCount} files in a {archiveFacts.totalEntries}
+            <p className="max-w-3xl text-sm leading-6 text-text-base">
+              Records stay preserved as immutable evidence in Egnyte, then move
+              into manifests, linked evidence chains, and governed determination
+              packages across {archiveFacts.fileCount} files in a{' '}
+              {archiveFacts.totalEntries}
               -entry archive. Core classes: {classSummary}.
             </p>
           </div>
@@ -109,10 +116,10 @@ function App() {
         {conceptGroups.map((group) => (
           <section key={group.title} className="space-y-4">
             <div className="space-y-2">
-              <p className="text-xs font-semibold tracking-[0.14em] uppercase text-[var(--brand-blue)]">
+              <p className="text-xs font-semibold tracking-[0.14em] uppercase text-text-accent">
                 {group.title}
               </p>
-              <p className="max-w-3xl text-sm leading-6 text-[var(--brand-muted)]">
+              <p className="max-w-3xl text-sm leading-6 text-text-muted">
                 {group.description}
               </p>
             </div>
@@ -122,12 +129,10 @@ function App() {
                 <Card
                   key={mockup.to}
                   className={cn(
-                    'rounded-[1.75rem] shadow-none',
-                    mockup.style === 'review'
-                      ? 'border-white/10 bg-[linear-gradient(135deg,rgba(41,46,52,0.98),rgba(23,29,39,0.98))] text-white'
-                      : mockup.style === 'workbench'
-                        ? 'border-[rgba(0,61,166,0.16)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(239,244,251,0.96))] text-[var(--brand-slate)]'
-                        : 'brand-panel border-[var(--brand-border)]'
+                    'rounded-[1.75rem] shadow-none overflow-hidden transition-colors flex flex-col h-full',
+                    mockup.style === 'workbench' || mockup.style === 'review'
+                      ? 'border-border-strong bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(239,244,251,0.96))] text-text-strong'
+                      : 'brand-panel border-border-base',
                   )}
                 >
                   <CardHeader className="space-y-4 pb-4">
@@ -135,53 +140,47 @@ function App() {
                       <p
                         className={cn(
                           'text-xs font-semibold tracking-[0.14em] uppercase',
-                          mockup.style === 'operations' || mockup.style === 'workbench'
-                            ? 'font-mono text-[var(--brand-blue)]'
-                            : mockup.style === 'review'
-                              ? 'text-white/62'
-                              : 'text-[var(--brand-blue)]'
+                          mockup.style === 'operations' ||
+                            mockup.style === 'workbench' ||
+                            mockup.style === 'review'
+                            ? 'font-mono text-text-accent'
+                            : 'text-text-accent',
                         )}
                       >
                         {mockup.audience}
                       </p>
                       <CardTitle
                         className={cn(
-                          mockup.style === 'operations' || mockup.style === 'workbench'
+                          mockup.style === 'operations' ||
+                            mockup.style === 'workbench' ||
+                            mockup.style === 'review'
                             ? 'font-ops text-[2rem] font-semibold tracking-[-0.055em]'
                             : 'font-heading text-2xl font-bold tracking-[-0.04em]',
-                          mockup.style === 'review'
-                            ? 'text-white'
-                            : 'text-[var(--brand-slate)]'
+                          'text-text-strong',
                         )}
                       >
                         {mockup.title}
                       </CardTitle>
-                      <CardDescription
-                        className={cn(
-                          'text-sm leading-6',
-                          mockup.style === 'review'
-                            ? 'text-white/74'
-                            : 'text-[var(--brand-muted)]'
-                        )}
-                      >
+                      <CardDescription className="text-sm leading-6 text-text-muted">
                         {mockup.summary}
                       </CardDescription>
                     </div>
                   </CardHeader>
-                  <CardContent className="space-y-5">
+                  <CardContent className="flex flex-col flex-1 space-y-5">
                     <p
                       className={cn(
-                        'rounded-2xl px-4 py-4 text-sm leading-6',
-                        mockup.style === 'review'
-                          ? 'border border-white/10 bg-white/6 text-white/84'
-                          : mockup.style === 'workbench'
-                            ? 'border border-[rgba(0,61,166,0.12)] bg-white/82 text-[var(--brand-text)]'
-                            : 'bg-[rgba(0,61,166,0.04)] text-[var(--brand-text)]'
+                        'rounded-2xl px-4 py-4 text-sm leading-6 border',
+                        mockup.style === 'workbench' ||
+                          mockup.style === 'review'
+                          ? 'border-border-base bg-[rgba(255,255,255,0.82)] text-text-base'
+                          : 'border-transparent bg-surface-muted text-text-base',
                       )}
                     >
                       {mockup.angle}
                     </p>
-                    <LinkButton label={mockup.ctaLabel} to={mockup.to} />
+                    <div className="mt-auto pt-2">
+                      <LinkButton label={mockup.ctaLabel} to={mockup.to} />
+                    </div>
                   </CardContent>
                 </Card>
               ))}
@@ -197,10 +196,10 @@ function LinkButton({ label, to }: { label: string; to: string }) {
   return (
     <Link
       to={to}
-      className="inline-flex h-11 w-full items-center justify-between rounded-full bg-[var(--brand-blue)] px-5 text-sm font-semibold text-white no-underline shadow-sm transition-colors hover:bg-[color-mix(in_oklab,var(--brand-blue)_86%,black_14%)]"
+      className="inline-flex h-11 w-full items-center justify-between rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground no-underline shadow-sm transition-colors hover:bg-primary-hover"
     >
-      <span className="text-white">{label}</span>
-      <ArrowRight className="size-4" />
+      <span className="text-primary-foreground">{label}</span>
+      <ArrowRight className="size-4 text-primary-foreground" />
     </Link>
   )
 }

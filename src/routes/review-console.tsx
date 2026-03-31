@@ -5,17 +5,22 @@ import {
   Link2,
   Search,
   Shield,
-  ShieldCheck,
   Siren,
 } from 'lucide-react'
-import { MetricCard } from '#/components/metric-card'
 import { MockupShell } from '#/components/mockup-shell'
 import { PdfPreviewPanel } from '#/components/pdf-preview-panel'
-import { ReviewPanel } from '#/components/review-panel'
+import { ScrollArea } from '#/components/ui/scroll-area'
 import { StatusBadge } from '#/components/status-badge'
 import { Button, buttonVariants } from '#/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '#/components/ui/dialog'
 import { Input } from '#/components/ui/input'
-import { Separator } from '#/components/ui/separator'
 import {
   Select,
   SelectContent,
@@ -23,20 +28,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '#/components/ui/select'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import {
   getCustodyStateLabel,
   getDistrict,
   getDocumentById,
-  getDocumentClassLabel,
   getExceptionFlagLabel,
   getManifestStateLabel,
   getReviewItemById,
@@ -47,10 +43,11 @@ import { cn } from '#/lib/utils'
 
 const districtId = 'sterling-cab'
 const queue = getReviewItemsByDistrict(districtId).filter(
-  (item) => item.capability === 'approval'
+  (item) => item.capability === 'approval',
 )
 const defaultReviewId =
-  queue.find((item) => item.id === 'review-sunflower-duplicate')?.id ?? queue[0]?.id
+  queue.find((item) => item.id === 'review-sunflower-duplicate')?.id ??
+  queue[0]?.id
 
 export const Route = createFileRoute('/review-console')({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -65,13 +62,20 @@ export const Route = createFileRoute('/review-console')({
 function ReviewConsolePage() {
   const { reviewId } = Route.useSearch()
   const requestedReview = getReviewItemById(reviewId ?? defaultReviewId)
-  const activeReview = queue.find((item) => item.id === requestedReview?.id) ?? queue[0]
+  const activeReview =
+    queue.find((item) => item.id === requestedReview?.id) ?? queue[0]
   const activeDocument = getDocumentById(activeReview.recordId)
   const activeDistrict = getDistrict(activeReview.districtId)
   const approvalCount = queue.length
-  const lockedCount = queue.filter((item) => item.targetCustodyState === 'locked').length
-  const supersededCount = queue.filter((item) => item.adjustmentHistory.length > 0).length
-  const blockedCount = queue.filter((item) => item.publishReadiness === 'Blocked').length
+  const lockedCount = queue.filter(
+    (item) => item.targetCustodyState === 'locked',
+  ).length
+  const supersededCount = queue.filter(
+    (item) => item.adjustmentHistory.length > 0,
+  ).length
+  const blockedCount = queue.filter(
+    (item) => item.publishReadiness === 'Blocked',
+  ).length
 
   const metrics = [
     {
@@ -97,10 +101,26 @@ function ReviewConsolePage() {
   ]
 
   const approvalBuckets = [
-    { label: 'Duplicate disposition', count: queue.filter((item) => item.reasonCode === 'Duplicate file').length },
-    { label: 'Missing support', count: queue.filter((item) => item.reasonCode === 'Missing payment proof').length },
-    { label: 'Placeholder source', count: queue.filter((item) => item.reasonCode === 'Placeholder source').length },
-    { label: 'Ready for authority', count: queue.filter((item) => item.reasonCode === 'Governance clear').length },
+    {
+      label: 'Duplicate disposition',
+      count: queue.filter((item) => item.reasonCode === 'Duplicate file')
+        .length,
+    },
+    {
+      label: 'Missing support',
+      count: queue.filter((item) => item.reasonCode === 'Missing payment proof')
+        .length,
+    },
+    {
+      label: 'Placeholder source',
+      count: queue.filter((item) => item.reasonCode === 'Placeholder source')
+        .length,
+    },
+    {
+      label: 'Ready for authority',
+      count: queue.filter((item) => item.reasonCode === 'Governance clear')
+        .length,
+    },
   ].filter((bucket) => bucket.count > 0)
 
   const authorityState = [
@@ -111,7 +131,9 @@ function ReviewConsolePage() {
     },
     {
       label: 'Current custody',
-      value: activeDocument ? getCustodyStateLabel(activeDocument.custodyState) : 'Unknown',
+      value: activeDocument
+        ? getCustodyStateLabel(activeDocument.custodyState)
+        : 'Unknown',
       note: 'The approval screen makes custody state explicit before any transition is approved.',
     },
     {
@@ -121,23 +143,15 @@ function ReviewConsolePage() {
     },
   ]
 
-  const metadataFields = [
-    ['Current custody', activeDocument ? getCustodyStateLabel(activeDocument.custodyState) : 'Unknown'],
-    ['Target custody', getCustodyStateLabel(activeReview.targetCustodyState)],
-    ['Document manifest', getManifestStateLabel(activeReview.documentManifestState)],
-    ['Run manifest', getManifestStateLabel(activeReview.runManifestState)],
-    ['Capability', getUserCapabilityLabel(activeReview.capability)],
-  ]
-
   return (
     <MockupShell
-      tone="review"
+      tone="operations"
       meta={`${activeDistrict.name} • governance and approval`}
       title="Approval console"
       description="Verify governed drafting packages, confirm capability separation, and approve the authority transition that moves a record into relied or locked state."
       actions={
         <>
-          <Button className="rounded-full bg-white text-[var(--brand-slate)] hover:bg-white/90">
+          <Button className="rounded-full bg-primary px-5 text-primary-foreground hover:bg-primary-hover">
             Approve to {getCustodyStateLabel(activeReview.targetCustodyState)}
           </Button>
           <a
@@ -146,7 +160,7 @@ function ReviewConsolePage() {
             rel="noreferrer"
             className={cn(
               buttonVariants({ variant: 'outline' }),
-              'rounded-full border-white/18 bg-white/8 text-white no-underline hover:bg-white/12'
+              'rounded-full border-border-base bg-surface-panel text-text-strong no-underline',
             )}
           >
             Open source in Egnyte
@@ -156,31 +170,31 @@ function ReviewConsolePage() {
       }
       aside={
         <div className="space-y-4">
-          <div>
-            <p className="eyebrow text-white/70">Authority layer</p>
-            <h2 className="mt-3 font-heading text-2xl font-bold text-white">
-              Approval queue
-            </h2>
-            <p className="mt-1 text-sm text-white/64">{activeDistrict.name}</p>
-          </div>
-          <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold tracking-[0.12em] uppercase text-white">
-            <Shield className="size-3.5" />
-            Engineer approval required
+          <div className="rounded-2xl border border-border-strong bg-surface-panel px-4 py-4">
+            <p className="ops-label text-text-accent">Authority layer</p>
+            <div className="mt-2">
+              <div className="inline-flex items-center gap-2 rounded-full bg-primary-soft px-3 py-1 text-[0.72rem] font-semibold text-text-accent">
+                <Shield className="size-3.5" />
+                Engineer approval required
+              </div>
+            </div>
+            <p className="mt-3 text-sm text-text-muted">
+              Approval happens here. The analyst drafts meaning and rationale,
+              but authority state only changes after approval.
+            </p>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-1">
-            <div className="rounded-2xl border border-white/12 bg-white/6 px-4 py-4">
-              <p className="text-xs font-semibold tracking-[0.14em] uppercase text-white/62">
-                Current custody
-              </p>
-              <p className="mt-2 text-sm font-semibold text-white">
-                {activeDocument ? getCustodyStateLabel(activeDocument.custodyState) : 'Unknown'}
+            <div className="rounded-xl border border-border-strong bg-surface-muted px-3 py-3">
+              <p className="ops-label text-text-accent">Current custody</p>
+              <p className="mt-2 font-ops text-sm font-medium text-text-strong">
+                {activeDocument
+                  ? getCustodyStateLabel(activeDocument.custodyState)
+                  : 'Unknown'}
               </p>
             </div>
-            <div className="rounded-2xl border border-white/12 bg-white/6 px-4 py-4">
-              <p className="text-xs font-semibold tracking-[0.14em] uppercase text-white/62">
-                Proposed state
-              </p>
-              <p className="mt-2 text-sm font-semibold text-white">
+            <div className="rounded-xl border border-border-strong bg-surface-muted px-3 py-3">
+              <p className="ops-label text-text-accent">Proposed state</p>
+              <p className="mt-2 font-ops text-sm font-medium text-text-strong">
                 {getCustodyStateLabel(activeReview.targetCustodyState)}
               </p>
             </div>
@@ -188,348 +202,435 @@ function ReviewConsolePage() {
         </div>
       }
     >
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-border-base border border-border-strong rounded-2xl mb-6 bg-surface-panel overflow-hidden">
         {metrics.map((metric) => (
-          <MetricCard key={metric.label} tone="review" {...metric} />
+          <div key={metric.label} className="p-4 sm:p-5">
+            <p className="ops-label text-text-muted mb-2">{metric.label}</p>
+            <p className="font-ops text-[2rem] font-semibold text-text-strong leading-none tracking-tight mb-2">
+              {metric.value}
+            </p>
+            <p className="text-xs leading-5 text-text-base">{metric.note}</p>
+          </div>
         ))}
       </section>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.1fr)_360px]">
-        <ReviewPanel
-          title="Approval queue"
-          description="Each row is a governed package, not just a file: capability, custody state, target state, and confidence stay visible in one queue."
-          actions={
-            <>
-              <div className="relative w-full sm:min-w-[220px] sm:flex-1">
-                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--brand-muted)]" />
-                <Input
-                  defaultValue=""
-                  placeholder="Search approval queue"
-                  className="h-11 w-full rounded-full border-[var(--brand-border)] bg-white pl-9"
-                />
-              </div>
-              <Select defaultValue={activeDistrict.id}>
-                <SelectTrigger className="h-11 w-full rounded-full border-[var(--brand-border)] bg-white sm:min-w-[220px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={activeDistrict.id}>{activeDistrict.name}</SelectItem>
-                  <SelectItem value="sterling-md">Sterling Ranch Metro District</SelectItem>
-                  <SelectItem value="ridgeview">Sterling Ranch MD4</SelectItem>
-                </SelectContent>
-              </Select>
-            </>
-          }
-        >
-          <div className="data-table-frame overflow-x-auto overflow-y-hidden rounded-[1.5rem] border border-[var(--brand-border)]">
-            <Table className="data-table-min font-ops">
-              <TableHeader>
-                <TableRow className="bg-[rgba(0,61,166,0.04)]">
-                  <TableHead>Package</TableHead>
-                  <TableHead>Capability</TableHead>
-                  <TableHead>Current custody</TableHead>
-                  <TableHead>Target state</TableHead>
-                  <TableHead>Confidence</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {queue.map((item) => {
-                  const record = getDocumentById(item.recordId)
-
-                  return (
-                    <TableRow
-                      key={item.id}
-                      className={cn(
-                        item.id === activeReview.id && 'bg-[rgba(0,61,166,0.04)]'
-                      )}
-                    >
-                      <TableCell>
-                        <Link
-                          to="/review-console"
-                          search={{ reviewId: item.id }}
-                          resetScroll={false}
-                          className="block no-underline"
-                        >
-                          <p className="font-semibold text-[var(--brand-slate)]">
-                            {record?.organizedName}
-                          </p>
-                          <p className="text-xs text-[var(--brand-muted)]">
-                            {item.reasonCode}
-                          </p>
-                        </Link>
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge label={getUserCapabilityLabel(item.capability)} />
-                      </TableCell>
-                      <TableCell className="text-[var(--brand-text)]">
-                        {record ? getCustodyStateLabel(record.custodyState) : 'Unknown'}
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge label={getCustodyStateLabel(item.targetCustodyState)} />
-                      </TableCell>
-                      <TableCell>{Math.round(item.confidence * 100)}%</TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
+      <div className="flex flex-col xl:flex-row border border-border-strong rounded-2xl overflow-hidden bg-surface-panel shadow-sm min-h-[800px]">
+        {/* Left Pane: Queue */}
+        <div className="w-full xl:w-[380px] shrink-0 flex flex-col border-b xl:border-b-0 xl:border-r border-border-base bg-surface-muted/30">
+          <div className="px-4 py-3 border-b border-border-base flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <h2 className="font-ops text-sm font-semibold text-text-strong">
+                Approval queue
+              </h2>
+              <span className="text-xs font-medium text-text-muted">
+                {approvalCount} items
+              </span>
+            </div>
+            <div className="relative w-full">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-text-muted" />
+              <Input
+                defaultValue=""
+                placeholder="Search approval queue"
+                className="h-10 w-full rounded-full border-border-base bg-surface-panel pl-9 text-sm"
+              />
+            </div>
+            <Select defaultValue={activeDistrict.id}>
+              <SelectTrigger className="h-10 w-full rounded-full border-border-base bg-surface-panel text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={activeDistrict.id}>
+                  {activeDistrict.name}
+                </SelectItem>
+                <SelectItem value="sterling-md">
+                  Sterling Ranch Metro District
+                </SelectItem>
+                <SelectItem value="ridgeview">Sterling Ranch MD4</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-        </ReviewPanel>
+          <div className="flex-1 overflow-y-auto">
+            <div className="flex flex-col divide-y divide-border-base">
+              {queue.map((item) => {
+                const record = getDocumentById(item.recordId)
+                const isFocused = item.id === activeReview.id
 
-        <div className="grid gap-6">
-          <ReviewPanel
-            tone="dark"
-            title="Approval buckets"
-            description="The governance queue groups packages by the approval decision they still need."
-            contentClassName="space-y-4"
-          >
-            {approvalBuckets.map((bucket) => (
-              <div
-                key={bucket.label}
-                className="rounded-2xl border border-white/12 bg-white/8 px-4 py-4"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <Siren className="size-4 text-white" />
-                    <p className="text-sm font-semibold text-white">{bucket.label}</p>
-                  </div>
-                  <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white">
-                    {bucket.count}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </ReviewPanel>
-
-          <ReviewPanel
-            title="Authority posture"
-            description="Approval sees the exact custody transition and governance posture before sign-off."
-            contentClassName="grid gap-3"
-          >
-            {authorityState.map((item) => (
-              <div
-                key={item.label}
-                className="rounded-[1.5rem] border border-[rgba(0,61,166,0.12)] bg-[rgba(0,61,166,0.04)] px-4 py-4"
-              >
-                <p className="text-xs font-semibold tracking-[0.12em] uppercase text-[var(--brand-blue)]">
-                  {item.label}
-                </p>
-                <p className="mt-2 text-sm font-semibold text-[var(--brand-slate)]">{item.value}</p>
-                <p className="mt-1 text-sm leading-6 text-[var(--brand-muted)]">{item.note}</p>
-              </div>
-            ))}
-          </ReviewPanel>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
-        <ReviewPanel
-          title="Selected approval"
-          description="Approval confirms draft rationale, capability separation, and the exact state change attached to the preserved source record."
-          contentClassName="space-y-4"
-        >
-          <div className="rounded-[1.5rem] border border-[var(--brand-border)] bg-[rgba(0,61,166,0.04)] px-4 py-4">
-            <p className="text-xs font-semibold tracking-[0.12em] uppercase text-[var(--brand-blue)]">
-              Reason code
-            </p>
-            <p className="mt-2 text-sm font-semibold text-[var(--brand-slate)]">
-              {activeReview.reasonCode}
-            </p>
-            <p className="mt-1 text-sm text-[var(--brand-muted)]">{activeReview.reason}</p>
-          </div>
-
-          <div className="rounded-[1.5rem] border border-[var(--brand-border)] bg-white px-4 py-4">
-            <DetailField label="Current custody" value={activeDocument ? getCustodyStateLabel(activeDocument.custodyState) : 'Unknown'} />
-            <Separator className="my-4 bg-[var(--brand-border)]" />
-            <DetailField label="Target state" value={getCustodyStateLabel(activeReview.targetCustodyState)} />
-            <Separator className="my-4 bg-[var(--brand-border)]" />
-            <DetailField label="Capability" value={getUserCapabilityLabel(activeReview.capability)} />
-          </div>
-
-          <div className="space-y-2">
-            <p className="text-xs font-semibold tracking-[0.12em] uppercase text-[var(--brand-blue)]">
-              Exception flags
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {activeReview.exceptionFlags.length > 0 ? (
-                activeReview.exceptionFlags.map((flag) => (
-                  <span
-                    key={flag}
-                    className="rounded-full bg-[rgba(148,64,64,0.08)] px-3 py-1 text-xs font-semibold text-[#8b2c2c]"
+                return (
+                  <Link
+                    key={item.id}
+                    to="/review-console"
+                    search={{ reviewId: item.id }}
+                    resetScroll={false}
+                    className={cn(
+                      'block no-underline px-4 py-4 transition-colors',
+                      isFocused ? 'bg-surface-hover relative before:absolute before:inset-y-0 before:left-0 before:w-1 before:bg-primary' : 'hover:bg-surface-subtle'
+                    )}
                   >
-                    {getExceptionFlagLabel(flag)}
-                  </span>
-                ))
-              ) : (
-                <span className="rounded-full bg-[rgba(0,61,166,0.06)] px-3 py-1 text-xs font-semibold text-[var(--brand-blue)]">
-                  No active exception flags
-                </span>
-              )}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-1">
+                        <p className={cn("font-ops text-sm font-semibold", isFocused ? "text-primary" : "text-text-strong")}>
+                          {record?.organizedName}
+                        </p>
+                        <p className="font-mono text-[0.7rem] text-text-muted">
+                          {item.reasonCode}
+                        </p>
+                      </div>
+                      <StatusBadge label={getCustodyStateLabel(item.targetCustodyState)} />
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <StatusBadge label={getUserCapabilityLabel(item.capability)} />
+                      <span className="font-mono text-[0.7rem] font-semibold text-text-muted">
+                        {Math.round(item.confidence * 100)}%
+                      </span>
+                    </div>
+                  </Link>
+                )
+              })}
             </div>
           </div>
+        </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Button asChild variant="outline" className="rounded-full border-[var(--brand-border)] bg-white text-[var(--brand-slate)]">
-              <Link
-                to="/review-workbench"
-                search={{ reviewId: activeReview.id }}
-                resetScroll={false}
-              >
-                Open drafting workspace
-              </Link>
-            </Button>
-            <Button className="rounded-full bg-[var(--brand-blue)] text-white hover:bg-[color-mix(in_oklab,var(--brand-blue)_86%,black_14%)]">
-              Approve to {getCustodyStateLabel(activeReview.targetCustodyState)}
-            </Button>
-            <Button
-              variant="outline"
-              className="rounded-full border-[var(--brand-border)] bg-white text-[var(--brand-slate)]"
-            >
-              Request drafting revision
-            </Button>
+        {/* Center Pane: Active Item Detail */}
+        <div className="flex-1 min-w-0 flex flex-col border-b xl:border-b-0 xl:border-r border-border-base bg-surface-panel">
+          <div className="px-4 py-3 border-b border-border-base flex items-center justify-between">
+            <h2 className="font-ops text-sm font-semibold text-text-strong">
+              Selected approval
+            </h2>
+            <div className="flex flex-wrap gap-2">
+              <Button className="h-8 rounded-full bg-primary px-4 text-xs text-primary-foreground hover:bg-primary-hover">
+                Approve to{' '}
+                {getCustodyStateLabel(activeReview.targetCustodyState)}
+              </Button>
+            </div>
           </div>
-        </ReviewPanel>
+          <div className="flex-1 overflow-y-auto">
+            <div className="p-5 xl:p-6 flex flex-col gap-8">
+              {/* Top Section of Center Pane (The PDF and Tabs) */}
+              <div className="space-y-8 flex flex-col min-w-0">
+                <Dialog>
+                  <PdfPreviewPanel
+                    title="Source evidence spot-check"
+                    description="Click to open the preserved source for verification after the governance decision has been framed."
+                    document={activeDocument}
+                    compact
+                    maxWidth={420}
+                    tone="light"
+                    hideViewer
+                    actions={
+                      <DialogTrigger asChild>
+                        <Button className="h-8 rounded-full bg-primary px-4 text-xs text-primary-foreground hover:bg-primary-hover">
+                          Preview document
+                        </Button>
+                      </DialogTrigger>
+                    }
+                  />
+                  <DialogContent className="max-w-[75vw] sm:max-w-[75vw] w-[75vw] h-[90vh] p-0 border-border-strong bg-surface-panel flex flex-col gap-0 rounded-2xl overflow-hidden [&>button]:right-4 [&>button]:top-4 [&>button]:text-text-muted [&>button]:opacity-100 hover:[&>button]:text-text-strong">
+                    <DialogHeader className="px-6 py-4 border-b border-border-base bg-surface-panel shrink-0">
+                      <DialogTitle className="font-ops text-lg text-text-strong">Source Evidence Verification</DialogTitle>
+                      <DialogDescription className="text-text-muted">
+                        Reviewing {activeDocument?.originalName} for the governance transition.
+                      </DialogDescription>
+                    </DialogHeader>
+                  <div className="flex-1 min-h-0 bg-surface-muted overflow-y-auto p-6">
+                    <PdfPreviewPanel
+                      title="Source evidence spot-check"
+                      description="Verify the original artifact before confirming the final capability and state change."
+                      document={activeDocument}
+                      maxWidth={3000}
+                      tone="light"
+                    />
+                  </div>
+                  </DialogContent>
+                </Dialog>
 
-        <ReviewPanel
-          title="Approval review"
-          description="Approval starts with rationale, manifest state, and authority transition. The source file stays available as a secondary spot-check."
-        >
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-            {metadataFields.map(([label, value]) => (
-              <div
-                key={label}
-                className="rounded-[1.35rem] border border-[var(--brand-border)] bg-white px-4 py-4"
-              >
-                <DetailField label={label} value={value} />
-              </div>
-            ))}
-          </div>
-
-          <Tabs defaultValue="rationale" className="mt-6 w-full">
-            <TabsList className="mb-5 grid h-auto w-full grid-cols-3 rounded-full bg-[rgba(0,61,166,0.05)] p-1">
-              <TabsTrigger value="rationale" className="rounded-full">
-                Draft rationale
-              </TabsTrigger>
-              <TabsTrigger value="checks" className="rounded-full">
-                Governance checks
-              </TabsTrigger>
-              <TabsTrigger value="history" className="rounded-full">
-                Adjustment history
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="rationale" className="space-y-4">
-              <div className="rounded-[1.35rem] border border-[var(--brand-border)] bg-white px-4 py-4">
-                <DetailField label="Summary" value={activeReview.rationale.summary} />
-                <Separator className="my-4 bg-[var(--brand-border)]" />
-                <DetailField label="Source basis" value={activeReview.rationale.sourceBasis} />
-                <Separator className="my-4 bg-[var(--brand-border)]" />
-                <DetailField label="Reason for change" value={activeReview.rationale.changeReason} />
-                <div className="mt-4">
-                  <StatusBadge label={getManifestStateLabel(activeReview.rationale.approvalStatus)} />
+                <div>
+                  <Tabs defaultValue="rationale" className="w-full">
+                    <TabsList className="mb-5 grid h-auto w-full grid-cols-3 rounded-full bg-surface-hover p-1">
+                      <TabsTrigger
+                        value="rationale"
+                        className="rounded-full text-xs"
+                      >
+                        Draft rationale
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="checks"
+                        className="rounded-full text-xs"
+                      >
+                        Governance checks
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="history"
+                        className="rounded-full text-xs"
+                      >
+                        Adjustment history
+                      </TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="rationale" className="space-y-6">
+                      <div className="space-y-4">
+                        <DetailField
+                          label="Summary"
+                          value={activeReview.rationale.summary}
+                        />
+                        <DetailField
+                          label="Source basis"
+                          value={activeReview.rationale.sourceBasis}
+                        />
+                        <DetailField
+                          label="Reason for change"
+                          value={activeReview.rationale.changeReason}
+                        />
+                        <StatusBadge
+                          label={getManifestStateLabel(
+                            activeReview.rationale.approvalStatus,
+                          )}
+                        />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 mb-4">
+                          <Link2 className="size-4 text-text-accent" />
+                          <p className="font-ops text-sm font-semibold text-text-strong">
+                            Evidence hierarchy used
+                          </p>
+                        </div>
+                        <div className="space-y-3">
+                          {activeReview.evidenceHierarchy.map(
+                            (entry, index) => (
+                              <div key={entry} className="space-y-1">
+                                <p className="font-ops text-xs font-semibold uppercase tracking-[0.12em] text-text-muted">
+                                  Source {index + 1}
+                                </p>
+                                <p className="text-sm leading-6 text-text-strong">
+                                  {entry}
+                                </p>
+                              </div>
+                            ),
+                          )}
+                        </div>
+                      </div>
+                    </TabsContent>
+                    <TabsContent value="checks" className="space-y-4">
+                      {activeReview.governanceChecks.map((check) => (
+                        <div
+                          key={check.id}
+                          className="space-y-2 pb-4 border-b border-border-base last:border-0 last:pb-0"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="font-ops text-sm font-semibold text-text-strong">
+                              {check.label}
+                            </p>
+                            <StatusBadge
+                              label={
+                                check.result === 'pass'
+                                  ? 'Approved'
+                                  : check.result === 'warning'
+                                    ? 'Needs review'
+                                    : 'Blocked'
+                              }
+                            />
+                          </div>
+                          <p className="text-sm leading-6 text-text-muted">
+                            {check.note}
+                          </p>
+                        </div>
+                      ))}
+                    </TabsContent>
+                    <TabsContent value="history" className="space-y-4">
+                      {activeReview.adjustmentHistory.length > 0 ? (
+                        activeReview.adjustmentHistory.map((adjustment) => (
+                          <div
+                            key={adjustment.id}
+                            className="space-y-2 pb-4 border-b border-border-base last:border-0 last:pb-0"
+                          >
+                            <div className="flex items-center gap-2">
+                              <History className="size-4 text-text-accent" />
+                              <p className="font-ops text-sm font-semibold text-text-strong">
+                                {adjustment.priorState} → {adjustment.newState}
+                              </p>
+                            </div>
+                            <p className="text-sm leading-6 text-text-base">
+                              {adjustment.reason}
+                            </p>
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {adjustment.affectedOutputs.map((output) => (
+                                <span
+                                  key={output}
+                                  className="rounded-full bg-surface-hover px-3 py-1 text-xs font-semibold text-text-accent"
+                                >
+                                  {output}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="space-y-2">
+                          <p className="font-ops text-sm font-semibold text-text-strong">
+                            No prior adjustments recorded
+                          </p>
+                          <p className="text-sm leading-6 text-text-muted">
+                            This package is being approved without any
+                            superseded or adjustment history yet.
+                          </p>
+                        </div>
+                      )}
+                    </TabsContent>
+                  </Tabs>
                 </div>
               </div>
 
-              <div className="rounded-[1.35rem] border border-[var(--brand-border)] bg-white px-4 py-4">
-                <div className="flex items-center gap-3">
-                  <Link2 className="size-4 text-[var(--brand-blue)]" />
-                  <p className="text-sm font-semibold text-[var(--brand-slate)]">
-                    Evidence hierarchy used
+              {/* Bottom Section of Center Pane (Stats, Reason, Flags) */}
+              <div className="space-y-8 pt-6 border-t border-border-base">
+                <div>
+                  <p className="ops-label text-text-accent mb-4">Reason code</p>
+                  <p className="text-sm font-semibold text-text-strong">
+                    {activeReview.reasonCode}
+                  </p>
+                  <p className="mt-1 text-sm leading-6 text-text-base">
+                    {activeReview.reason}
                   </p>
                 </div>
-                <div className="mt-4 space-y-3">
-                  {activeReview.evidenceHierarchy.map((entry, index) => (
-                    <div
-                      key={entry}
-                      className="rounded-[1.15rem] border border-[var(--brand-border)] bg-[rgba(0,61,166,0.03)] px-4 py-4"
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <DetailField
+                    label="Current custody"
+                    value={
+                      activeDocument
+                        ? getCustodyStateLabel(activeDocument.custodyState)
+                        : 'Unknown'
+                    }
+                  />
+                  <DetailField
+                    label="Target state"
+                    value={getCustodyStateLabel(
+                      activeReview.targetCustodyState,
+                    )}
+                  />
+                  <DetailField
+                    label="Capability"
+                    value={getUserCapabilityLabel(activeReview.capability)}
+                  />
+                </div>
+
+                <div>
+                  <p className="ops-label text-text-accent mb-4">
+                    Exception flags
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {activeReview.exceptionFlags.length > 0 ? (
+                      activeReview.exceptionFlags.map((flag) => (
+                        <span
+                          key={flag}
+                          className="rounded-full bg-status-error-bg px-3 py-1 text-xs font-semibold text-status-error-text"
+                        >
+                          {getExceptionFlagLabel(flag)}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="rounded-full bg-status-success-bg px-3 py-1 text-xs font-semibold text-status-success-text">
+                        No active exception flags
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="ops-label text-text-accent mb-4">Actions</p>
+                  <div className="grid gap-3">
+                    <Button
+                      asChild
+                      variant="outline"
+                      className="rounded-full border-border-base bg-surface-panel text-text-strong"
                     >
-                      <p className="text-xs font-semibold tracking-[0.12em] uppercase text-[var(--brand-blue)]">
-                        Source {index + 1}
+                      <Link
+                        to="/review-workbench"
+                        search={{ reviewId: activeReview.id }}
+                        resetScroll={false}
+                      >
+                        Open drafting workspace
+                      </Link>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="rounded-full border-border-base bg-surface-panel text-text-strong"
+                    >
+                      Request drafting revision
+                    </Button>
+                    <a
+                      href={activeDocument?.igniteUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={cn(
+                        buttonVariants({ variant: 'outline' }),
+                        'rounded-full border-border-base bg-surface-panel text-text-strong no-underline',
+                      )}
+                    >
+                      Open source in Egnyte <ArrowUpRight className="size-4" />
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Pane: Context */}
+        <div className="w-full xl:w-[320px] shrink-0 flex flex-col bg-surface-subtle/20">
+          <div className="px-4 py-3 border-b border-border-base flex items-center justify-between">
+            <h2 className="font-ops text-sm font-semibold text-text-strong">
+              Governance tracking
+            </h2>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            <div className="p-5 space-y-8">
+              <div>
+                <p className="ops-label text-text-accent mb-4">
+                  Authority posture
+                </p>
+                <div className="space-y-4">
+                  {authorityState.map((item) => (
+                    <div
+                      key={item.label}
+                      className="pb-4 border-b border-border-base last:border-b-0 last:pb-0"
+                    >
+                      <p className="ops-label text-text-muted">{item.label}</p>
+                      <p className="mt-2 text-sm font-semibold text-text-strong">
+                        {item.value}
                       </p>
-                      <p className="mt-2 text-sm leading-6 text-[var(--brand-text)]">{entry}</p>
+                      <p className="mt-1 text-sm leading-6 text-text-base">
+                        {item.note}
+                      </p>
                     </div>
                   ))}
                 </div>
               </div>
-            </TabsContent>
-
-            <TabsContent value="checks" className="space-y-4">
-              {activeReview.governanceChecks.map((check) => (
-                <div
-                  key={check.id}
-                  className="rounded-[1.35rem] border border-[var(--brand-border)] bg-white px-4 py-4"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-semibold text-[var(--brand-slate)]">
-                      {check.label}
-                    </p>
-                    <StatusBadge
-                      label={
-                        check.result === 'pass'
-                          ? 'Approved'
-                          : check.result === 'warning'
-                            ? 'Needs review'
-                            : 'Blocked'
-                      }
-                    />
-                  </div>
-                  <p className="mt-2 text-sm leading-6 text-[var(--brand-muted)]">
-                    {check.note}
-                  </p>
-                </div>
-              ))}
-            </TabsContent>
-
-            <TabsContent value="history" className="space-y-4">
-              {activeReview.adjustmentHistory.length > 0 ? (
-                activeReview.adjustmentHistory.map((adjustment) => (
-                  <div
-                    key={adjustment.id}
-                    className="rounded-[1.35rem] border border-[var(--brand-border)] bg-white px-4 py-4"
-                  >
-                    <div className="flex items-center gap-3">
-                      <History className="size-4 text-[var(--brand-blue)]" />
-                      <p className="text-sm font-semibold text-[var(--brand-slate)]">
-                        {adjustment.priorState} → {adjustment.newState}
-                      </p>
-                    </div>
-                    <p className="mt-3 text-sm leading-6 text-[var(--brand-text)]">
-                      {adjustment.reason}
-                    </p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {adjustment.affectedOutputs.map((output) => (
-                        <span
-                          key={output}
-                          className="rounded-full bg-[rgba(0,61,166,0.06)] px-3 py-1 text-xs font-semibold text-[var(--brand-blue)]"
-                        >
-                          {output}
+              <div>
+                <p className="ops-label text-text-accent mb-4">
+                  Approval buckets
+                </p>
+                <div className="space-y-4">
+                  {approvalBuckets.map((bucket) => (
+                    <div
+                      key={bucket.label}
+                      className="pb-4 border-b border-border-base last:border-b-0 last:pb-0"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <Siren className="size-4 text-text-accent" />
+                          <p className="font-ops text-sm font-semibold text-text-strong">
+                            {bucket.label}
+                          </p>
+                        </div>
+                        <span className="font-mono text-xs font-semibold text-text-accent">
+                          {bucket.count}
                         </span>
-                      ))}
+                      </div>
                     </div>
-                  </div>
-                ))
-              ) : (
-                <div className="rounded-[1.35rem] border border-[var(--brand-border)] bg-white px-4 py-4">
-                  <p className="text-sm font-semibold text-[var(--brand-slate)]">
-                    No prior adjustments recorded
-                  </p>
-                  <p className="mt-2 text-sm leading-6 text-[var(--brand-muted)]">
-                    This package is being approved without any superseded or adjustment history yet.
-                  </p>
+                  ))}
                 </div>
-              )}
-            </TabsContent>
-          </Tabs>
-
-          <PdfPreviewPanel
-            title="Source evidence spot-check"
-            description="Approval keeps the preserved source visible for verification after the governance decision has been framed."
-            document={activeDocument}
-            compact
-            maxWidth={420}
-            tone="light"
-          />
-        </ReviewPanel>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </MockupShell>
   )
@@ -537,11 +638,11 @@ function ReviewConsolePage() {
 
 function DetailField({ label, value }: { label: string; value: string }) {
   return (
-    <div>
-      <p className="text-xs font-semibold tracking-[0.12em] uppercase text-[var(--brand-blue)]">
+    <div className="space-y-1">
+      <p className="font-ops text-xs font-semibold uppercase tracking-[0.12em] text-text-muted">
         {label}
       </p>
-      <p className="mt-2 text-sm font-semibold text-[var(--brand-slate)]">{value}</p>
+      <p className="text-sm leading-6 text-text-strong">{value}</p>
     </div>
   )
 }

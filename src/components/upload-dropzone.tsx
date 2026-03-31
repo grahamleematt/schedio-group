@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Upload, WandSparkles } from 'lucide-react'
 import { Button } from '#/components/ui/button'
 import { cn } from '#/lib/utils'
@@ -9,6 +10,8 @@ type UploadDropzoneProps = {
   points: string[]
   primaryActionLabel?: string
   secondaryActionLabel?: string
+  primaryAction?: ReactNode
+  secondaryAction?: ReactNode
   tone?: 'trust' | 'operations'
 }
 
@@ -19,6 +22,8 @@ export function UploadDropzone({
   points,
   primaryActionLabel = 'Add files',
   secondaryActionLabel = 'View requirements',
+  primaryAction,
+  secondaryAction,
   tone = 'trust',
 }: UploadDropzoneProps) {
   return (
@@ -75,17 +80,21 @@ export function UploadDropzone({
             </div>
           </div>
 
-        <div className="flex flex-wrap gap-3">
-            <Button className="rounded-full bg-[var(--brand-blue)] px-5 text-white hover:bg-[color-mix(in_oklab,var(--brand-blue)_85%,black_15%)]">
-              {primaryActionLabel}
-            </Button>
-            <Button
-              variant="outline"
-              className="rounded-full border-[var(--brand-border)] bg-white px-5 text-[var(--brand-slate)]"
-            >
-              <WandSparkles className="size-4" />
-              {secondaryActionLabel}
-            </Button>
+          <div className="flex flex-wrap gap-3">
+            {primaryAction ?? (
+              <Button className="rounded-full bg-[var(--brand-blue)] px-5 text-white hover:bg-[color-mix(in_oklab,var(--brand-blue)_85%,black_15%)]">
+                {primaryActionLabel}
+              </Button>
+            )}
+            {secondaryAction ?? (
+              <Button
+                variant="outline"
+                className="rounded-full border-[var(--brand-border)] bg-white px-5 text-[var(--brand-slate)]"
+              >
+                <WandSparkles className="size-4" />
+                {secondaryActionLabel}
+              </Button>
+            )}
           </div>
         </div>
 

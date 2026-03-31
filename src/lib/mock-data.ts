@@ -76,6 +76,10 @@ export type ProcessingStage =
 
 export type ClientFacingStatus = ProcessingStage
 
+export type CreatePackageSourceContext = 'trust' | 'operations'
+
+export type CreatePackageStep = 'context' | 'files' | 'review' | 'confirm'
+
 export type LinkedRecord = {
   recordId: string
   relation: RelationshipType
@@ -188,6 +192,43 @@ export type PortalMetric = {
   label: string
   value: string
   note: string
+}
+
+export type PackageDraftClassSelection = {
+  documentClass: DocumentClass
+  selected: boolean
+  note: string
+}
+
+export type PackageDraftFile = {
+  id: string
+  recordId: string
+  linkedExpectation: string
+  warningFlags: ExceptionFlag[]
+  sourcePreserved: boolean
+}
+
+export type PackageDraftWarning = {
+  id: string
+  flag: ExceptionFlag
+  title: string
+  note: string
+  severity: 'warning' | 'attention'
+}
+
+export type PackageDraftSummary = {
+  packageName: string
+  packageLabel: string
+  districtId: string
+  submissionChannel: string
+  purpose: string
+  description: string
+  expectedClasses: PackageDraftClassSelection[]
+  files: PackageDraftFile[]
+  startingState: CustodyState
+  linkedEvidenceChain: string[]
+  outcomes: string[]
+  warnings: PackageDraftWarning[]
 }
 
 export const archiveFacts = {
@@ -305,6 +346,26 @@ export const processingStages: ProcessingStage[] = [
 
 export const clientFacingStages: ClientFacingStatus[] = [...processingStages]
 
+export const createPackageSteps: CreatePackageStep[] = [
+  'context',
+  'files',
+  'review',
+  'confirm',
+]
+
+export const createPackageStepLabels: Record<CreatePackageStep, string> = {
+  context: 'Package context',
+  files: 'Source files',
+  review: 'Review package',
+  confirm: 'Confirm',
+}
+
+export const createPackageSourceLabels: Record<CreatePackageSourceContext, string> =
+  {
+    trust: 'Client Intake',
+    operations: 'Client Operations',
+  }
+
 export const districts: DistrictOption[] = [
   {
     id: 'sterling-cab',
@@ -399,6 +460,142 @@ export const uploadBatches: UploadBatch[] = [
     manifestState: 'approved',
   },
 ]
+
+export const createPackageDraft: PackageDraftSummary = {
+  packageName: 'Sterling Ranch CAB March close package',
+  packageLabel: 'PKG-SRCAB-20260330-017',
+  districtId: 'sterling-cab',
+  submissionChannel: 'Client custody submission',
+  purpose:
+    'Submit a mixed evidence package for Sterling Ranch CAB so contract, task order, invoice, pay application, and proof records enter one governed intake path.',
+  description:
+    'The package should preserve source files in Egnyte first, then let SG DREAM recognize classes, flag issues, and prepare linked evidence expectations before engineering review begins.',
+  expectedClasses: [
+    {
+      documentClass: 'contract',
+      selected: true,
+      note: 'Master service agreement and supporting contract records.',
+    },
+    {
+      documentClass: 'task_order',
+      selected: true,
+      note: 'Work authorization and referenced task order records.',
+    },
+    {
+      documentClass: 'change_order',
+      selected: false,
+      note: 'Optional if the package includes downstream scope changes.',
+    },
+    {
+      documentClass: 'invoice',
+      selected: true,
+      note: 'Primary invoice evidence and any vendor variations.',
+    },
+    {
+      documentClass: 'pay_application',
+      selected: true,
+      note: 'Pay application records that may need supporting proof.',
+    },
+    {
+      documentClass: 'proof_of_payment',
+      selected: true,
+      note: 'Waivers or payment support that completes the evidence chain.',
+    },
+  ],
+  files: [
+    {
+      id: 'draft-file-contract-agw',
+      recordId: 'record-contract-agw-xxx',
+      linkedExpectation: 'Should anchor the AGW task order chain.',
+      warningFlags: ['placeholder_contract'],
+      sourcePreserved: true,
+    },
+    {
+      id: 'draft-file-task-agw',
+      recordId: 'record-task-agw-f6-005',
+      linkedExpectation: 'Expected to link forward into invoice evidence.',
+      warningFlags: [],
+      sourcePreserved: true,
+    },
+    {
+      id: 'draft-file-jds',
+      recordId: 'record-invoice-jds-3601',
+      linkedExpectation: 'Should connect to both task order and proof of payment.',
+      warningFlags: [],
+      sourcePreserved: true,
+    },
+    {
+      id: 'draft-file-proof-jds',
+      recordId: 'record-proof-jds-3601',
+      linkedExpectation: 'Completes the JDS invoice support chain.',
+      warningFlags: [],
+      sourcePreserved: true,
+    },
+    {
+      id: 'draft-file-payapp',
+      recordId: 'record-payapp-pages-20',
+      linkedExpectation: 'Needs supporting proof before the package can advance cleanly.',
+      warningFlags: ['pay_app_variant', 'missing_support'],
+      sourcePreserved: true,
+    },
+    {
+      id: 'draft-file-mcdonal',
+      recordId: 'record-invoice-mcdonal-7981',
+      linkedExpectation: 'Invoice class is recognized, but governed naming still needs confirmation.',
+      warningFlags: ['malformed_amount'],
+      sourcePreserved: true,
+    },
+    {
+      id: 'draft-file-sunflower-dup',
+      recordId: 'record-invoice-sunflower-33032-dup',
+      linkedExpectation: 'Should be checked against the primary Sunflower invoice as a possible duplicate.',
+      warningFlags: ['duplicate_file'],
+      sourcePreserved: true,
+    },
+  ],
+  startingState: 'incoming',
+  linkedEvidenceChain: [
+    'VT_SRCAB_AGW_F6-00001-005_$55,410.00.pdf',
+    'VI_JDS_3601_$2,639.67.pdf',
+    'POP_JDS_3601_Unconditional Waiver.pdf',
+  ],
+  outcomes: [
+    'Category recognition is available for all uploaded source files.',
+    'One linked task-order-to-invoice-to-proof chain is ready to enter custody cleanly.',
+    'Engineering review should start with the pay application support gap and the malformed McDonal filename.',
+    'The package will enter SG DREAM as Incoming after the source files are preserved in Egnyte.',
+  ],
+  warnings: [
+    {
+      id: 'draft-warning-duplicate',
+      flag: 'duplicate_file',
+      title: 'Duplicate watch',
+      note: 'A second Sunflower invoice copy is present and should stay visible for traceability until the package is reviewed.',
+      severity: 'attention',
+    },
+    {
+      id: 'draft-warning-placeholder',
+      flag: 'placeholder_contract',
+      title: 'Placeholder source',
+      note: 'The AGW contract filename still contains an XXX placeholder and should stay visible as a governed source correction.',
+      severity: 'warning',
+    },
+    {
+      id: 'draft-warning-malformed',
+      flag: 'malformed_amount',
+      title: 'Malformed amount',
+      note: 'The McDonal invoice keeps its source file, but the governed amount still needs engineering confirmation.',
+      severity: 'warning',
+    },
+    {
+      id: 'draft-warning-support',
+      flag: 'missing_support',
+      title: 'Missing supporting proof',
+      note: 'The pay application is recognized, but it should remain under engineering review until support evidence is attached.',
+      severity: 'attention',
+    },
+  ],
+}
 
 export const documents: DocumentRecord[] = [
   {
@@ -1123,6 +1320,14 @@ export function getReviewItemsByDistrict(districtId: string) {
 
 export function getReviewItemById(reviewId: string) {
   return reviewItems.find((item) => item.id === reviewId)
+}
+
+export function getCreatePackageStepLabel(step: CreatePackageStep) {
+  return createPackageStepLabels[step]
+}
+
+export function getCreatePackageSourceLabel(source: CreatePackageSourceContext) {
+  return createPackageSourceLabels[source]
 }
 
 export function getDocumentClassLabel(documentClass: DocumentClass) {

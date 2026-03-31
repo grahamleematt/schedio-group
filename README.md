@@ -7,6 +7,8 @@ Mockup-first TanStack Start workspace for the March 30 follow-up with Tim. This 
 - `/review-workbench`
 - `/review-console`
 
+The client-facing routes also launch a shared task flow at `/create-package`, which models how a package enters SG DREAM custody from either client concept.
+
 The app is intentionally static and typed in v1. There is no backend, no real auth, and no live upload or repository integration yet.
 
 ## Commands
@@ -24,6 +26,7 @@ yarn test
 - `/` grouped concepts page for the four SG DREAM views
 - `/portal-trust` calm client custody and intake concept
 - `/portal-operations` denser client operations transparency concept
+- `/create-package` shared 4-step client task flow launched from the two client portals
 - `/review-workbench` analyst drafting workspace
 - `/review-console` governance and approval console
 

@@ -1,7 +1,8 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute } from '@tanstack/react-router'
 import {
   Activity,
   AlertTriangle,
+  ArrowRight,
   ArrowUpRight,
   Clock3,
   Link2,
@@ -12,7 +13,7 @@ import { MetricCard } from '#/components/metric-card'
 import { MockupShell } from '#/components/mockup-shell'
 import { StatusBadge } from '#/components/status-badge'
 import { UploadDropzone } from '#/components/upload-dropzone'
-import { Button, buttonVariants } from '#/components/ui/button'
+import { buttonVariants } from '#/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import { Progress } from '#/components/ui/progress'
 import { Input } from '#/components/ui/input'
@@ -61,32 +62,43 @@ export const Route = createFileRoute('/portal-operations')({
 
 function PortalOperationsPage() {
   const manifestReviewed = docs.filter(
-    (document) => document.documentManifestState === 'reviewed'
+    (document) => document.documentManifestState === 'reviewed',
   ).length
-  const linkedTotal = docs.filter((document) => document.linkedRecords.length > 0).length
+  const linkedTotal = docs.filter(
+    (document) => document.linkedRecords.length > 0,
+  ).length
   const availableCount = docs.filter(
-    (document) => getClientFacingRecordStatus(document) === 'Available in Egnyte'
+    (document) =>
+      getClientFacingRecordStatus(document) === 'Available in Egnyte',
   ).length
-  const sourcePreservedCount = docs.filter((document) => document.sourcePreserved).length
+  const sourcePreservedCount = docs.filter(
+    (document) => document.sourcePreserved,
+  ).length
   const stagePressure = [
     {
       stage: 'Incoming',
-      count: docs.filter((document) => document.custodyState === 'incoming').length,
+      count: docs.filter((document) => document.custodyState === 'incoming')
+        .length,
       note: 'Source records have landed in Egnyte custody and are waiting for package drafting.',
     },
     {
       stage: 'Processing',
-      count: docs.filter((document) => document.custodyState === 'processing').length,
+      count: docs.filter((document) => document.custodyState === 'processing')
+        .length,
       note: 'Document and run manifests are still being drafted around the preserved originals.',
     },
     {
       stage: 'Classified',
-      count: docs.filter((document) => document.custodyState === 'classified').length,
+      count: docs.filter((document) => document.custodyState === 'classified')
+        .length,
       note: 'Records are organized into formal classes and can be tracked as one evidence package.',
     },
     {
       stage: 'Engineering review',
-      count: docs.filter((document) => getClientFacingRecordStatus(document) === 'Engineering review').length,
+      count: docs.filter(
+        (document) =>
+          getClientFacingRecordStatus(document) === 'Engineering review',
+      ).length,
       note: 'Linked evidence gaps or governed drafting questions are still under engineering review.',
     },
     {
@@ -130,16 +142,20 @@ function PortalOperationsPage() {
       description="Monitor package completeness, manifest progress, linked evidence coverage, and Egnyte readiness without stepping into drafting or approval authority."
       actions={
         <>
-          <Button className="rounded-full bg-[var(--brand-blue)] px-5 text-white hover:bg-[color-mix(in_oklab,var(--brand-blue)_86%,black_14%)]">
-            Create package
-          </Button>
+          <Link
+            to="/create-package"
+            search={{ source: 'operations', step: 'context' }}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground no-underline shadow-sm transition-colors hover:bg-primary-hover"
+          >
+            <span className="text-primary-foreground">Create package</span>
+          </Link>
           <a
             href={docs[0]?.igniteUrl}
             target="_blank"
             rel="noreferrer"
             className={cn(
               buttonVariants({ variant: 'outline' }),
-              'rounded-full border-[var(--brand-border)] bg-white text-[var(--brand-slate)] no-underline'
+              'rounded-full border-border-base bg-surface-panel text-text-strong no-underline',
             )}
           >
             Open in Egnyte
@@ -149,33 +165,33 @@ function PortalOperationsPage() {
       }
       aside={
         <div className="space-y-4">
-          <div className="flex items-center gap-3 rounded-2xl border border-[rgba(0,61,166,0.14)] bg-white px-4 py-4">
-            <Activity className="size-4 text-[var(--brand-blue)]" />
+          <div className="flex items-center gap-3 rounded-2xl border border-border-strong bg-surface-panel px-4 py-4">
+            <Activity className="size-4 text-text-accent" />
             <div>
-              <p className="ops-label text-[var(--brand-blue)]">Active district</p>
-              <p className="font-ops mt-1 text-sm font-semibold text-[var(--brand-slate)]">
+              <p className="ops-label text-text-accent">Active district</p>
+              <p className="font-ops mt-1 text-sm font-semibold text-text-strong">
                 {district.name}
               </p>
             </div>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="rounded-xl border border-[rgba(0,61,166,0.14)] bg-[rgba(0,61,166,0.04)] px-3 py-3">
-              <p className="ops-label text-[var(--brand-blue)]">Preserved</p>
-              <p className="mt-2 font-ops text-sm font-medium text-[var(--brand-slate)]">
+            <div className="rounded-xl border border-border-strong bg-surface-muted px-3 py-3">
+              <p className="ops-label text-text-accent">Preserved</p>
+              <p className="mt-2 font-ops text-sm font-medium text-text-strong">
                 {sourcePreservedCount} records
               </p>
             </div>
-            <div className="rounded-xl border border-[rgba(0,61,166,0.14)] bg-[rgba(0,61,166,0.04)] px-3 py-3">
-              <p className="ops-label text-[var(--brand-blue)]">Engineering review</p>
-              <p className="mt-2 font-ops text-sm font-medium text-[var(--brand-slate)]">
+            <div className="rounded-xl border border-border-strong bg-surface-muted px-3 py-3">
+              <p className="ops-label text-text-accent">Engineering review</p>
+              <p className="mt-2 font-ops text-sm font-medium text-text-strong">
                 {manifestReviewed} active
               </p>
             </div>
           </div>
-          <p className="font-ops text-sm leading-6 text-[var(--brand-text)]">
-            This concept is still client-facing, but it exposes more of the governed
-            package mechanics: manifest progress, linked evidence coverage, and
-            source preservation in Egnyte.
+          <p className="font-ops text-sm leading-6 text-text-base">
+            This concept is still client-facing, but it exposes more of the
+            governed package mechanics: manifest progress, linked evidence
+            coverage, and source preservation in Egnyte.
           </p>
         </div>
       }
@@ -191,7 +207,16 @@ function PortalOperationsPage() {
         kicker="Governed package intake"
         title="Create a custody-aware evidence package"
         subtitle="Start a new submission package with class visibility, manifest progress, linked evidence expectations, and Egnyte custody posture visible from the first step."
-        primaryActionLabel="Create package"
+        primaryAction={
+          <Link
+            to="/create-package"
+            search={{ source: 'operations', step: 'context' }}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground no-underline shadow-sm transition-colors hover:bg-primary-hover"
+          >
+            <span className="text-primary-foreground">Create package</span>
+            <ArrowRight className="size-4 text-primary-foreground" />
+          </Link>
+        }
         secondaryActionLabel="View custody rules"
         points={[
           'Source records land in Egnyte first, then SG DREAM drafts meaning through document and run manifests.',
@@ -201,42 +226,45 @@ function PortalOperationsPage() {
       />
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.15fr)_400px]">
-        <Card className="brand-panel rounded-[1.75rem] border-[rgba(0,61,166,0.14)] shadow-none">
+        <Card className="brand-panel rounded-[1.75rem] border-border-strong shadow-none">
           <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <CardTitle className="font-ops text-[2rem] font-semibold tracking-[-0.05em] text-[var(--brand-slate)]">
+              <CardTitle className="font-ops text-[2rem] font-semibold tracking-[-0.05em] text-text-strong">
                 Package command center
               </CardTitle>
-              <p className="mt-2 font-ops text-sm leading-6 text-[var(--brand-text)]">
-                Track custody state, manifest progress, linked evidence, and engineering review in one client-safe table.
+              <p className="mt-2 font-ops text-sm leading-6 text-text-base">
+                Track custody state, manifest progress, linked evidence, and
+                engineering review in one client-safe table.
               </p>
             </div>
             <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap">
               <div className="relative w-full sm:min-w-[220px] sm:flex-1">
-                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--brand-muted)]" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-text-muted" />
                 <Input
                   defaultValue=""
                   placeholder="Search packages"
-                  className="h-11 w-full rounded-full border-[var(--brand-border)] bg-white pl-9"
+                  className="h-11 w-full rounded-full border-border-base bg-surface-panel pl-9"
                 />
               </div>
               <Select defaultValue={district.id}>
-                <SelectTrigger className="h-11 w-full rounded-full border-[var(--brand-border)] bg-white sm:min-w-[220px]">
+                <SelectTrigger className="h-11 w-full rounded-full border-border-base bg-surface-panel sm:min-w-[220px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={district.id}>{district.name}</SelectItem>
-                  <SelectItem value="sterling-md">Sterling Ranch Metro District</SelectItem>
+                  <SelectItem value="sterling-md">
+                    Sterling Ranch Metro District
+                  </SelectItem>
                   <SelectItem value="ridgeview">Sterling Ranch MD4</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="data-table-frame overflow-x-auto overflow-y-hidden rounded-[1.5rem] border border-[var(--brand-border)] bg-white">
+            <div className="data-table-frame overflow-x-auto overflow-y-hidden rounded-[1.5rem] border border-border-base bg-surface-panel">
               <Table className="data-table-min font-ops">
                 <TableHeader>
-                  <TableRow className="bg-[rgba(0,61,166,0.04)]">
+                  <TableRow className="bg-surface-muted">
                     <TableHead>Package</TableHead>
                     <TableHead>Custody</TableHead>
                     <TableHead>Manifest</TableHead>
@@ -249,25 +277,29 @@ function PortalOperationsPage() {
                     <TableRow key={batch.id}>
                       <TableCell>
                         <div className="space-y-1">
-                          <p className="font-semibold text-[var(--brand-slate)]">
+                          <p className="font-semibold text-text-strong">
                             {batch.name}
                           </p>
-                          <p className="text-xs text-[var(--brand-muted)]">
+                          <p className="text-xs text-text-muted">
                             {batch.documentCount} records via {batch.channel}
                           </p>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <StatusBadge label={getClientFacingBatchStatus(batch)} />
+                        <StatusBadge
+                          label={getClientFacingBatchStatus(batch)}
+                        />
                       </TableCell>
-                      <TableCell className="text-[var(--brand-text)]">
+                      <TableCell className="text-text-base">
                         {getManifestStateLabel(batch.manifestState)}
                       </TableCell>
-                      <TableCell className="text-[var(--brand-text)]">
+                      <TableCell className="text-text-base">
                         {batch.linkedChains} connected chains
                       </TableCell>
-                      <TableCell className="text-[var(--brand-muted)]">
-                        {batch.exceptionCount === 0 ? 'Clear' : `${batch.exceptionCount} active`}
+                      <TableCell className="text-text-muted">
+                        {batch.exceptionCount === 0
+                          ? 'Clear'
+                          : `${batch.exceptionCount} active`}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -278,9 +310,9 @@ function PortalOperationsPage() {
         </Card>
 
         <div className="grid gap-6">
-          <Card className="brand-panel rounded-[1.75rem] border-[rgba(0,61,166,0.14)] shadow-none">
+          <Card className="brand-panel rounded-[1.75rem] border-border-strong shadow-none">
             <CardHeader>
-              <CardTitle className="font-ops text-[2rem] font-semibold tracking-[-0.05em] text-[var(--brand-slate)]">
+              <CardTitle className="font-ops text-[2rem] font-semibold tracking-[-0.05em] text-text-strong">
                 Document classes
               </CardTitle>
             </CardHeader>
@@ -290,12 +322,12 @@ function PortalOperationsPage() {
                 .map((item) => (
                   <div
                     key={item.documentClass}
-                    className="flex items-center justify-between rounded-[1.35rem] border border-[rgba(0,61,166,0.14)] bg-white px-4 py-4"
+                    className="flex items-center justify-between rounded-[1.35rem] border border-border-strong bg-surface-panel px-4 py-4"
                   >
-                    <p className="font-ops text-sm font-semibold text-[var(--brand-slate)]">
+                    <p className="font-ops text-sm font-semibold text-text-strong">
                       {item.label}
                     </p>
-                    <span className="font-mono text-xs font-semibold text-[var(--brand-blue)]">
+                    <span className="font-mono text-xs font-semibold text-text-accent">
                       {item.count}
                     </span>
                   </div>
@@ -303,9 +335,9 @@ function PortalOperationsPage() {
             </CardContent>
           </Card>
 
-          <Card className="brand-panel rounded-[1.75rem] border-[rgba(0,61,166,0.14)] shadow-none">
+          <Card className="brand-panel rounded-[1.75rem] border-border-strong shadow-none">
             <CardHeader>
-              <CardTitle className="font-ops text-[2rem] font-semibold tracking-[-0.05em] text-[var(--brand-slate)]">
+              <CardTitle className="font-ops text-[2rem] font-semibold tracking-[-0.05em] text-text-strong">
                 Exception watch
               </CardTitle>
             </CardHeader>
@@ -313,15 +345,15 @@ function PortalOperationsPage() {
               {exceptionCounts.map((item) => (
                 <div
                   key={item.flag}
-                  className="flex items-center justify-between rounded-[1.35rem] border border-[rgba(0,61,166,0.14)] bg-[rgba(0,61,166,0.03)] px-4 py-4"
+                  className="flex items-center justify-between rounded-[1.35rem] border border-border-strong bg-surface-muted px-4 py-4"
                 >
                   <div className="flex items-center gap-3">
-                    <AlertTriangle className="size-4 text-[var(--brand-blue)]" />
-                    <p className="font-ops text-sm font-semibold text-[var(--brand-slate)]">
+                    <AlertTriangle className="size-4 text-text-accent" />
+                    <p className="font-ops text-sm font-semibold text-text-strong">
                       {item.label}
                     </p>
                   </div>
-                  <span className="font-mono text-xs font-semibold text-[var(--brand-blue)]">
+                  <span className="font-mono text-xs font-semibold text-text-accent">
                     {item.count}
                   </span>
                 </div>
@@ -332,9 +364,9 @@ function PortalOperationsPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
-        <Card className="brand-panel rounded-[1.75rem] border-[rgba(0,61,166,0.14)] shadow-none">
+        <Card className="brand-panel rounded-[1.75rem] border-border-strong shadow-none">
           <CardHeader>
-            <CardTitle className="font-ops text-[2rem] font-semibold tracking-[-0.05em] text-[var(--brand-slate)]">
+            <CardTitle className="font-ops text-[2rem] font-semibold tracking-[-0.05em] text-text-strong">
               Client-visible stages
             </CardTitle>
           </CardHeader>
@@ -342,31 +374,34 @@ function PortalOperationsPage() {
             {stagePressure.map((item) => {
               const icon =
                 item.stage === 'Engineering review' ? (
-                  <ShieldCheck className="size-4 text-[var(--brand-blue)]" />
+                  <ShieldCheck className="size-4 text-text-accent" />
                 ) : item.stage === 'Available in Egnyte' ? (
-                  <Link2 className="size-4 text-[var(--brand-blue)]" />
+                  <Link2 className="size-4 text-text-accent" />
                 ) : (
-                  <Clock3 className="size-4 text-[var(--brand-blue)]" />
+                  <Clock3 className="size-4 text-text-accent" />
                 )
 
               return (
                 <div
                   key={item.stage}
-                  className="rounded-[1.35rem] border border-[rgba(0,61,166,0.14)] bg-white px-4 py-4"
+                  className="rounded-[1.35rem] border border-border-strong bg-surface-panel px-4 py-4"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
                       {icon}
-                      <p className="font-ops text-sm font-semibold text-[var(--brand-slate)]">
+                      <p className="font-ops text-sm font-semibold text-text-strong">
                         {item.stage}
                       </p>
                     </div>
-                    <span className="font-mono text-xs font-semibold text-[var(--brand-muted)]">
+                    <span className="font-mono text-xs font-semibold text-text-muted">
                       {item.count} records
                     </span>
                   </div>
-                  <Progress value={item.value} className="mt-3 h-2.5 rounded-full" />
-                  <p className="mt-3 text-sm leading-6 text-[var(--brand-text)]">
+                  <Progress
+                    value={item.value}
+                    className="mt-3 h-2.5 rounded-full"
+                  />
+                  <p className="mt-3 text-sm leading-6 text-text-base">
                     {item.note}
                   </p>
                 </div>
@@ -375,9 +410,9 @@ function PortalOperationsPage() {
           </CardContent>
         </Card>
 
-        <Card className="brand-panel rounded-[1.75rem] border-[rgba(0,61,166,0.14)] shadow-none">
+        <Card className="brand-panel rounded-[1.75rem] border-border-strong shadow-none">
           <CardHeader>
-            <CardTitle className="font-ops text-[2rem] font-semibold tracking-[-0.05em] text-[var(--brand-slate)]">
+            <CardTitle className="font-ops text-[2rem] font-semibold tracking-[-0.05em] text-text-strong">
               Record register
             </CardTitle>
           </CardHeader>
@@ -385,39 +420,45 @@ function PortalOperationsPage() {
             {docs.map((document) => (
               <article
                 key={document.id}
-                className="grid grid-cols-1 gap-4 rounded-[1.35rem] border border-[rgba(0,61,166,0.14)] bg-white px-4 py-4 sm:grid-cols-[minmax(0,1fr)_auto]"
+                className="grid grid-cols-1 gap-4 rounded-[1.35rem] border border-border-strong bg-surface-panel px-4 py-4 sm:grid-cols-[minmax(0,1fr)_auto]"
               >
                 <div className="space-y-3">
                   <div className="flex flex-wrap items-center gap-3">
-                    <p className="font-ops text-sm font-semibold text-[var(--brand-slate)]">
+                    <p className="font-ops text-sm font-semibold text-text-strong">
                       {document.organizedName}
                     </p>
-                    <StatusBadge label={getClientFacingRecordStatus(document)} />
-                    <span className="rounded-full bg-[rgba(0,61,166,0.07)] px-2.5 py-1 text-[0.72rem] font-semibold text-[var(--brand-blue)]">
+                    <StatusBadge
+                      label={getClientFacingRecordStatus(document)}
+                    />
+                    <span className="rounded-full bg-primary-soft px-2.5 py-1 text-[0.72rem] font-semibold text-text-accent">
                       {getDocumentClassLabel(document.documentClass)}
                     </span>
                   </div>
-                  <p className="font-mono text-[0.72rem] leading-5 text-[var(--brand-muted)]">
-                    Original: {document.originalName} • {document.pageCount} pages • {document.updatedAt}
+                  <p className="font-mono text-[0.72rem] leading-5 text-text-muted">
+                    Original: {document.originalName} • {document.pageCount}{' '}
+                    pages • {document.updatedAt}
                   </p>
-                  <p className="text-sm leading-6 text-[var(--brand-text)]">
+                  <p className="text-sm leading-6 text-text-base">
                     {getLinkedRecordSummary(document)}
                   </p>
-                  <div className="flex flex-wrap gap-2 text-xs text-[var(--brand-muted)]">
-                    <span className="rounded-full bg-[rgba(0,61,166,0.04)] px-3 py-1">
-                      Manifest {getManifestStateLabel(document.documentManifestState)}
+                  <div className="flex flex-wrap gap-2 text-xs text-text-muted">
+                    <span className="rounded-full bg-surface-muted px-3 py-1">
+                      Manifest{' '}
+                      {getManifestStateLabel(document.documentManifestState)}
                     </span>
-                    <span className="rounded-full bg-[rgba(0,61,166,0.04)] px-3 py-1">
+                    <span className="rounded-full bg-surface-muted px-3 py-1">
                       Custody path retained
                     </span>
                     {document.linkedRecords.length > 0 ? (
-                      <span className="rounded-full bg-[rgba(0,61,166,0.04)] px-3 py-1">
+                      <span className="rounded-full bg-surface-muted px-3 py-1">
                         {document.linkedRecords.length} linked
-                        {document.linkedRecords.length > 1 ? ' records' : ' record'}
+                        {document.linkedRecords.length > 1
+                          ? ' records'
+                          : ' record'}
                       </span>
                     ) : null}
                   </div>
-                  <p className="font-mono text-[0.7rem] leading-5 text-[var(--brand-muted)]">
+                  <p className="font-mono text-[0.7rem] leading-5 text-text-muted">
                     {document.custodyPath}
                   </p>
                 </div>
@@ -428,7 +469,7 @@ function PortalOperationsPage() {
                   rel="noreferrer"
                   className={cn(
                     buttonVariants({ variant: 'outline' }),
-                    'rounded-full border-[var(--brand-border)] bg-white text-[var(--brand-slate)] no-underline'
+                    'rounded-full border-border-base bg-surface-panel text-text-strong no-underline',
                   )}
                 >
                   Egnyte

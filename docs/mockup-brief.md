@@ -23,6 +23,18 @@ What it should communicate:
 - Linked evidence coverage and missing support are visible.
 - Engineering review can be understood without exposing approval authority.
 
+## `/create-package`
+
+Goal:
+Show the shared client task flow for creating a new evidence package.
+
+What it should communicate:
+
+- A package can be started from either client concept without becoming a separate product view.
+- Source files are preserved in Egnyte before governed meaning is added.
+- Clients can understand class expectations, linked evidence cues, and light watchlist items without stepping into internal governance controls.
+- The package enters SG DREAM as `Incoming`, then moves into processing and classification afterward.
+
 ## `/review-workbench`
 
 Goal:

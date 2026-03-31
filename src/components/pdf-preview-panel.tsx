@@ -8,7 +8,7 @@ import { cn } from '#/lib/utils'
 const PdfPreviewClient = lazy(() =>
   import('#/components/pdf-preview-client').then((module) => ({
     default: module.PdfPreviewClient,
-  }))
+  })),
 )
 
 type PdfPreviewPanelProps = {
@@ -31,11 +31,14 @@ export function PdfPreviewPanel({
   maxWidth,
   allowReset = false,
   actions,
-}: PdfPreviewPanelProps) {
+  hideViewer = false,
+}: PdfPreviewPanelProps & { hideViewer?: boolean }) {
   const isDark = tone === 'dark'
   const isClient = useIsClient()
   const previewUnavailable = !document?.previewAsset
-  const [resolvedPageCount, setResolvedPageCount] = useState<number | null>(null)
+  const [resolvedPageCount, setResolvedPageCount] = useState<number | null>(
+    null,
+  )
   const pageCountLabel = document
     ? `${resolvedPageCount ?? document.pageCount} pages`
     : 'Unknown'
@@ -43,18 +46,18 @@ export function PdfPreviewPanel({
   return (
     <section
       className={cn(
-        'space-y-4 rounded-[1.5rem] border px-4 py-4 sm:px-5 sm:py-5',
+        'space-y-0 rounded-3xl border px-5 py-5 sm:px-6 sm:py-6',
         isDark
-          ? 'border-white/12 bg-white/5'
-          : 'border-[var(--brand-border)] bg-white'
+          ? 'border-border-strong bg-surface-muted'
+          : 'border-border-strong bg-surface-panel',
       )}
     >
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between mb-4">
         <div className="space-y-2">
           <p
             className={cn(
-              'text-xs font-semibold tracking-[0.14em] uppercase',
-              isDark ? 'text-white/62' : 'text-[var(--brand-blue)]'
+              'ops-label',
+              isDark ? 'text-white/62' : 'text-text-accent',
             )}
           >
             {title}
@@ -63,7 +66,7 @@ export function PdfPreviewPanel({
             <p
               className={cn(
                 'text-sm leading-6',
-                isDark ? 'text-white/74' : 'text-[var(--brand-muted)]'
+                isDark ? 'text-white/74' : 'text-text-muted',
               )}
             >
               {description}
@@ -78,20 +81,23 @@ export function PdfPreviewPanel({
               target="_blank"
               rel="noreferrer"
               className={cn(
-                buttonVariants({ variant: 'outline', size: compact ? 'sm' : 'default' }),
+                buttonVariants({
+                  variant: 'outline',
+                  size: compact ? 'sm' : 'default',
+                }),
                 isDark
                   ? 'rounded-full border-white/15 bg-white/8 text-white no-underline hover:bg-white/12'
-                  : 'rounded-full border-[var(--brand-border)] bg-white text-[var(--brand-slate)] no-underline'
+                  : 'rounded-full border-border-base bg-surface-panel text-text-strong no-underline text-xs h-8',
               )}
             >
               Open in Egnyte
-              <ArrowUpRight className="size-4" />
+              <ArrowUpRight className="size-3.5" />
             </a>
           ) : null}
         </div>
       </div>
 
-      <div className={cn('grid gap-3', compact ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-4')}>
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 pt-2 pb-4">
         <PreviewField
           tone={tone}
           label="Original filename"
@@ -102,93 +108,97 @@ export function PdfPreviewPanel({
           label="Governed name"
           value={document?.organizedName ?? 'Unknown'}
         />
-        <PreviewField tone={tone} label="Source" value={document?.source ?? 'Unknown'} />
         <PreviewField
           tone={tone}
-          label="Page count"
-          value={pageCountLabel}
+          label="Source"
+          value={document?.source ?? 'Unknown'}
         />
+        <PreviewField tone={tone} label="Page count" value={pageCountLabel} />
       </div>
 
-      {previewUnavailable ? (
-        <div
-          className={cn(
-            'flex min-h-[280px] flex-col items-center justify-center rounded-[1.35rem] border border-dashed px-6 text-center',
-            isDark
-              ? 'border-white/15 bg-white/4 text-white/72'
-              : 'border-[var(--brand-border)] bg-[rgba(0,61,166,0.03)] text-[var(--brand-muted)]'
-          )}
-        >
-          <FileStack className="size-5" />
-          <p className="mt-3 text-sm font-semibold">
-            Preview unavailable locally
-          </p>
-          <p className="mt-2 text-sm leading-6">
-            This record can still be opened in Egnyte, but the mock does not include
-            a local PDF asset for it yet.
-          </p>
-        </div>
-      ) : !isClient ? (
-        <div
-          className={cn(
-            'min-h-[320px] rounded-[1.35rem] border border-dashed px-6 py-8 text-sm',
-            isDark
-              ? 'border-white/15 bg-white/4 text-white/72'
-              : 'border-[var(--brand-border)] bg-[rgba(0,61,166,0.03)] text-[var(--brand-muted)]'
-          )}
-        >
-          <div className="space-y-3">
+      {!hideViewer && (
+        <>
+          {previewUnavailable ? (
             <div
               className={cn(
-                'h-4 w-40 rounded-full',
-                isDark ? 'bg-white/12' : 'bg-[rgba(0,61,166,0.08)]'
+                'flex min-h-[280px] flex-col items-center justify-center rounded-[1.35rem] border border-dashed px-6 text-center',
+                isDark
+                  ? 'border-white/15 bg-white/4 text-white/72'
+                  : 'border-border-base bg-surface-muted text-text-muted',
               )}
-            />
-            <div
-              className={cn(
-                'h-[280px] rounded-[1rem]',
-                isDark ? 'bg-white/8' : 'bg-white'
-              )}
-            />
-          </div>
-        </div>
-      ) : (
-        <Suspense
-          fallback={
+            >
+              <FileStack className="size-5" />
+              <p className="mt-3 text-sm font-semibold">
+                Preview unavailable locally
+              </p>
+              <p className="mt-2 text-sm leading-6">
+                This record can still be opened in Egnyte, but the mock does not
+                include a local PDF asset for it yet.
+              </p>
+            </div>
+          ) : !isClient ? (
             <div
               className={cn(
                 'min-h-[320px] rounded-[1.35rem] border border-dashed px-6 py-8 text-sm',
                 isDark
                   ? 'border-white/15 bg-white/4 text-white/72'
-                  : 'border-[var(--brand-border)] bg-[rgba(0,61,166,0.03)] text-[var(--brand-muted)]'
+                  : 'border-border-base bg-surface-subtle text-text-muted',
               )}
             >
               <div className="space-y-3">
                 <div
                   className={cn(
                     'h-4 w-40 rounded-full',
-                    isDark ? 'bg-white/12' : 'bg-[rgba(0,61,166,0.08)]'
+                    isDark ? 'bg-white/12' : 'bg-primary-soft',
                   )}
                 />
                 <div
                   className={cn(
-                    'h-[280px] rounded-[1rem]',
-                    isDark ? 'bg-white/8' : 'bg-white'
+                    'h-[280px] rounded-2xl',
+                    isDark ? 'bg-white/8' : 'bg-white',
                   )}
                 />
               </div>
             </div>
-          }
-        >
-          <PdfPreviewClient
-            file={document.previewAsset.src}
-            tone={tone}
-            compact={compact}
-            maxWidth={maxWidth}
-            allowReset={allowReset}
-            onPageCountChange={setResolvedPageCount}
-          />
-        </Suspense>
+          ) : (
+            <Suspense
+              fallback={
+                <div
+                  className={cn(
+                    'min-h-[320px] rounded-[1.35rem] border border-dashed px-6 py-8 text-sm',
+                    isDark
+                      ? 'border-white/15 bg-white/4 text-white/72'
+                      : 'border-border-base bg-surface-subtle text-text-muted',
+                  )}
+                >
+                  <div className="space-y-3">
+                    <div
+                      className={cn(
+                        'h-4 w-40 rounded-full',
+                        isDark ? 'bg-white/12' : 'bg-primary-soft',
+                      )}
+                    />
+                    <div
+                      className={cn(
+                        'h-[280px] rounded-2xl',
+                        isDark ? 'bg-white/8' : 'bg-white',
+                      )}
+                    />
+                  </div>
+                </div>
+              }
+            >
+              <PdfPreviewClient
+                file={document.previewAsset!.src}
+                tone={tone}
+                compact={compact}
+                maxWidth={maxWidth}
+                allowReset={allowReset}
+                onPageCountChange={setResolvedPageCount}
+              />
+            </Suspense>
+          )}
+        </>
       )}
     </section>
   )
@@ -198,7 +208,7 @@ function useIsClient() {
   return useSyncExternalStore(
     () => () => {},
     () => true,
-    () => false
+    () => false,
   )
 }
 
@@ -212,26 +222,19 @@ function PreviewField({
   tone: 'light' | 'dark'
 }) {
   return (
-    <div
-      className={cn(
-        'rounded-[1.15rem] border px-3 py-3',
-        tone === 'dark'
-          ? 'border-white/12 bg-white/6'
-          : 'border-[var(--brand-border)] bg-[rgba(0,61,166,0.03)]'
-      )}
-    >
+    <div className="space-y-1">
       <p
         className={cn(
-          'text-[0.7rem] font-semibold tracking-[0.14em] uppercase',
-          tone === 'dark' ? 'text-white/62' : 'text-[var(--brand-blue)]'
+          'ops-label',
+          tone === 'dark' ? 'text-white/62' : 'text-text-accent',
         )}
       >
         {label}
       </p>
       <p
         className={cn(
-          'mt-2 text-sm font-semibold leading-6',
-          tone === 'dark' ? 'text-white' : 'text-[var(--brand-slate)]'
+          'text-sm font-semibold leading-6',
+          tone === 'dark' ? 'text-white' : 'text-text-strong',
         )}
       >
         {value}

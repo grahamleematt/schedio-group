@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { ChevronLeft, ChevronRight, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react'
 import { Document, Page, pdfjs } from 'react-pdf'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
@@ -45,12 +45,26 @@ export function PdfPreviewClient({
   const [scale, setScale] = useState(1)
   const [loadError, setLoadError] = useState<string | null>(null)
 
-  const width = getPreviewWidth(maxWidth)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [containerWidth, setContainerWidth] = useState<number>(maxWidth)
+
+  useEffect(() => {
+    if (!containerRef.current) return
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setContainerWidth(entry.contentRect.width)
+      }
+    })
+    observer.observe(containerRef.current)
+    return () => observer.disconnect()
+  }, [])
+
+  const width = Math.min(containerWidth - 32, getPreviewWidth(maxWidth))
   const canGoBack = pageNumber > 1
   const canGoForward = numPages !== null && pageNumber < numPages
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" ref={containerRef}>
       <div
         className={cn(
           'flex flex-wrap items-center gap-2 rounded-[1.25rem] border px-3 py-3',

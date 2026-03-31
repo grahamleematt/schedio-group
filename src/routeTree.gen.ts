@@ -13,6 +13,7 @@ import { Route as ReviewWorkbenchRouteImport } from './routes/review-workbench'
 import { Route as ReviewConsoleRouteImport } from './routes/review-console'
 import { Route as PortalTrustRouteImport } from './routes/portal-trust'
 import { Route as PortalOperationsRouteImport } from './routes/portal-operations'
+import { Route as CreatePackageRouteImport } from './routes/create-package'
 import { Route as IndexRouteImport } from './routes/index'
 
 const ReviewWorkbenchRoute = ReviewWorkbenchRouteImport.update({
@@ -35,6 +36,11 @@ const PortalOperationsRoute = PortalOperationsRouteImport.update({
   path: '/portal-operations',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CreatePackageRoute = CreatePackageRouteImport.update({
+  id: '/create-package',
+  path: '/create-package',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -43,6 +49,7 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/create-package': typeof CreatePackageRoute
   '/portal-operations': typeof PortalOperationsRoute
   '/portal-trust': typeof PortalTrustRoute
   '/review-console': typeof ReviewConsoleRoute
@@ -50,6 +57,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/create-package': typeof CreatePackageRoute
   '/portal-operations': typeof PortalOperationsRoute
   '/portal-trust': typeof PortalTrustRoute
   '/review-console': typeof ReviewConsoleRoute
@@ -58,6 +66,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/create-package': typeof CreatePackageRoute
   '/portal-operations': typeof PortalOperationsRoute
   '/portal-trust': typeof PortalTrustRoute
   '/review-console': typeof ReviewConsoleRoute
@@ -67,6 +76,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/create-package'
     | '/portal-operations'
     | '/portal-trust'
     | '/review-console'
@@ -74,6 +84,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/create-package'
     | '/portal-operations'
     | '/portal-trust'
     | '/review-console'
@@ -81,6 +92,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/create-package'
     | '/portal-operations'
     | '/portal-trust'
     | '/review-console'
@@ -89,6 +101,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CreatePackageRoute: typeof CreatePackageRoute
   PortalOperationsRoute: typeof PortalOperationsRoute
   PortalTrustRoute: typeof PortalTrustRoute
   ReviewConsoleRoute: typeof ReviewConsoleRoute
@@ -125,6 +138,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PortalOperationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/create-package': {
+      id: '/create-package'
+      path: '/create-package'
+      fullPath: '/create-package'
+      preLoaderRoute: typeof CreatePackageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -137,6 +157,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CreatePackageRoute: CreatePackageRoute,
   PortalOperationsRoute: PortalOperationsRoute,
   PortalTrustRoute: PortalTrustRoute,
   ReviewConsoleRoute: ReviewConsoleRoute,
