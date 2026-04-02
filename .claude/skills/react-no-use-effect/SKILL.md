@@ -11,5 +11,6 @@ This repo does not use component-level `useEffect`.
 
 - Derive values from props, mock data, and pure helpers.
 - Do not mirror props into local state.
-- For static mockups, prefer uncontrolled primitives with `defaultValue` over stateful wiring.
+- Use controlled `value` when the selection is driven by URL search params or other external state that can change after mount. Use `defaultValue` only for truly static initial values.
 - Use `useMemo` only when there is a real recomputation cost.
+- Keep formatting, filtering, and display shaping in pure helper code or route-local derived values.

@@ -1,33 +1,40 @@
 # Meeting Confirmed Details
 
-Primary source: `/Users/matthewgraham/Code/proposals/clients/schedio-group/artifacts/2026-03-12-meeting/transcript.txt`
+Primary source: `/Users/matthewgraham/Code/proposals/clients/schedio-group/artifacts/2026-03-30-meeting/transcript.md`
 
-Meeting date: March 12, 2026
+Meeting date: March 30, 2026
 
-Confirmed needs from Tim:
+Confirmed direction from Tim:
 
-- The main request is a standardized portal where clients can drag and drop documents instead of relying on scattered intake paths.
-- One user may upload for multiple districts or entities, so the interface must make routing obvious and hard to get wrong.
-- Clients need visibility into where their submissions are in process.
-- Clients should be able to access organized documents, but the product does not need to replace the underlying repository in the first phase.
-- The source documents are mixed: clean PDFs, scanned county-recorded documents, and other inconsistent inputs.
-- The workflow must preserve original-file traceability while still organizing records into a consistent structure.
-- The system should feel trustworthy, reviewable, and operational rather than speculative or overly automated.
-- Phase 0, Phase 1, and Phase 2 are the active path. Phase 3 remains deferred.
+- Focus on the client operations concept first, not the lighter alternate client view.
+- Tie submissions to a specific verification and show the cutoff clearly.
+- Make it obvious when a late submission rolls to the next verification.
+- Keep district scoping visible because one login may need access to multiple districts.
+- Show uploaded files, renamed files, and class counts in one inventory.
+- Keep original filenames visible because duplicates happen frequently.
+- Show raw submitted dollars from invoices and pay applications.
+- Make the create-package flow reviewable, not overconfident.
+- Keep the internal drafting and approval split, but simplify the visual density.
 
-Transcript anchors used for planning:
+Transcript-backed planning anchors:
 
-- Intake portal ask: around line 245
-- Multi-district routing: around line 303
-- Status visibility and document access: around line 319
-- Phase 3 deferred: around line 461
-- PE-license trust requirement: around line 557
+- Tim liked the client operations page: around `00:04:27–00:04:40`
+- Verification-specific workflow: around `00:05:52–00:07:28`
+- Cutoff and schedule awareness: around `00:10:42` and `00:14:05`
+- Monthly recurring case: around `00:16:25`
+- Upload inventory, renamed docs, and class counts: around `00:17:29`
+- Submitted dollar visibility: around `00:21:23`
+- Drafting screen feels busy: around `00:24:19–00:24:42`
+- Original filenames matter for duplicates: around `00:25:31`
+- Create-package direction is good, but language should stay reviewable: around `00:37:48–00:38:50`
+- Contract-to-lien-waiver chain is important and a graphic would help: around `00:40:06–00:54:55`
+- Best first deliverable is drag/drop, rename, and inventory: around `00:56:44–00:57:42`
+- Focus on client operations first: around `01:00:56–01:01:07`
+- A lot can be pared down: around `01:01:28–01:01:44`
 
 How those details map into this repo:
 
-- Two client-facing mockups focus on intake, routing, and status visibility.
-- Two internal workflow roles show how the governed package is prepared and approved.
-- Document access in the current mock is modeled through Egnyte custody language because the SG DREAM governance materials use repository/custody framing rather than pure upload tooling language.
-- The internal story is intentionally split:
-  - drafting prepares the governed package
-  - approval changes authority state
+- `/` is the main deliverable surface.
+- `/create-package` is the first-mile workflow feeding that dashboard.
+- `/review-workbench` stays the drafting capability required by the SG DREAM governance model.
+- `/review-console` stays the approval capability required by the SG DREAM governance model.

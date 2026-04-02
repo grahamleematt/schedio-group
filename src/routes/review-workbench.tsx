@@ -8,54 +8,45 @@ import {
   FolderKanban,
   Link2,
   ScrollText,
-  ShieldCheck,
   Sparkles,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { MockupShell } from '#/components/mockup-shell'
 import { PdfPreviewPanel } from '#/components/pdf-preview-panel'
 import { StatusBadge } from '#/components/status-badge'
+import { WorkflowStageStrip } from '#/components/workflow-stage-strip'
 import { Button, buttonVariants } from '#/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '#/components/ui/dialog'
-import { ScrollArea } from '#/components/ui/scroll-area'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import {
   getCustodyStateLabel,
   getDeterminationMethodLabel,
+  getDistrict,
   getDocumentById,
   getEvidenceMaturityStageLabel,
   getExceptionFlagLabel,
   getManifestStateLabel,
   getRelationshipLabel,
+  getReviewFieldConfirmations,
   getReviewItemById,
-  getReviewItemsByDistrict,
   getUserCapabilityLabel,
-  getDistrict,
+  reviewItems,
 } from '#/lib/mock-data'
 import type { DocumentRecord, ReviewItem } from '#/lib/mock-data'
 import { cn } from '#/lib/utils'
 
-const districtId = 'sterling-cab'
-const openQueue = getReviewItemsByDistrict(districtId).filter(
-  (item) => item.status !== 'Published',
-)
+const openQueue = reviewItems
 const draftingQueue = openQueue.filter((item) => item.capability === 'drafting')
 const defaultReview =
-  draftingQueue.find((item) => item.id === 'review-payapp-pages-20') ||
+  draftingQueue.find((item) => item.id === 'review-jds-3645-rollover') ||
   draftingQueue[0] ||
   openQueue[0]
 const defaultReviewId = defaultReview.id
 
 const activity = [
-  'Pay application variant remains in drafting until its support relationship is attached and rationale is complete.',
-  'Duplicate Sunflower invoice has already crossed into approval because the analyst recommendation is fully drafted.',
-  'Malformed McDonal amount is still a drafting problem, not an approval problem.',
-  'AGW placeholder contract continues to inform downstream task orders while the source meaning is normalized.',
+  'Verification 17 rollover is waiting on support confirmation.',
+  'Atwell kickoff package is still drafting the setup rationale.',
+  'Metro finance package is blocked by a support gap.',
+  'Sunflower duplicate is already in the approval queue.',
 ]
 
 export const Route = createFileRoute('/review-workbench')({
@@ -72,9 +63,7 @@ function ReviewWorkbenchPage() {
   const { reviewId } = Route.useSearch()
   const focusedReview =
     getReviewItemById(reviewId ?? defaultReviewId) ?? defaultReview
-  const focusedDocument = getDocumentById(focusedReview.recordId)
   const focusedDistrict = getDistrict(focusedReview.districtId)
-  const isApprovalHandoff = focusedReview.capability === 'approval'
   const draftingCount = draftingQueue.length
   const evidenceGapCount = draftingQueue.filter((item) =>
     item.exceptionFlags.includes('missing_support'),
@@ -87,109 +76,48 @@ function ReviewWorkbenchPage() {
     {
       label: 'Draft packages',
       value: String(draftingCount),
-      note: 'These items still need analyst drafting before authority can change anywhere else in SG DREAM.',
+      helper: 'Waiting on analyst drafting',
     },
     {
       label: 'Evidence gaps',
       value: String(evidenceGapCount),
-      note: 'Support relationships, package completeness, and source hierarchy remain the first drafting concern.',
+      helper: 'Missing linked support',
     },
     {
       label: 'Reviewed drafts',
       value: String(reviewedDrafts),
-      note: 'These packages are close to handoff because the rationale and manifest work are already in reviewed state.',
+      helper: 'Ready for approval handoff',
     },
     {
       label: 'Focused method',
       value: getDeterminationMethodLabel(focusedReview.determinationMethod),
-      note: 'The active drafting problem is framed through the SG DREAM determination method selected for this record.',
+      helper: 'Active determination method',
     },
   ]
 
   return (
     <MockupShell
-      tone="operations"
-      meta={`${focusedDistrict.name} • analyst drafting workspace`}
+      tone="review"
+      meta={`${focusedDistrict.name} • drafting capability`}
       title="Drafting workbench"
-      description="Inspect source evidence, draft meaning through manifests and rationale, and prepare the engineering position before it reaches approval authority."
-      actions={
-        <>
-          <Button className="rounded-full bg-primary px-5 text-primary-foreground hover:bg-primary-hover">
-            {isApprovalHandoff
-              ? 'Update draft rationale'
-              : 'Save draft rationale'}
-          </Button>
-          {isApprovalHandoff ? (
-            <Button
-              asChild
-              variant="outline"
-              className="rounded-full border-border-base bg-surface-panel text-text-strong"
-            >
-              <Link
-                to="/review-console"
-                search={{ reviewId: focusedReview.id }}
-                resetScroll={false}
-              >
-                Return to approval
-              </Link>
-            </Button>
-          ) : (
-            <Button
-              variant="outline"
-              className="rounded-full border-border-base bg-surface-panel text-text-strong"
-            >
-              Submit to approval
-            </Button>
-          )}
-        </>
-      }
-      aside={
-        <div className="space-y-4">
-          <div className="rounded-2xl border border-border-strong bg-surface-panel px-4 py-4">
-            <p className="ops-label text-text-accent">Active role</p>
-            <div className="mt-2">
-              <StatusBadge
-                label={getUserCapabilityLabel(focusedReview.capability)}
-              />
-            </div>
-            <p className="mt-3 text-sm text-text-muted">
-              Drafting prepares meaning, rationale, and manifests. Approval
-              happens on the next screen.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-1">
-            <div className="rounded-xl border border-border-strong bg-surface-muted px-3 py-3">
-              <p className="ops-label text-text-accent">Document manifest</p>
-              <p className="mt-2 font-ops text-sm font-medium text-text-strong">
-                {getManifestStateLabel(focusedReview.documentManifestState)}
-              </p>
-            </div>
-            <div className="rounded-xl border border-border-strong bg-surface-muted px-3 py-3">
-              <p className="ops-label text-text-accent">Run manifest</p>
-              <p className="mt-2 font-ops text-sm font-medium text-text-strong">
-                {getManifestStateLabel(focusedReview.runManifestState)}
-              </p>
-            </div>
-          </div>
-        </div>
-      }
     >
-      <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-border-base border border-border-strong rounded-2xl mb-6 bg-surface-panel overflow-hidden">
+      <WorkflowStageStrip stage="drafting" />
+
+      <section className="mb-5 grid grid-cols-1 divide-y overflow-hidden rounded-2xl border border-border-strong bg-surface-panel sm:grid-cols-2 sm:divide-x sm:divide-y-0 xl:grid-cols-4">
         {metrics.map((metric) => (
-          <div key={metric.label} className="p-4 sm:p-5">
+          <div key={metric.label} className="p-4">
             <p className="ops-label text-text-muted mb-2">{metric.label}</p>
-            <p className="font-ops text-[2rem] font-semibold text-text-strong leading-none tracking-tight mb-2">
+            <p className="font-ops text-[2rem] font-semibold leading-none tracking-tight text-text-strong mb-2">
               {metric.value}
             </p>
-            <p className="text-xs leading-5 text-text-base">{metric.note}</p>
+            <p className="text-xs text-text-muted">{metric.helper}</p>
           </div>
         ))}
       </section>
 
-      <div className="flex flex-col xl:flex-row border border-border-strong rounded-2xl overflow-hidden bg-surface-panel shadow-sm min-h-[800px]">
-        {/* Left Pane: Queue */}
-        <div className="w-full xl:w-[340px] shrink-0 flex flex-col border-b xl:border-b-0 xl:border-r border-border-base bg-surface-muted/30">
-          <div className="px-4 py-3 border-b border-border-base flex items-center justify-between">
+      <div className="grid min-h-[760px] grid-cols-1 overflow-hidden rounded-2xl border border-border-strong bg-surface-panel shadow-sm xl:grid-cols-[340px_minmax(0,1fr)]">
+        <div className="flex flex-col border-b border-border-base bg-surface-muted/30 xl:border-r xl:border-b-0">
+          <div className="flex items-center justify-between border-b border-border-base px-4 py-3">
             <h2 className="font-ops text-sm font-semibold text-text-strong">
               Drafting queue
             </h2>
@@ -201,6 +129,7 @@ function ReviewWorkbenchPage() {
             <div className="flex flex-col divide-y divide-border-base">
               {draftingQueue.map((item) => {
                 const record = getDocumentById(item.recordId)
+                const itemDistrict = getDistrict(item.districtId)
                 const isFocused = item.id === focusedReview.id
 
                 return (
@@ -212,7 +141,7 @@ function ReviewWorkbenchPage() {
                     className={cn(
                       'block no-underline px-4 py-4 transition-colors',
                       isFocused
-                        ? 'bg-surface-hover relative before:absolute before:inset-y-0 before:left-0 before:w-1 before:bg-primary'
+                        ? 'relative bg-surface-hover before:absolute before:inset-y-0 before:left-0 before:w-1 before:bg-primary'
                         : 'hover:bg-surface-subtle',
                     )}
                   >
@@ -226,8 +155,8 @@ function ReviewWorkbenchPage() {
                         >
                           {record?.organizedName}
                         </p>
-                        <p className="font-mono text-[0.7rem] text-text-muted truncate">
-                          {record?.originalName}
+                        <p className="font-mono text-[0.7rem] truncate text-text-muted">
+                          {itemDistrict.name} • {record?.originalName}
                         </p>
                       </div>
                     </div>
@@ -247,88 +176,15 @@ function ReviewWorkbenchPage() {
           </div>
         </div>
 
-        {/* Center Pane: Workbench Detail */}
-        <div className="flex-1 min-w-0 flex flex-col border-b xl:border-b-0 xl:border-r border-border-base bg-surface-panel">
+        <div className="min-w-0 bg-surface-panel">
           <WorkbenchDetail
             key={focusedReview.id}
             focusedReview={focusedReview}
-            focusedDocument={focusedDocument}
+            focusedDocument={getDocumentById(focusedReview.recordId)}
             inDraftingQueue={draftingQueue.some(
               (item) => item.id === focusedReview.id,
             )}
           />
-        </div>
-
-        {/* Right Pane: Activity & Tools */}
-        <div className="w-full xl:w-[320px] shrink-0 flex flex-col bg-surface-subtle/20">
-          <div className="px-4 py-3 border-b border-border-base flex items-center justify-between">
-            <h2 className="font-ops text-sm font-semibold text-text-strong">
-              Governance tracking
-            </h2>
-          </div>
-          <div className="flex-1 overflow-y-auto">
-            <div className="p-5 space-y-8">
-              <div>
-                <p className="ops-label text-text-accent mb-4">
-                  Drafting activity
-                </p>
-                <div className="space-y-4">
-                  {activity.map((entry) => (
-                    <div
-                      key={entry}
-                      className="pb-4 border-b border-border-base last:border-b-0 last:pb-0 font-ops text-sm leading-6 text-text-base"
-                    >
-                      {entry}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <p className="ops-label text-text-accent mb-4">
-                  Governance posture
-                </p>
-                <div className="space-y-4">
-                  {[
-                    {
-                      icon: FolderKanban,
-                      title: 'Meaning lives in manifests',
-                      copy: 'The analyst does not alter source custody. Drafting attaches meaning through document and run manifests.',
-                    },
-                    {
-                      icon: Link2,
-                      title: 'Evidence hierarchy first',
-                      copy: 'Drafting records the evidence hierarchy used so approval can see exactly what justified the position.',
-                    },
-                    {
-                      icon: ShieldCheck,
-                      title: 'Approval is separate',
-                      copy: 'This workspace prepares the package. Authority changes only after the approval console signs off.',
-                    },
-                  ].map((item) => {
-                    const Icon = item.icon
-
-                    return (
-                      <div
-                        key={item.title}
-                        className="pb-4 border-b border-border-base last:border-b-0 last:pb-0"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Icon className="size-4 text-text-accent" />
-                          <p className="font-ops text-sm font-semibold text-text-strong">
-                            {item.title}
-                          </p>
-                        </div>
-                        <p className="mt-2 text-sm leading-6 text-text-base">
-                          {item.copy}
-                        </p>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </MockupShell>
@@ -349,13 +205,9 @@ function WorkbenchDetail({
   )
   const previewDocument = getDocumentById(previewRecordId) ?? focusedDocument
   const isApprovalHandoff = focusedReview.capability === 'approval'
+  const fieldConfirmations = getReviewFieldConfirmations(focusedReview.id)
 
   const fieldRows = [
-    [
-      'Document manifest',
-      getManifestStateLabel(focusedReview.documentManifestState),
-    ],
-    ['Run manifest', getManifestStateLabel(focusedReview.runManifestState)],
     [
       'Determination method',
       getDeterminationMethodLabel(focusedReview.determinationMethod),
@@ -364,14 +216,15 @@ function WorkbenchDetail({
       'Evidence maturity',
       getEvidenceMaturityStageLabel(focusedReview.evidenceMaturityStage),
     ],
+    ['Open flags', String(focusedReview.exceptionFlags.length)],
   ]
 
   return (
-    <div className="flex flex-col h-full bg-surface-panel">
-          <div className="px-4 py-3 border-b border-border-base bg-surface-panel flex items-center justify-between">
-            <h2 className="font-ops text-sm font-semibold text-text-strong">
-              Draft package
-            </h2>
+    <div className="flex h-full min-w-0 flex-col bg-surface-panel">
+      <div className="flex items-center justify-between border-b border-border-base bg-surface-panel px-4 py-3">
+        <h2 className="font-ops text-sm font-semibold text-text-strong">
+          Drafting canvas
+        </h2>
         <div className="flex flex-wrap gap-2">
           <StatusBadge
             label={getUserCapabilityLabel(focusedReview.capability)}
@@ -381,315 +234,409 @@ function WorkbenchDetail({
               focusedReview.evidenceMaturityStage,
             )}
           />
+          <StatusBadge label={focusedReview.status} />
         </div>
       </div>
+
       <div className="flex-1 overflow-y-auto">
-        <div className="p-5 xl:p-6 flex flex-col gap-8">
-          <div className="space-y-8 flex flex-col min-w-0">
-            {!inDraftingQueue ? (
-              <div className="rounded-[1.35rem] border border-border-strong bg-surface-subtle px-4 py-4">
-                <p className="ops-label text-text-accent">Approval handoff</p>
+        <div className="flex flex-col gap-6 p-5 xl:p-6">
+          <div className="grid gap-6 2xl:grid-cols-[minmax(0,1.32fr)_360px]">
+            <PdfPreviewPanel
+              title={
+                previewDocument?.id === focusedDocument?.id
+                  ? 'Source record'
+                  : 'Linked record'
+              }
+              description={
+                previewDocument?.id === focusedDocument?.id
+                  ? 'Original file for this draft.'
+                  : 'Related file for comparison.'
+              }
+              document={previewDocument}
+              maxWidth={980}
+              allowReset
+              tone="light"
+              actions={
+                previewDocument?.id !== focusedDocument?.id ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-8 rounded-full border-border-base bg-surface-panel px-4 text-xs text-text-strong"
+                    onClick={() =>
+                      setPreviewRecordId(focusedDocument?.id ?? '')
+                    }
+                  >
+                    Return to source record
+                  </Button>
+                ) : undefined
+              }
+            />
+
+            <div className="workflow-panel-drafting space-y-4 rounded-3xl border px-4 py-4">
+              {!inDraftingQueue ? (
+                <div className="rounded-[1.15rem] border border-border-strong bg-surface-panel px-4 py-4">
+                  <p className="ops-label text-text-accent">Approval handoff</p>
+                  <p className="mt-2 text-sm text-text-base">
+                    This draft is already in approval review.
+                  </p>
+                </div>
+              ) : null}
+
+              <div>
+                <p className="ops-label text-text-accent">
+                  Packet under assembly
+                </p>
+                <p className="mt-2 text-lg font-semibold text-text-strong">
+                  {focusedDocument?.organizedName ?? 'Selected record'}
+                </p>
                 <p className="mt-2 text-sm leading-6 text-text-base">
-                  This package has already left the active drafting queue. You
-                  are viewing the prepared draft that approval is evaluating so
-                  the full rationale and evidence package remain traceable.
+                  {focusedReview.reason}
                 </p>
               </div>
-            ) : null}
 
-            <Dialog>
-              <PdfPreviewPanel
-                title={
-                  previewDocument?.id === focusedDocument?.id
-                    ? 'Source evidence preview'
-                    : 'Related evidence preview'
-                }
-                description={
-                  previewDocument?.id === focusedDocument?.id
-                    ? 'Click to preview the source artifact while drafting meaning, rationale, and package structure.'
-                    : 'Click to preview a linked artifact so you can compare relationships.'
-                }
-                document={previewDocument}
-                maxWidth={680}
-                allowReset
-                tone="light"
-                hideViewer
-                actions={
-                  <DialogTrigger asChild>
-                    <Button className="h-8 rounded-full bg-primary px-4 text-xs text-primary-foreground hover:bg-primary-hover">
-                      Preview document
-                    </Button>
-                  </DialogTrigger>
-                }
-              />
-              <DialogContent className="max-w-[75vw] sm:max-w-[75vw] w-[75vw] h-[90vh] p-0 border-border-strong bg-surface-panel flex flex-col gap-0 rounded-2xl overflow-hidden [&>button]:right-4 [&>button]:top-4 [&>button]:text-text-muted [&>button]:opacity-100 hover:[&>button]:text-text-strong">
-                <DialogHeader className="px-6 py-4 border-b border-border-base bg-surface-panel shrink-0 flex flex-row items-center justify-between">
-                  <div>
-                    <DialogTitle className="font-ops text-lg text-text-strong">
-                      {previewDocument?.id === focusedDocument?.id
-                        ? 'Source Evidence Preview'
-                        : 'Related Evidence Preview'}
-                    </DialogTitle>
-                    <DialogDescription className="text-text-muted">
-                      Reviewing {previewDocument?.originalName ?? 'document'}
-                    </DialogDescription>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {fieldRows.map(([label, value]) => (
+                  <div key={label} className="space-y-1">
+                    <p className="ops-label text-text-accent">{label}</p>
+                    <p className="text-sm font-semibold text-text-strong">
+                      {value}
+                    </p>
                   </div>
-                  {previewDocument?.id !== focusedDocument?.id && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="rounded-full border-border-base bg-surface-panel text-text-strong mr-8"
-                      onClick={() =>
-                        setPreviewRecordId(focusedDocument?.id ?? '')
-                      }
-                    >
-                      Return to selected record
-                    </Button>
-                  )}
-                </DialogHeader>
-                <div className="flex-1 min-h-0 bg-surface-muted overflow-y-auto p-6">
-                  <PdfPreviewPanel
-                    title={
-                      previewDocument?.id === focusedDocument?.id
-                        ? 'Source evidence preview'
-                        : 'Related evidence preview'
-                    }
-                    description="Detailed view of the artifact."
-                    document={previewDocument}
-                    maxWidth={3000}
-                    allowReset
-                    tone="light"
-                  />
-                </div>
-              </DialogContent>
-            </Dialog>
-
-            <div>
-              <p className="ops-label text-text-accent mb-4">Draft rationale</p>
-              <div className="space-y-4">
-                <DraftField
-                  label="Summary"
-                  value={focusedReview.rationale.summary}
-                />
-                <DraftField
-                  label="Source basis"
-                  value={focusedReview.rationale.sourceBasis}
-                />
-                <DraftField
-                  label="Reason for change"
-                  value={focusedReview.rationale.changeReason}
-                />
+                ))}
               </div>
-              <div className="mt-4">
+
+              <div className="flex flex-wrap gap-2">
                 <StatusBadge
                   label={getManifestStateLabel(
                     focusedReview.rationale.approvalStatus,
                   )}
                 />
+                <span className="rounded-full border border-border-base bg-surface-panel px-3 py-1 text-[0.72rem] font-semibold text-text-strong">
+                  {Math.round(focusedReview.confidence * 100)}% confidence
+                </span>
               </div>
             </div>
+          </div>
 
-            <div className="rounded-3xl border border-border-strong bg-surface-subtle px-4 py-4">
-              <p className="ops-label text-text-accent">
-                Evidence hierarchy used
-              </p>
-              <div className="mt-4 space-y-4">
-                {focusedReview.evidenceHierarchy.map((entry, index) => (
-                  <div key={entry} className="space-y-1">
-                    <p className="font-ops text-xs font-semibold uppercase tracking-[0.12em] text-text-muted">
-                      Source {index + 1}
-                    </p>
-                    <p className="text-sm leading-6 text-text-strong">
-                      {entry}
-                    </p>
+          <Tabs defaultValue="rationale" className="w-full">
+            <TabsList className="workflow-tabs-drafting grid h-auto w-full grid-cols-2 rounded-full p-1 lg:grid-cols-4">
+              <TabsTrigger value="rationale" className="rounded-full text-xs">
+                Rationale
+              </TabsTrigger>
+              <TabsTrigger value="evidence" className="rounded-full text-xs">
+                Evidence
+              </TabsTrigger>
+              <TabsTrigger
+                value="confirmation"
+                className="rounded-full text-xs"
+              >
+                Confirmation
+              </TabsTrigger>
+              <TabsTrigger value="governance" className="rounded-full text-xs">
+                Governance
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="rationale" className="pt-5">
+              <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_320px]">
+                <div className="rounded-3xl border border-border-strong bg-surface-panel px-4 py-4">
+                  <p className="ops-label text-text-accent mb-4">
+                    Draft rationale
+                  </p>
+                  <div className="space-y-4">
+                    <DraftField
+                      label="Summary"
+                      value={focusedReview.rationale.summary}
+                    />
+                    <DraftField
+                      label="Source basis"
+                      value={focusedReview.rationale.sourceBasis}
+                    />
+                    <DraftField
+                      label="Reason for change"
+                      value={focusedReview.rationale.changeReason}
+                    />
                   </div>
-                ))}
+                </div>
+
+                <div className="workflow-panel-drafting rounded-3xl border px-4 py-4">
+                  <p className="ops-label text-text-accent mb-4">
+                    Drafting notes
+                  </p>
+                  <div className="space-y-3">
+                    {focusedReview.notes.map((note) => (
+                      <p
+                        key={note}
+                        className="text-sm leading-6 text-text-base"
+                      >
+                        {note}
+                      </p>
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
+            </TabsContent>
 
-            <div>
-              <p className="ops-label text-text-accent mb-4">Related records</p>
-              <div className="space-y-4">
-                {focusedDocument?.linkedRecords.length ? (
-                  focusedDocument.linkedRecords.map((linkedRecord) => {
-                    const relatedDocument = getDocumentById(
-                      linkedRecord.recordId,
-                    )
-
-                    return (
-                      <div key={linkedRecord.recordId} className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <Link2 className="size-4 text-text-accent" />
-                          <p className="font-ops text-sm font-semibold text-text-strong">
-                            {getRelationshipLabel(linkedRecord.relation)}
-                          </p>
-                        </div>
-                        <p className="text-sm font-semibold text-text-strong">
-                          {linkedRecord.label}
+            <TabsContent value="evidence" className="pt-5">
+              <div className="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+                <div className="workflow-panel-drafting rounded-3xl border px-4 py-4">
+                  <p className="ops-label text-text-accent">
+                    Evidence hierarchy used
+                  </p>
+                  <div className="mt-4 space-y-4">
+                    {focusedReview.evidenceHierarchy.map((entry, index) => (
+                      <div key={entry} className="space-y-1">
+                        <p className="font-ops text-xs font-semibold uppercase tracking-[0.12em] text-text-muted">
+                          Source {index + 1}
                         </p>
-                        <p className="text-sm leading-6 text-text-muted">
-                          {linkedRecord.status}
+                        <p className="text-sm leading-6 text-text-strong">
+                          {entry}
                         </p>
-                        {relatedDocument?.previewAsset ? (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="mt-2 rounded-full border-border-base bg-surface-panel text-text-strong"
-                            onClick={() =>
-                              setPreviewRecordId(relatedDocument.id)
-                            }
-                          >
-                            Preview related file
-                          </Button>
-                        ) : null}
                       </div>
-                    )
-                  })
-                ) : (
-                  <div className="space-y-2">
-                    <p className="font-ops text-sm font-semibold text-text-strong">
-                      Expected support chain not found
-                    </p>
-                    <p className="text-sm leading-6 text-text-muted">
-                      This governed package still needs one or more related
-                      records before the draft can advance to approval.
-                    </p>
+                    ))}
                   </div>
-                )}
-              </div>
-            </div>
+                </div>
 
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-              {fieldRows.map(([label, value]) => (
-                <div key={label} className="space-y-1">
-                  <p className="ops-label text-text-accent">{label}</p>
-                  <p className="text-sm font-semibold text-text-strong">
-                    {value}
+                <div className="rounded-3xl border border-border-strong bg-surface-panel px-4 py-4">
+                  <p className="ops-label text-text-accent mb-4">
+                    Related records
+                  </p>
+                  <div className="space-y-4">
+                    {focusedDocument?.linkedRecords.length ? (
+                      focusedDocument.linkedRecords.map((linkedRecord) => {
+                        const relatedDocument = getDocumentById(
+                          linkedRecord.recordId,
+                        )
+
+                        return (
+                          <div
+                            key={linkedRecord.recordId}
+                            className="rounded-[1.15rem] border border-border-base bg-surface-muted/80 px-4 py-4"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Link2 className="size-4 text-text-accent" />
+                              <p className="font-ops text-sm font-semibold text-text-strong">
+                                {getRelationshipLabel(linkedRecord.relation)}
+                              </p>
+                            </div>
+                            <p className="mt-3 text-sm font-semibold text-text-strong">
+                              {linkedRecord.label}
+                            </p>
+                            <p className="mt-2 text-sm leading-6 text-text-muted">
+                              {linkedRecord.status}
+                            </p>
+                            {relatedDocument?.previewAsset ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="mt-3 rounded-full border-border-base bg-surface-panel text-text-strong"
+                                onClick={() =>
+                                  setPreviewRecordId(relatedDocument.id)
+                                }
+                              >
+                                View linked record
+                              </Button>
+                            ) : null}
+                          </div>
+                        )
+                      })
+                    ) : (
+                      <div className="rounded-[1.15rem] border border-border-base bg-surface-muted px-4 py-4">
+                        <p className="font-ops text-sm font-semibold text-text-strong">
+                          Support chain not linked
+                        </p>
+                        <p className="mt-2 text-sm text-text-muted">
+                          One or more related records are still missing.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="confirmation" className="pt-5">
+              {fieldConfirmations.length > 0 ? (
+                <div className="workflow-panel-drafting rounded-3xl border px-4 py-4">
+                  <p className="ops-label text-text-accent">
+                    Field confirmation
+                  </p>
+                  <div className="mt-4 grid gap-4 xl:grid-cols-2">
+                    {fieldConfirmations.map((field) => (
+                      <div
+                        key={field.id}
+                        className="rounded-[1.15rem] border border-border-base bg-surface-panel px-4 py-4"
+                      >
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <p className="text-sm font-semibold text-text-strong">
+                              {field.label}
+                            </p>
+                            <p className="mt-1 text-sm text-text-base">
+                              {field.extractedValue}
+                            </p>
+                          </div>
+                          <StatusBadge label={field.status} />
+                        </div>
+                        <p className="mt-3 font-mono text-[0.72rem] text-text-muted">
+                          {field.sourceRegion}
+                        </p>
+                        <p className="mt-2 text-sm leading-6 text-text-muted">
+                          {field.note}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="workflow-panel-drafting rounded-3xl border px-4 py-5">
+                  <p className="font-ops text-sm font-semibold text-text-strong">
+                    No field confirmation required
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-text-muted">
+                    This draft can move forward without reviewer confirmation on
+                    extracted fields.
                   </p>
                 </div>
-              ))}
-            </div>
+              )}
+            </TabsContent>
 
-            <div>
-              <p className="ops-label text-text-accent mb-4">Drafting notes</p>
-              <div className="space-y-3">
-                {focusedReview.notes.map((note) => (
-                  <p key={note} className="text-sm leading-6 text-text-base">
-                    {note}
+            <TabsContent value="governance" className="pt-5">
+              <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+                <div className="rounded-3xl border border-border-strong bg-surface-panel px-4 py-4">
+                  <p className="ops-label text-text-accent mb-4">
+                    Drafting checklist
                   </p>
-                ))}
-              </div>
-            </div>
-          </div>
+                  <div className="space-y-4">
+                    {focusedReview.governanceChecks.map((check) => (
+                      <div key={check.id} className="flex items-start gap-3">
+                        {check.result === 'pass' ? (
+                          <CheckCircle2 className="mt-0.5 size-4 text-text-accent" />
+                        ) : (
+                          <CircleAlert className="mt-0.5 size-4 text-status-warning-text" />
+                        )}
+                        <div>
+                          <p className="text-sm font-semibold text-text-strong">
+                            {check.label}
+                          </p>
+                          <p className="mt-1 text-sm leading-6 text-text-muted">
+                            {check.note}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
 
-          <div className="space-y-8 pt-6 border-t border-border-base">
-            <div>
-              <p className="ops-label text-text-accent mb-4">
-                Drafting checklist
-              </p>
-              <div className="space-y-4">
-                {focusedReview.governanceChecks.map((check) => (
-                  <div key={check.id} className="flex items-start gap-3">
-                    {check.result === 'pass' ? (
-                      <CheckCircle2 className="mt-0.5 size-4 text-text-accent" />
-                    ) : (
-                      <CircleAlert className="mt-0.5 size-4 text-status-warning-text" />
-                    )}
-                    <div>
-                      <p className="text-sm font-semibold text-text-strong">
-                        {check.label}
-                      </p>
-                      <p className="mt-1 text-sm leading-6 text-text-muted">
-                        {check.note}
-                      </p>
+                <div className="space-y-6">
+                  <div className="workflow-panel-drafting rounded-3xl border px-4 py-4">
+                    <p className="ops-label text-text-accent mb-4">
+                      Package status
+                    </p>
+                    <div className="space-y-0">
+                      <ReadinessCard
+                        icon={ScrollText}
+                        title="Document manifest"
+                        copy={getManifestStateLabel(
+                          focusedReview.documentManifestState,
+                        )}
+                      />
+                      <ReadinessCard
+                        icon={FolderKanban}
+                        title="Run manifest"
+                        copy={getManifestStateLabel(
+                          focusedReview.runManifestState,
+                        )}
+                      />
+                      <ReadinessCard
+                        icon={FileSearch}
+                        title="Target custody state"
+                        copy={getCustodyStateLabel(
+                          focusedReview.targetCustodyState,
+                        )}
+                      />
+                      <ReadinessCard
+                        icon={Sparkles}
+                        title="Active flags"
+                        copy={
+                          focusedReview.exceptionFlags.length
+                            ? focusedReview.exceptionFlags
+                                .map((flag) => getExceptionFlagLabel(flag))
+                                .join(' • ')
+                            : 'No active exception flags'
+                        }
+                      />
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
 
-            <div>
-              <p className="ops-label text-text-accent mb-4">
-                Draft package status
-              </p>
-              <div className="space-y-0">
-                <ReadinessCard
-                  icon={ScrollText}
-                  title="Document manifest"
-                  copy={getManifestStateLabel(
-                    focusedReview.documentManifestState,
-                  )}
-                />
-                <ReadinessCard
-                  icon={FolderKanban}
-                  title="Run manifest"
-                  copy={getManifestStateLabel(focusedReview.runManifestState)}
-                />
-                <ReadinessCard
-                  icon={FileSearch}
-                  title="Target custody state"
-                  copy={getCustodyStateLabel(focusedReview.targetCustodyState)}
-                />
-                <ReadinessCard
-                  icon={Sparkles}
-                  title="Active flags"
-                  copy={
-                    focusedReview.exceptionFlags.length
-                      ? focusedReview.exceptionFlags
-                          .map((flag) => getExceptionFlagLabel(flag))
-                          .join(' • ')
-                      : 'No active exception flags'
-                  }
-                />
+                  <div className="workflow-panel-drafting rounded-3xl border px-4 py-4">
+                    <p className="ops-label text-text-accent mb-4">
+                      Queue watch
+                    </p>
+                    <div className="space-y-4">
+                      {activity.map((entry) => (
+                        <div
+                          key={entry}
+                          className="border-b border-border-base pb-3 font-ops text-sm text-text-base last:border-b-0 last:pb-0"
+                        >
+                          {entry}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
+            </TabsContent>
+          </Tabs>
+        </div>
+      </div>
 
-            <div>
-              <p className="ops-label text-text-accent mb-4">Actions</p>
-              <div className="grid gap-3">
-                <Button className="rounded-full bg-primary text-primary-foreground hover:bg-primary-hover">
-                  {isApprovalHandoff
-                    ? 'Update draft rationale'
-                    : 'Save draft rationale'}
-                </Button>
-                {isApprovalHandoff ? (
-                  <Button
-                    asChild
-                    variant="outline"
-                    className="rounded-full border-border-base bg-surface-panel text-text-strong"
-                  >
-                    <Link
-                      to="/review-console"
-                      search={{ reviewId: focusedReview.id }}
-                      resetScroll={false}
-                    >
-                      Return to approval
-                    </Link>
-                  </Button>
-                ) : (
-                  <Button
-                    variant="outline"
-                    className="rounded-full border-border-base bg-surface-panel text-text-strong"
-                  >
-                    Submit to approval
-                  </Button>
-                )}
-                <a
-                  href={focusedDocument?.igniteUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className={cn(
-                    buttonVariants({ variant: 'outline' }),
-                    'rounded-full border-border-base bg-surface-panel text-text-strong no-underline',
-                  )}
-                >
-                  Open in Egnyte
-                  <ArrowUpRight className="size-4" />
-                </a>
-              </div>
-            </div>
-          </div>
+      <div className="workflow-action-bar-drafting border-t px-5 py-4 xl:px-6">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Button className="rounded-full bg-primary text-primary-foreground hover:bg-primary-hover">
+            {isApprovalHandoff
+              ? 'Update draft rationale'
+              : 'Save draft rationale'}
+          </Button>
+          {isApprovalHandoff ? (
+            <Button
+              asChild
+              variant="outline"
+              className="rounded-full border-border-base bg-surface-panel text-text-strong"
+            >
+              <Link
+                to="/review-console"
+                search={{
+                  reviewId: focusedReview.id,
+                  q: undefined,
+                  districtId: undefined,
+                }}
+                resetScroll={false}
+              >
+                Return to approval
+              </Link>
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              className="rounded-full border-border-base bg-surface-panel text-text-strong"
+            >
+              Submit to approval
+            </Button>
+          )}
+          <a
+            href={focusedDocument?.igniteUrl}
+            target="_blank"
+            rel="noreferrer"
+            className={cn(
+              buttonVariants({ variant: 'outline' }),
+              'rounded-full border-border-base bg-surface-panel text-text-strong no-underline',
+            )}
+          >
+            Open in Egnyte
+            <ArrowUpRight className="size-4" />
+          </a>
         </div>
       </div>
     </div>
@@ -710,12 +657,12 @@ function ReadinessCard({
   title,
   copy,
 }: {
-  icon: typeof ShieldCheck
+  icon: LucideIcon
   title: string
   copy: string
 }) {
   return (
-    <div className="space-y-2 py-3 border-b border-border-base last:border-b-0 last:pb-0">
+    <div className="space-y-2 border-b border-border-base py-3 last:border-b-0 last:pb-0">
       <div className="flex items-center gap-2">
         <Icon className="size-4 text-text-accent" />
         <p className="font-ops text-sm font-semibold text-text-strong">

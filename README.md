@@ -1,15 +1,13 @@
 # Schedio Group AI
 
-Mockup-first TanStack Start workspace for the March 30 follow-up with Tim. This repo packages SG DREAM through four coordinated views:
+Static TanStack Start mock for the next Schedio pass. The app is structured like a product and backed by curated SG DREAM scenario packs, not a concept gallery:
 
-- `/portal-trust`
-- `/portal-operations`
-- `/review-workbench`
-- `/review-console`
+- `/` client operations dashboard
+- `/create-package` intake task flow launched from the dashboard
+- `/review-workbench` internal drafting workspace
+- `/review-console` internal approval console
 
-The client-facing routes also launch a shared task flow at `/create-package`, which models how a package enters SG DREAM custody from either client concept.
-
-The app is intentionally static and typed in v1. There is no backend, no real auth, and no live upload or repository integration yet.
+The client-facing focus of this pass is the dashboard plus create-package flow. The internal routes remain structurally essential because SG DREAM requires drafting and approval to stay separate capabilities.
 
 ## Commands
 
@@ -23,12 +21,22 @@ yarn test
 
 ## Route Map
 
-- `/` grouped concepts page for the four SG DREAM views
-- `/portal-trust` calm client custody and intake concept
-- `/portal-operations` denser client operations transparency concept
-- `/create-package` shared 4-step client task flow launched from the two client portals
-- `/review-workbench` analyst drafting workspace
-- `/review-console` governance and approval console
+- `/` verification-first client operations dashboard with login-driven district switching, package selection, custody pipeline, and inventory
+- `/create-package` 4-step intake flow with `monthly` and `setup` package modes
+- `/review-workbench` analyst drafting workspace with PDF preview, manifests, rationale, and field confirmation
+- `/review-console` engineer approval console with authority transitions, blocked packages, duplicates, and archive history
+
+## Scenario Coverage
+
+The current mock is built around five archive-backed workflow paths:
+
+- CAB monthly close with a complete contract -> task order -> change order -> invoice -> proof chain
+- CAB late rollover into the next verification
+- CAB contract kickoff / setup intake
+- Metro finance package with a support gap
+- MD4 archived read-only package
+
+See [docs/scenario-matrix.md](./docs/scenario-matrix.md) for the exact file map, preview assets, and route usage.
 
 ## Stack
 
@@ -40,28 +48,30 @@ yarn test
 
 ## Design Notes
 
-- Brand palette comes from Schedio Group’s site and logo.
-- Typography follows `Open Sans` for headings and `Libre Franklin` for body copy.
-- Visual tone should feel trustworthy, operational, and engineering-grade.
-- The concepts are framed as two client-facing views and two internal governance roles.
-- Repository and custody language is modeled as `Egnyte`, with SG DREAM attaching manifests, linked evidence, and governed determination state around preserved source records.
+- Palette, surfaces, and semantic colors come from `src/styles.css`.
+- Typography: `Open Sans` for major headings, `IBM Plex Sans` for dense operational UI, `IBM Plex Mono` for metadata, `Libre Franklin` for body text.
+- Dashboard uses modular sectioned panels (stats bar, custody pipeline, package selector, package detail, inventory). Internal routes use a 2-pane detail layout with PDF preview and fullscreen modal.
+- The main UI story is verification, cutoff, upload inventory, renamed files, submitted amount, and relationship-chain visibility.
+- Login switching drives district and verification context across the dashboard.
 
 ## Docs
 
 - [docs/meeting-confirmed-details.md](./docs/meeting-confirmed-details.md)
 - [docs/brand-system.md](./docs/brand-system.md)
 - [docs/mockup-brief.md](./docs/mockup-brief.md)
+- [docs/scenario-matrix.md](./docs/scenario-matrix.md)
 - [docs/agent-instruction-map.md](./docs/agent-instruction-map.md)
 
 ## Source Of Truth
 
 Use this order when orienting a new agent in the repo:
 
-1. `README.md` for the current repo shape, route map, and agent entrypoints.
+1. `README.md` for the current route map and repo shape.
 2. `docs/mockup-brief.md` for what each route is trying to prove.
-3. `docs/brand-system.md` for tone, palette, and route personality.
-4. `docs/meeting-confirmed-details.md` for transcript-backed business context.
-5. `./.cursor/rules/director.mdc` as the canonical instruction entrypoint.
+3. `docs/scenario-matrix.md` for the archive-backed scenario map.
+4. `docs/meeting-confirmed-details.md` for transcript-backed product direction.
+5. `docs/brand-system.md` for palette, typography, and route personality.
+6. `./.cursor/rules/director.mdc` as the canonical instruction entrypoint.
 
 If instruction files disagree, `.cursor` is canonical and `.claude` / `.codex` are mirrors.
 

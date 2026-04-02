@@ -11,7 +11,6 @@
 
   /* BASE TOKENS (Brand Palette) */
   --color-brand-blue: #003da6;
-  --color-brand-ink: #231f20;
   --color-brand-slate: #292e34;
   --color-brand-text: #333333;
   --color-brand-surface: #f2f2f2;
@@ -45,6 +44,16 @@
   );
   --color-primary-soft: rgba(0, 61, 166, 0.08);
   --color-primary-softer: rgba(0, 61, 166, 0.04);
+
+  --color-stage-drafting-bg: rgba(0, 61, 166, 0.08);
+  --color-stage-drafting-soft: rgba(0, 61, 166, 0.045);
+  --color-stage-drafting-border: rgba(0, 61, 166, 0.18);
+  --color-stage-drafting-text: var(--color-brand-blue);
+
+  --color-stage-approval-bg: rgba(41, 46, 52, 0.07);
+  --color-stage-approval-soft: rgba(41, 46, 52, 0.045);
+  --color-stage-approval-border: rgba(41, 46, 52, 0.18);
+  --color-stage-approval-text: var(--color-brand-slate);
 
   --color-status-success-bg: rgba(0, 61, 166, 0.06);
   --color-status-success-text: var(--color-brand-blue);
@@ -86,37 +95,6 @@
     --brand-grid: rgba(0, 61, 166, 0.06);
   }
 
-  .theme-review {
-    --color-surface-base: #1c2128; /* Solid dark base */
-    --color-surface-panel: #22272e; /* Solid dark panel */
-    --color-surface-raised: #2d333b;
-    --color-surface-muted: #2d333b;
-    --color-surface-subtle: #22272e;
-    --color-surface-hover: #373e47;
-    --color-surface-active: #444c56;
-
-    --color-border-base: #444c56;
-    --color-border-strong: #535c68;
-    --color-border-focus: #768390;
-
-    --color-text-base: #adbac7;
-    --color-text-strong: #cdd9e5;
-    --color-text-muted: #768390;
-    --color-text-accent: #cdd9e5;
-    --color-text-inverted: #22272e;
-
-    --color-status-success-bg: rgba(255, 255, 255, 0.1);
-    --color-status-success-text: var(--color-brand-white);
-
-    --color-background: var(--color-surface-base);
-    --color-foreground: var(--color-text-base);
-    --color-card: var(--color-surface-panel);
-    --color-card-foreground: var(--color-text-base);
-    --color-popover: var(--color-surface-panel);
-    --color-popover-foreground: var(--color-text-base);
-    --color-border: var(--color-border-base);
-  }
-
   * {
     @apply border-border outline-ring/50;
   }
@@ -146,12 +124,6 @@
       );
   }
 
-  body.theme-review {
-    background:
-      linear-gradient(135deg, rgba(41, 46, 52, 0.96), rgba(23, 29, 39, 0.98)),
-      var(--color-brand-slate);
-  }
-
   body::before {
     content: '';
     position: fixed;
@@ -164,10 +136,6 @@
       linear-gradient(90deg, var(--brand-grid) 1px, transparent 1px);
     background-size: 40px 40px;
     mask-image: radial-gradient(circle at 50% 28%, black, transparent 88%);
-  }
-
-  body.theme-review::before {
-    display: none;
   }
 
   body::after {
@@ -188,10 +156,6 @@
         transparent 24%
       );
     opacity: 0.45;
-  }
-
-  body.theme-review::after {
-    display: none;
   }
 
   html,
@@ -227,6 +191,8 @@ pre code {
 .page-wrap {
   width: min(1240px, calc(100% - 2rem));
   margin-inline: auto;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .page-frame {
@@ -237,21 +203,9 @@ pre code {
   @apply inline-flex items-center gap-2 text-[0.72rem] font-bold tracking-[0.16em] uppercase text-text-accent;
 }
 
-.theme-review .eyebrow {
-  @apply text-text-muted;
-}
-
 /* COMPONENT TOKENS / CLASSES */
 .brand-panel {
-  @apply border border-border-base bg-surface-raised shadow-[0_28px_70px_rgba(12,33,77,0.09)];
-}
-
-.theme-review .brand-panel {
-  @apply shadow-none bg-surface-panel border-border-base;
-}
-
-.brand-panel-muted {
-  @apply border border-[color-mix(in_oklab,var(--color-brand-blue)_14%,white_86%)] bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(238,242,247,0.92))];
+  @apply min-w-0 border border-border-base bg-surface-raised shadow-[0_28px_70px_rgba(12,33,77,0.09)];
 }
 
 .nav-pill {
@@ -264,17 +218,6 @@ pre code {
 
 .nav-pill.is-active {
   @apply border-border-focus bg-surface-active text-text-accent;
-}
-
-.surface-trust {
-  background:
-    radial-gradient(circle at 100% 0%, rgba(0, 61, 166, 0.12), transparent 30%),
-    radial-gradient(circle at 12% 16%, rgba(0, 61, 166, 0.05), transparent 18%),
-    linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.98),
-      rgba(244, 247, 251, 0.92)
-    );
 }
 
 .surface-operations {
@@ -299,12 +242,239 @@ pre code {
   opacity: 0.7;
 }
 
-.surface-review {
-  @apply bg-background text-foreground;
+.surface-review-hero {
+  background: linear-gradient(
+    180deg,
+    rgba(41, 46, 52, 0.04),
+    rgba(41, 46, 52, 0.01) 60%,
+    rgba(255, 255, 255, 0.98)
+  );
+  position: relative;
 }
 
-.metric-value {
-  @apply font-heading text-[clamp(1.9rem,2.2vw,2.9rem)] leading-none tracking-[-0.04em];
+.surface-review-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(rgba(41, 46, 52, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(41, 46, 52, 0.025) 1px, transparent 1px);
+  background-size: 24px 24px;
+  mask-image: linear-gradient(180deg, black 0%, transparent 88%);
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.workflow-stage-strip {
+  @apply overflow-hidden rounded-[1.75rem] border px-5 py-5 sm:px-6;
+}
+
+.workflow-stage-strip-drafting {
+  border-color: var(--color-stage-drafting-border);
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in oklab, var(--color-stage-drafting-bg) 80%, white 20%),
+      rgba(255, 255, 255, 0.92)
+    ),
+    var(--color-surface-panel);
+}
+
+.workflow-stage-strip-approval {
+  border-color: var(--color-stage-approval-border);
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in oklab, var(--color-stage-approval-bg) 80%, white 20%),
+      rgba(255, 255, 255, 0.92)
+    ),
+    var(--color-surface-panel);
+}
+
+.workflow-stage-strip .ops-label {
+  color: var(--color-text-muted);
+}
+
+.workflow-stage-chip {
+  @apply inline-flex items-center rounded-full border px-3 py-1;
+  border-color: var(--color-border-base);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--color-text-strong);
+}
+
+.workflow-stage-chip-current {
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+
+.workflow-stage-chip-drafting {
+  border-color: var(--color-stage-drafting-border);
+  color: var(--color-stage-drafting-text);
+}
+
+.workflow-stage-chip-approval {
+  border-color: var(--color-stage-approval-border);
+  color: var(--color-stage-approval-text);
+}
+
+.workflow-phase-strip {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.workflow-phase-item {
+  min-width: 0;
+}
+
+.workflow-phase-row {
+  display: flex;
+  align-items: center;
+}
+
+.workflow-step-node {
+  @apply flex size-9 shrink-0 items-center justify-center rounded-full border font-ops text-xs font-semibold;
+  border-color: var(--color-border-base);
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--color-text-muted);
+}
+
+.workflow-step-node[data-phase-state='complete'] {
+  border-color: var(--color-border-focus);
+  background: var(--color-surface-active);
+  color: var(--color-text-accent);
+}
+
+.workflow-step-node[data-phase-state='active'][data-stage='drafting'] {
+  border-color: var(--color-stage-drafting-border);
+  background: var(--color-stage-drafting-bg);
+  color: var(--color-stage-drafting-text);
+  box-shadow: inset 0 0 0 1px rgba(0, 61, 166, 0.05);
+}
+
+.workflow-step-node[data-phase-state='active'][data-stage='approval'] {
+  border-color: var(--color-stage-approval-border);
+  background: var(--color-stage-approval-bg);
+  color: var(--color-stage-approval-text);
+  box-shadow: inset 0 0 0 1px rgba(41, 46, 52, 0.05);
+}
+
+.workflow-step-line {
+  height: 1px;
+  flex: 1;
+  min-width: 1rem;
+  margin-inline: 0.65rem;
+  background: var(--color-border-base);
+}
+
+.workflow-step-line[data-phase-state='complete'],
+.workflow-step-line[data-phase-state='active'][data-stage='drafting'] {
+  background: var(--color-stage-drafting-border);
+}
+
+.workflow-step-line[data-phase-state='active'][data-stage='approval'] {
+  background: var(--color-stage-approval-border);
+}
+
+.workflow-step-label {
+  @apply mt-3 block text-xs font-semibold;
+  color: var(--color-text-muted);
+}
+
+.workflow-step-label[data-phase-state='active'],
+.workflow-step-label[data-phase-state='complete'] {
+  color: var(--color-text-strong);
+}
+
+.workflow-panel-drafting {
+  border-color: var(--color-stage-drafting-border);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--color-stage-drafting-soft) 90%, white 10%),
+      rgba(255, 255, 255, 0.95)
+    ),
+    var(--color-surface-panel);
+}
+
+.workflow-panel-approval {
+  border-color: var(--color-stage-approval-border);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--color-stage-approval-soft) 90%, white 10%),
+      rgba(255, 255, 255, 0.95)
+    ),
+    var(--color-surface-panel);
+}
+
+.workflow-tabs-drafting {
+  background: color-mix(
+    in oklab,
+    var(--color-stage-drafting-soft) 84%,
+    white 16%
+  );
+}
+
+.workflow-tabs-drafting [data-slot='tabs-trigger'][data-state='active'] {
+  border-color: var(--color-stage-drafting-border);
+  background: var(--color-stage-drafting-bg);
+  color: var(--color-stage-drafting-text);
+}
+
+.workflow-tabs-approval {
+  background: color-mix(
+    in oklab,
+    var(--color-stage-approval-soft) 84%,
+    white 16%
+  );
+}
+
+.workflow-tabs-approval [data-slot='tabs-trigger'][data-state='active'] {
+  border-color: var(--color-stage-approval-border);
+  background: var(--color-stage-approval-bg);
+  color: var(--color-stage-approval-text);
+}
+
+.workflow-action-bar-drafting {
+  border-top-color: var(--color-stage-drafting-border);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.92),
+      color-mix(in oklab, var(--color-stage-drafting-soft) 82%, white 18%)
+    ),
+    var(--color-surface-panel);
+}
+
+.workflow-action-bar-approval {
+  border-top-color: var(--color-stage-approval-border);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.92),
+      color-mix(in oklab, var(--color-stage-approval-soft) 82%, white 18%)
+    ),
+    var(--color-surface-panel);
+}
+
+.package-stage-bridge {
+  @apply rounded-[1.2rem] border px-4 py-4;
+  border-color: var(--color-border-base);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.88),
+      var(--color-surface-muted)
+    ),
+    var(--color-surface-panel);
+}
+
+.package-stage-next {
+  @apply inline-flex items-center rounded-full border px-3 py-1 text-[0.72rem] font-semibold;
+  border-color: var(--color-border-focus);
+  background: var(--color-primary-soft);
+  color: var(--color-text-accent);
 }
 
 .route-grid {
@@ -316,26 +486,12 @@ pre code {
   margin-top: 1.5rem;
   display: grid;
   gap: 1.75rem;
-}
-
-.panel-pad {
-  padding: 1.35rem;
-}
-
-.panel-pad-lg {
-  padding: 1.5rem;
-}
-
-.ops-emphasis {
-  @apply font-ops tracking-[-0.03em];
+  min-width: 0;
+  overflow: hidden;
 }
 
 .ops-label {
   @apply font-mono text-[0.72rem] font-semibold tracking-[0.12em] uppercase text-text-accent;
-}
-
-.theme-review .ops-label {
-  @apply text-text-muted;
 }
 
 .data-table-frame {
@@ -345,14 +501,6 @@ pre code {
 
 .data-table-min {
   min-width: 760px;
-}
-
-.trust-hero-copy {
-  max-width: 44rem;
-}
-
-.ops-hero-copy {
-  max-width: 48rem;
 }
 
 @media (min-width: 960px) {
@@ -366,9 +514,19 @@ pre code {
     width: min(100%, calc(100% - 1rem));
   }
 
-  .panel-pad,
-  .panel-pad-lg {
-    padding: 1rem;
+  .workflow-phase-strip {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .workflow-phase-item {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.35rem;
+  }
+
+  .workflow-step-line {
+    display: none;
   }
 
   .section-stack {

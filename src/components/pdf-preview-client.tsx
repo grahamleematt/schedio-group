@@ -1,5 +1,11 @@
-import { useState, useEffect, useRef } from 'react'
-import { ChevronLeft, ChevronRight, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react'
+import { useState } from 'react'
+import {
+  ChevronLeft,
+  ChevronRight,
+  RotateCcw,
+  ZoomIn,
+  ZoomOut,
+} from 'lucide-react'
 import { Document, Page, pdfjs } from 'react-pdf'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
 import 'react-pdf/dist/Page/TextLayer.css'
@@ -8,7 +14,7 @@ import { cn } from '#/lib/utils'
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
+  import.meta.url,
 ).toString()
 
 const MIN_SCALE = 0.75
@@ -44,44 +50,29 @@ export function PdfPreviewClient({
   const [numPages, setNumPages] = useState<number | null>(null)
   const [scale, setScale] = useState(1)
   const [loadError, setLoadError] = useState<string | null>(null)
-
-  const containerRef = useRef<HTMLDivElement>(null)
-  const [containerWidth, setContainerWidth] = useState<number>(maxWidth)
-
-  useEffect(() => {
-    if (!containerRef.current) return
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        setContainerWidth(entry.contentRect.width)
-      }
-    })
-    observer.observe(containerRef.current)
-    return () => observer.disconnect()
-  }, [])
-
-  const width = Math.min(containerWidth - 32, getPreviewWidth(maxWidth))
+  const width = getPreviewWidth(maxWidth)
   const canGoBack = pageNumber > 1
   const canGoForward = numPages !== null && pageNumber < numPages
 
+  const lightButtonClasses = 'border-border-base bg-white text-text-strong'
+  const darkButtonClasses =
+    'border-white/15 bg-white/8 text-white hover:bg-white/12'
+
   return (
-    <div className="space-y-4" ref={containerRef}>
+    <div className="space-y-4">
       <div
         className={cn(
           'flex flex-wrap items-center gap-2 rounded-[1.25rem] border px-3 py-3',
           tone === 'dark'
             ? 'border-white/12 bg-white/6'
-            : 'border-[var(--brand-border)] bg-[rgba(0,61,166,0.03)]'
+            : 'border-border-base bg-primary-softer',
         )}
       >
         <Button
           type="button"
           variant="outline"
           size="icon-sm"
-          className={cn(
-            tone === 'dark'
-              ? 'border-white/15 bg-white/8 text-white hover:bg-white/12'
-              : 'border-[var(--brand-border)] bg-white text-[var(--brand-slate)]'
-          )}
+          className={tone === 'dark' ? darkButtonClasses : lightButtonClasses}
           onClick={() => setPageNumber((current) => Math.max(1, current - 1))}
           disabled={!canGoBack}
         >
@@ -91,14 +82,10 @@ export function PdfPreviewClient({
           type="button"
           variant="outline"
           size="icon-sm"
-          className={cn(
-            tone === 'dark'
-              ? 'border-white/15 bg-white/8 text-white hover:bg-white/12'
-              : 'border-[var(--brand-border)] bg-white text-[var(--brand-slate)]'
-          )}
+          className={tone === 'dark' ? darkButtonClasses : lightButtonClasses}
           onClick={() =>
             setPageNumber((current) =>
-              numPages === null ? current : Math.min(numPages, current + 1)
+              numPages === null ? current : Math.min(numPages, current + 1),
             )
           }
           disabled={!canGoForward}
@@ -107,8 +94,8 @@ export function PdfPreviewClient({
         </Button>
         <span
           className={cn(
-            'min-w-[88px] text-center text-xs font-semibold tracking-[0.08em] uppercase',
-            tone === 'dark' ? 'text-white/72' : 'text-[var(--brand-muted)]'
+            'min-w-[88px] text-center text-xs font-semibold uppercase tracking-[0.08em]',
+            tone === 'dark' ? 'text-white/72' : 'text-text-muted',
           )}
         >
           Page {pageNumber}
@@ -119,12 +106,10 @@ export function PdfPreviewClient({
             type="button"
             variant="outline"
             size="icon-sm"
-            className={cn(
-              tone === 'dark'
-                ? 'border-white/15 bg-white/8 text-white hover:bg-white/12'
-                : 'border-[var(--brand-border)] bg-white text-[var(--brand-slate)]'
-            )}
-            onClick={() => setScale((current) => Math.max(MIN_SCALE, current - SCALE_STEP))}
+            className={tone === 'dark' ? darkButtonClasses : lightButtonClasses}
+            onClick={() =>
+              setScale((current) => Math.max(MIN_SCALE, current - SCALE_STEP))
+            }
             disabled={scale <= MIN_SCALE}
           >
             <ZoomOut className="size-4" />
@@ -132,7 +117,7 @@ export function PdfPreviewClient({
           <span
             className={cn(
               'min-w-[56px] text-center text-xs font-semibold',
-              tone === 'dark' ? 'text-white/72' : 'text-[var(--brand-muted)]'
+              tone === 'dark' ? 'text-white/72' : 'text-text-muted',
             )}
           >
             {Math.round(scale * 100)}%
@@ -141,12 +126,10 @@ export function PdfPreviewClient({
             type="button"
             variant="outline"
             size="icon-sm"
-            className={cn(
-              tone === 'dark'
-                ? 'border-white/15 bg-white/8 text-white hover:bg-white/12'
-                : 'border-[var(--brand-border)] bg-white text-[var(--brand-slate)]'
-            )}
-            onClick={() => setScale((current) => Math.min(MAX_SCALE, current + SCALE_STEP))}
+            className={tone === 'dark' ? darkButtonClasses : lightButtonClasses}
+            onClick={() =>
+              setScale((current) => Math.min(MAX_SCALE, current + SCALE_STEP))
+            }
             disabled={scale >= MAX_SCALE}
           >
             <ZoomIn className="size-4" />
@@ -156,11 +139,9 @@ export function PdfPreviewClient({
               type="button"
               variant="outline"
               size={compact ? 'sm' : 'default'}
-              className={cn(
-                tone === 'dark'
-                  ? 'border-white/15 bg-white/8 text-white hover:bg-white/12'
-                  : 'border-[var(--brand-border)] bg-white text-[var(--brand-slate)]'
-              )}
+              className={
+                tone === 'dark' ? darkButtonClasses : lightButtonClasses
+              }
               onClick={() => {
                 setPageNumber(1)
                 setScale(1)
@@ -178,7 +159,7 @@ export function PdfPreviewClient({
           'overflow-auto rounded-[1.5rem] border px-3 py-3 sm:px-4 sm:py-4',
           tone === 'dark'
             ? 'border-white/12 bg-[rgba(19,24,33,0.96)]'
-            : 'border-[var(--brand-border)] bg-[rgba(244,247,252,0.92)]'
+            : 'border-border-base bg-surface-subtle',
         )}
       >
         <Document
@@ -233,7 +214,7 @@ function PreviewStatus({
             : 'border-white/15 bg-white/4 text-white/72'
           : isError
             ? 'border-rose-200 bg-rose-50 text-rose-700'
-            : 'border-[var(--brand-border)] bg-white text-[var(--brand-muted)]'
+            : 'border-border-base bg-white text-text-muted',
       )}
     >
       {label}

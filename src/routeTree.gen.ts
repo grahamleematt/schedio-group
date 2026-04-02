@@ -11,8 +11,6 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ReviewWorkbenchRouteImport } from './routes/review-workbench'
 import { Route as ReviewConsoleRouteImport } from './routes/review-console'
-import { Route as PortalTrustRouteImport } from './routes/portal-trust'
-import { Route as PortalOperationsRouteImport } from './routes/portal-operations'
 import { Route as CreatePackageRouteImport } from './routes/create-package'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -24,16 +22,6 @@ const ReviewWorkbenchRoute = ReviewWorkbenchRouteImport.update({
 const ReviewConsoleRoute = ReviewConsoleRouteImport.update({
   id: '/review-console',
   path: '/review-console',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PortalTrustRoute = PortalTrustRouteImport.update({
-  id: '/portal-trust',
-  path: '/portal-trust',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PortalOperationsRoute = PortalOperationsRouteImport.update({
-  id: '/portal-operations',
-  path: '/portal-operations',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CreatePackageRoute = CreatePackageRouteImport.update({
@@ -50,16 +38,12 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/create-package': typeof CreatePackageRoute
-  '/portal-operations': typeof PortalOperationsRoute
-  '/portal-trust': typeof PortalTrustRoute
   '/review-console': typeof ReviewConsoleRoute
   '/review-workbench': typeof ReviewWorkbenchRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/create-package': typeof CreatePackageRoute
-  '/portal-operations': typeof PortalOperationsRoute
-  '/portal-trust': typeof PortalTrustRoute
   '/review-console': typeof ReviewConsoleRoute
   '/review-workbench': typeof ReviewWorkbenchRoute
 }
@@ -67,34 +51,18 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/create-package': typeof CreatePackageRoute
-  '/portal-operations': typeof PortalOperationsRoute
-  '/portal-trust': typeof PortalTrustRoute
   '/review-console': typeof ReviewConsoleRoute
   '/review-workbench': typeof ReviewWorkbenchRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/create-package'
-    | '/portal-operations'
-    | '/portal-trust'
-    | '/review-console'
-    | '/review-workbench'
+  fullPaths: '/' | '/create-package' | '/review-console' | '/review-workbench'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/create-package'
-    | '/portal-operations'
-    | '/portal-trust'
-    | '/review-console'
-    | '/review-workbench'
+  to: '/' | '/create-package' | '/review-console' | '/review-workbench'
   id:
     | '__root__'
     | '/'
     | '/create-package'
-    | '/portal-operations'
-    | '/portal-trust'
     | '/review-console'
     | '/review-workbench'
   fileRoutesById: FileRoutesById
@@ -102,8 +70,6 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CreatePackageRoute: typeof CreatePackageRoute
-  PortalOperationsRoute: typeof PortalOperationsRoute
-  PortalTrustRoute: typeof PortalTrustRoute
   ReviewConsoleRoute: typeof ReviewConsoleRoute
   ReviewWorkbenchRoute: typeof ReviewWorkbenchRoute
 }
@@ -122,20 +88,6 @@ declare module '@tanstack/react-router' {
       path: '/review-console'
       fullPath: '/review-console'
       preLoaderRoute: typeof ReviewConsoleRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/portal-trust': {
-      id: '/portal-trust'
-      path: '/portal-trust'
-      fullPath: '/portal-trust'
-      preLoaderRoute: typeof PortalTrustRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/portal-operations': {
-      id: '/portal-operations'
-      path: '/portal-operations'
-      fullPath: '/portal-operations'
-      preLoaderRoute: typeof PortalOperationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/create-package': {
@@ -158,8 +110,6 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CreatePackageRoute: CreatePackageRoute,
-  PortalOperationsRoute: PortalOperationsRoute,
-  PortalTrustRoute: PortalTrustRoute,
   ReviewConsoleRoute: ReviewConsoleRoute,
   ReviewWorkbenchRoute: ReviewWorkbenchRoute,
 }
