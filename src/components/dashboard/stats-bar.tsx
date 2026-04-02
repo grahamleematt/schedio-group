@@ -54,8 +54,11 @@ export function DashboardStatsBar({
 
       <StatsCell>
         <CellLabel>Current verification</CellLabel>
-        <p className="truncate font-ops text-sm font-semibold text-text-strong">
+        <p className="truncate font-ops text-lg font-semibold tracking-[-0.02em] text-text-strong">
           {verificationLabel}
+        </p>
+        <p className="mt-2 text-xs font-medium text-text-muted">
+          Active period
         </p>
       </StatsCell>
 

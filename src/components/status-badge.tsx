@@ -54,9 +54,8 @@ const variantStyles = {
   success: 'border-transparent bg-status-success-bg text-status-success-text',
   warning: 'border-transparent bg-status-warning-bg text-status-warning-text',
   error: 'border-transparent bg-status-error-bg text-status-error-text',
-  info: 'border-transparent bg-[rgba(0,61,166,0.08)] text-[var(--color-brand-blue)]',
-  accent:
-    'border-transparent bg-[rgba(0,61,166,0.12)] text-[var(--color-brand-blue)]',
+  info: 'border-transparent bg-primary-soft text-text-accent',
+  accent: 'border-transparent bg-stage-drafting-bg text-text-accent',
 }
 
 export function StatusBadge({ label }: { label: string }) {

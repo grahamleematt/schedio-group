@@ -35,7 +35,7 @@ export function PackageSelector({
   return (
     <>
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-        <h2 className="font-ops text-[1.7rem] font-semibold tracking-[-0.05em] text-text-strong">
+        <h2 className="font-ops text-[1.8rem] font-semibold tracking-[-0.05em] text-text-strong">
           Verification packages
         </h2>
         <div className="flex flex-wrap gap-2">

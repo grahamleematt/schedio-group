@@ -39,7 +39,7 @@ export function InventorySection({
   return (
     <section className="min-w-0 space-y-4">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-        <h2 className="font-ops text-[2rem] font-semibold tracking-[-0.05em] text-text-strong">
+        <h2 className="font-ops text-[1.8rem] font-semibold tracking-[-0.05em] text-text-strong">
           Uploaded inventory
         </h2>
         <div className="flex flex-wrap gap-2">

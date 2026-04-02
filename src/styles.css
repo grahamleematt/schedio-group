@@ -119,7 +119,7 @@
       linear-gradient(
         180deg,
         var(--color-brand-white) 0%,
-        #fafbfc 30%,
+        color-mix(in oklab, var(--color-brand-white) 92%, var(--color-surface-base) 8%) 30%,
         var(--color-surface-base) 100%
       );
   }
@@ -177,7 +177,7 @@ a:not([data-slot='button']):hover {
 }
 
 code {
-  @apply bg-[#f7f8fb] border border-border-base rounded-[7px] text-[0.9em] px-[7px] py-[2px];
+  @apply bg-surface-muted border border-border-base rounded-[7px] text-[0.9em] px-[7px] py-[2px];
 }
 
 pre code {
