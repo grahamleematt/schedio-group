@@ -101,11 +101,7 @@ export function PackageDetail({
         {/* Right column: relationship chain */}
         <div className="min-w-0 p-5">
           {chain ? (
-            <RelationshipChain
-              title={title}
-              status={status}
-              chain={chain}
-            />
+            <RelationshipChain title={title} status={status} chain={chain} />
           ) : (
             <p className="text-sm text-text-muted">
               No linked chain is attached to this district yet.
@@ -135,31 +131,31 @@ function RelationshipChain({
   chain: ChainData
 }) {
   return (
-    <div>
+    <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <p className="ops-label text-text-accent">{title} chain</p>
-          <p className="mt-2 text-sm font-semibold text-text-strong">
+          <p className="ops-label text-text-accent">CONTRACT TO PROOF CHAIN</p>
+          <p className="mt-1 text-lg font-semibold text-text-strong">
             {chain.title}
           </p>
-          <p className="mt-1 text-xs leading-5 text-text-muted">{chain.note}</p>
+          <p className="mt-2 text-sm leading-6 text-text-muted">{chain.note}</p>
         </div>
         <StatusBadge label={status} />
       </div>
 
-      <div className="mt-5 max-h-[480px] space-y-3 overflow-y-auto pr-1">
+      <div className="mt-2 max-h-[520px] space-y-5 overflow-y-auto pr-2">
         {chain.steps.map((step, index) => (
           <div
             key={step.recordId}
             className="grid grid-cols-[40px_minmax(0,1fr)] gap-4"
           >
-            <div className="flex flex-col items-center">
-              <div className="flex size-10 items-center justify-center rounded-full border border-border-focus bg-surface-active font-ops text-xs font-semibold text-text-accent">
+            <div className="flex flex-col items-center pl-2">
+              <div className="flex size-11 items-center justify-center rounded-2xl border-2 border-border-focus bg-surface-active font-ops text-sm font-semibold text-text-accent shadow-sm">
                 {index + 1}
               </div>
-              {index < chain.steps.length - 1 ? (
-                <div className="mt-2 w-px flex-1 bg-border-strong" />
-              ) : null}
+              {index < chain.steps.length - 1 && (
+                <div className="mt-4 h-8 w-px bg-gradient-to-b from-border-focus to-border-base" />
+              )}
             </div>
 
             <div className="pb-4 last:pb-0">
@@ -168,10 +164,10 @@ function RelationshipChain({
                 target="_blank"
                 rel="noreferrer"
                 className={cn(
-                  'group block min-w-0 rounded-[1.15rem] border border-border-base bg-surface-muted px-4 py-4 no-underline transition-colors',
+                  'group block min-w-0 rounded-2xl border border-border-base bg-surface-panel px-5 py-5 no-underline transition-all hover:shadow-md',
                   step.igniteUrl
                     ? 'hover:border-border-focus hover:bg-surface-hover'
-                    : 'pointer-events-none',
+                    : 'pointer-events-none opacity-75',
                 )}
               >
                 <div className="flex flex-wrap items-center gap-2">

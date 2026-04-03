@@ -44,6 +44,7 @@
   );
   --color-primary-soft: rgba(0, 61, 166, 0.08);
   --color-primary-softer: rgba(0, 61, 166, 0.04);
+  --color-primary-gradient: linear-gradient(135deg, #003da6 0%, #1e4a9c 48%, #2a5eb8 100%);
 
   --color-stage-drafting-bg: rgba(0, 61, 166, 0.08);
   --color-stage-drafting-soft: rgba(0, 61, 166, 0.045);
@@ -71,6 +72,7 @@
   --color-popover-foreground: var(--color-text-base);
   --color-primary: var(--color-primary-base);
   --color-primary-foreground: var(--color-brand-white);
+  --color-primary-gradient: linear-gradient(135deg, #003da6 0%, #1e4a9c 48%, #2a5eb8 100%);
   --color-secondary: #eef2f7;
   --color-secondary-foreground: var(--color-text-strong);
   --color-muted: #eef1f4;
@@ -107,20 +109,21 @@
     -moz-osx-font-smoothing: grayscale;
     background:
       radial-gradient(
-        900px 420px at 0% -6%,
-        rgba(0, 61, 166, 0.1),
-        transparent 62%
+        1200px 620px at 15% -22%,
+        color-mix(in oklab, var(--color-brand-blue) 12%, transparent 88%),
+        transparent 65%
       ),
       radial-gradient(
-        760px 420px at 105% 0%,
-        rgba(41, 46, 52, 0.05),
-        transparent 58%
+        980px 540px at 85% 28%,
+        color-mix(in oklab, var(--color-brand-slate) 9%, transparent 91%),
+        transparent 70%
       ),
       linear-gradient(
-        180deg,
-        var(--color-brand-white) 0%,
-        color-mix(in oklab, var(--color-brand-white) 92%, var(--color-surface-base) 8%) 30%,
-        var(--color-surface-base) 100%
+        165deg,
+        #fafcff 0%,
+        #f5f7fb 38%,
+        var(--color-surface-base) 72%,
+        #f8f9fc 100%
       );
   }
 
@@ -130,12 +133,12 @@
     inset: 0;
     pointer-events: none;
     z-index: -1;
-    opacity: 0.55;
+    opacity: 0.65;
     background-image:
       linear-gradient(var(--brand-grid) 1px, transparent 1px),
       linear-gradient(90deg, var(--brand-grid) 1px, transparent 1px);
-    background-size: 40px 40px;
-    mask-image: radial-gradient(circle at 50% 28%, black, transparent 88%);
+    background-size: 42px 42px;
+    mask-image: radial-gradient(circle at 48% 26%, black, transparent 82%);
   }
 
   body::after {

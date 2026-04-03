@@ -240,19 +240,16 @@ function DashboardPage() {
         />
 
         {selectedPackage ? (
-          <>
-            <hr className="border-border-base" />
-            <PackageDetail
-              title={selectedPackage.title}
-              status={selectedPackage.status}
-              chainCompleteness={selectedPackage.chainCompleteness}
-              recordAccess={selectedPackage.readOnly ? 'Read-only' : 'Active'}
-              stageSummary={packageStageSummary}
-              watchItems={selectedPackage.watchItems}
-              rollover={rollover}
-              chain={chainData}
-            />
-          </>
+          <PackageDetail
+            title={selectedPackage.title}
+            status={selectedPackage.status}
+            chainCompleteness={selectedPackage.chainCompleteness}
+            recordAccess={selectedPackage.readOnly ? 'Read-only' : 'Active'}
+            stageSummary={packageStageSummary}
+            watchItems={selectedPackage.watchItems}
+            rollover={rollover}
+            chain={chainData}
+          />
         ) : null}
       </section>
 
