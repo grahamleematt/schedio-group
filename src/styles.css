@@ -109,21 +109,21 @@
     -moz-osx-font-smoothing: grayscale;
     background:
       radial-gradient(
-        1200px 620px at 15% -22%,
-        color-mix(in oklab, var(--color-brand-blue) 12%, transparent 88%),
-        transparent 65%
+        2400px 1250px at -12% -48%,
+        color-mix(in oklab, var(--color-brand-blue) 52%, transparent 48%),
+        transparent 32%
       ),
       radial-gradient(
-        980px 540px at 85% 28%,
-        color-mix(in oklab, var(--color-brand-slate) 9%, transparent 91%),
-        transparent 70%
+        1850px 980px at 105% -8%,
+        color-mix(in oklab, var(--color-brand-slate) 34%, transparent 66%),
+        transparent 42%
       ),
       linear-gradient(
-        165deg,
-        #fafcff 0%,
-        #f5f7fb 38%,
-        var(--color-surface-base) 72%,
-        #f8f9fc 100%
+        142deg,
+        #f8fafd 0%,
+        #f0f4fa 18%,
+        var(--color-surface-base) 48%,
+        #f5f8fc 100%
       );
   }
 
@@ -133,12 +133,12 @@
     inset: 0;
     pointer-events: none;
     z-index: -1;
-    opacity: 0.65;
+    opacity: 0.75;
     background-image:
       linear-gradient(var(--brand-grid) 1px, transparent 1px),
       linear-gradient(90deg, var(--brand-grid) 1px, transparent 1px);
-    background-size: 42px 42px;
-    mask-image: radial-gradient(circle at 48% 26%, black, transparent 82%);
+    background-size: 36px 36px;
+    mask-image: radial-gradient(circle at 48% 22%, black, transparent 78%);
   }
 
   body::after {
@@ -150,15 +150,15 @@
     background:
       radial-gradient(
         circle at 12% 18%,
-        rgba(0, 61, 166, 0.1),
-        transparent 22%
+        rgba(0, 61, 166, 0.14),
+        transparent 28%
       ),
       radial-gradient(
         circle at 84% 22%,
-        rgba(35, 31, 32, 0.05),
-        transparent 24%
+        rgba(35, 31, 32, 0.08),
+        transparent 32%
       );
-    opacity: 0.45;
+    opacity: 0.65;
   }
 
   html,

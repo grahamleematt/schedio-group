@@ -28,7 +28,7 @@ export default function Header() {
   const clientWorkspace = getClientWorkspaceSession(accountId)
 
   return (
-    <header className="sticky top-0 z-50 border-b border-white/30 bg-white/96 px-4 backdrop-blur-2xl shadow-[0_4px_30px_-8px_rgb(0,61,166,0.08)]">
+    <header className="sticky top-0 z-50 border-b border-white/20 bg-white/95 px-4 backdrop-blur-2xl shadow-[0_2px_40px_-12px_rgb(0,61,166,0.12),inset_0_-1px_0_0_rgba(255,255,255,0.6)] transition-all duration-300">
       <nav className="page-wrap flex flex-col gap-4 py-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-1 flex-wrap items-center gap-4">
           <Link
@@ -90,7 +90,7 @@ export default function Header() {
         </div>
 
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 lg:max-w-[420px] lg:flex-none lg:justify-end">
-          <div className="min-w-0 flex-1 rounded-[1.3rem] border border-white/70 bg-white/90 px-3 py-2 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.95),0_2px_8px_rgba(0,0,0,0.04)] lg:flex-none lg:min-w-[320px] relative overflow-hidden">
+          <div className="min-w-0 flex-1 rounded-[1.35rem] border border-white/60 bg-white/95 px-3 py-2.5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_4px_20px_-4px_rgb(0,61,166,0.08)] lg:flex-none lg:min-w-[320px] relative overflow-hidden">
             <p className="ops-label text-text-accent">Switch login</p>
             <div className="mt-2 flex flex-col gap-2">
               <div className="min-w-0">
