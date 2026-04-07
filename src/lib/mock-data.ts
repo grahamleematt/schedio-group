@@ -504,10 +504,43 @@ export const approvalWorkspaceSession: MockWorkOSSession = {
   defaultRoute: '/review-console',
 }
 
+export const operationsWorkspaceSession: MockWorkOSSession = {
+  id: 'admin-operations',
+  accountLabel: 'Operations manager',
+  workspaceType: 'admin',
+  organizationName: 'Schedio Group engineering',
+  roleLabel: 'Operations command',
+  permittedDistrictIds: districts.map((district) => district.id),
+  defaultRoute: '/internal-dashboard',
+}
+
+export const verificationWorkspaceSession: MockWorkOSSession = {
+  id: 'admin-verifications',
+  accountLabel: 'Verification manager',
+  workspaceType: 'admin',
+  organizationName: 'Schedio Group engineering',
+  roleLabel: 'Verification management',
+  permittedDistrictIds: districts.map((district) => district.id),
+  defaultRoute: '/verification-management',
+}
+
+export const adminWorkspaceSession: MockWorkOSSession = {
+  id: 'admin-sg-admin',
+  accountLabel: 'SG admin',
+  workspaceType: 'admin',
+  organizationName: 'Schedio Group engineering',
+  roleLabel: 'Entity administration',
+  permittedDistrictIds: districts.map((district) => district.id),
+  defaultRoute: '/entity-admin',
+}
+
 export const workOSWorkspaceAccounts: MockWorkOSSession[] = [
   ...clientSessions,
+  operationsWorkspaceSession,
   draftingWorkspaceSession,
   approvalWorkspaceSession,
+  verificationWorkspaceSession,
+  adminWorkspaceSession,
 ]
 
 export const verifications: VerificationRecord[] = [
@@ -2466,6 +2499,21 @@ export function getWorkspaceContext(
   pathname: string,
   accountId?: string,
 ): MockWorkOSSession {
+  if (
+    pathname.startsWith('/internal-dashboard') ||
+    pathname.startsWith('/submission-inbox')
+  ) {
+    return operationsWorkspaceSession
+  }
+
+  if (pathname.startsWith('/verification-management')) {
+    return verificationWorkspaceSession
+  }
+
+  if (pathname.startsWith('/entity-admin')) {
+    return adminWorkspaceSession
+  }
+
   if (pathname.startsWith('/review-console')) {
     return approvalWorkspaceSession
   }

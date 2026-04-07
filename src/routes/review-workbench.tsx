@@ -31,6 +31,12 @@ import {
   getUserCapabilityLabel,
   reviewItems,
 } from '#/lib/mock-data'
+import {
+  getDraftTaskByReviewId,
+  getEntityById,
+  getSubmissionById,
+  getWorkflowTypeLabel,
+} from '#/lib/internal-portal-data'
 import type { DocumentRecord, ReviewItem } from '#/lib/mock-data'
 import { cn } from '#/lib/utils'
 
@@ -206,6 +212,11 @@ function WorkbenchDetail({
   const previewDocument = getDocumentById(previewRecordId) ?? focusedDocument
   const isApprovalHandoff = focusedReview.capability === 'approval'
   const fieldConfirmations = getReviewFieldConfirmations(focusedReview.id)
+  const draftTask = getDraftTaskByReviewId(focusedReview.id)
+  const submission = draftTask
+    ? getSubmissionById(draftTask.submissionId)
+    : undefined
+  const entity = draftTask ? getEntityById(draftTask.entityId) : undefined
 
   const fieldRows = [
     [
@@ -293,6 +304,38 @@ function WorkbenchDetail({
                   {focusedReview.reason}
                 </p>
               </div>
+
+              {draftTask && submission ? (
+                <div className="rounded-[1.15rem] border border-border-base bg-surface-panel px-4 py-4">
+                  <p className="ops-label text-text-accent">Submission context</p>
+                  <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <ContextField
+                      label="Entity"
+                      value={entity?.name ?? 'Unknown entity'}
+                    />
+                    <ContextField
+                      label="Workflow"
+                      value={getWorkflowTypeLabel(draftTask.workflowType)}
+                    />
+                    <ContextField
+                      label="Verification"
+                      value={draftTask.verificationLabel}
+                    />
+                    <ContextField
+                      label="Queue age"
+                      value={draftTask.queueAge}
+                    />
+                    <ContextField
+                      label="Handoff"
+                      value={draftTask.handoffStatus}
+                    />
+                    <ContextField
+                      label="Submission state"
+                      value={submission.queueState}
+                    />
+                  </div>
+                </div>
+              ) : null}
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {fieldRows.map(([label, value]) => (
@@ -648,6 +691,15 @@ function DraftField({ label, value }: { label: string; value: string }) {
     <div className="space-y-1">
       <p className="ops-label text-text-accent">{label}</p>
       <p className="text-sm leading-6 text-text-base">{value}</p>
+    </div>
+  )
+}
+
+function ContextField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="space-y-1">
+      <p className="ops-label text-text-muted">{label}</p>
+      <p className="text-sm font-semibold text-text-strong">{value}</p>
     </div>
   )
 }

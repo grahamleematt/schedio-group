@@ -60,6 +60,7 @@ See [docs/scenario-matrix.md](./docs/scenario-matrix.md) for the exact file map,
 - [docs/brand-system.md](./docs/brand-system.md)
 - [docs/mockup-brief.md](./docs/mockup-brief.md)
 - [docs/scenario-matrix.md](./docs/scenario-matrix.md)
+- [docs/sg-dream-phase1-enterprise-architecture-research.md](./docs/sg-dream-phase1-enterprise-architecture-research.md)
 - [docs/agent-instruction-map.md](./docs/agent-instruction-map.md)
 
 ## Source Of Truth
@@ -70,8 +71,9 @@ Use this order when orienting a new agent in the repo:
 2. `docs/mockup-brief.md` for what each route is trying to prove.
 3. `docs/scenario-matrix.md` for the archive-backed scenario map.
 4. `docs/meeting-confirmed-details.md` for transcript-backed product direction.
-5. `docs/brand-system.md` for palette, typography, and route personality.
-6. `./.cursor/rules/director.mdc` as the canonical instruction entrypoint.
+5. `docs/sg-dream-phase1-enterprise-architecture-research.md` for the full Phase 1 handoff sweep, repo delta map, and backend recommendation.
+6. `docs/brand-system.md` for palette, typography, and route personality.
+7. `./.cursor/rules/director.mdc` as the canonical instruction entrypoint.
 
 If instruction files disagree, `.cursor` is canonical and `.claude` / `.codex` are mirrors.
 

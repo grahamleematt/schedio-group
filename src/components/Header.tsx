@@ -8,9 +8,11 @@ import {
 } from '#/components/ui/select'
 import {
   getActiveVerificationByDistrict,
+  getAllowedCreatePackageDistrictId,
   getClientWorkspaceSession,
   getWorkspaceAccountById,
   getWorkspaceContext,
+  clientWorkspaceSession,
   workOSWorkspaceAccounts,
 } from '#/lib/mock-data'
 
@@ -26,6 +28,20 @@ export default function Header() {
   const workspace = getWorkspaceContext(location.pathname, accountId)
   const isClientWorkspace = workspace.workspaceType === 'client'
   const clientWorkspace = getClientWorkspaceSession(accountId)
+  const requestedDistrictId = getSearchParamFromHref(location.href, 'district')
+  const createPackageDistrictId = getAllowedCreatePackageDistrictId(
+    clientWorkspace.permittedDistrictIds,
+    requestedDistrictId,
+  )
+  const createPackageVerification = getActiveVerificationByDistrict(
+    createPackageDistrictId,
+  )
+  const visibleWorkspaceAccounts = workOSWorkspaceAccounts.filter(
+    (account) =>
+      account.workspaceType === 'admin' ||
+      account.id === clientWorkspaceSession.id ||
+      account.id === workspace.id,
+  )
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/20 bg-white/95 px-4 backdrop-blur-2xl shadow-[0_2px_40px_-12px_rgb(0,61,166,0.12),inset_0_-1px_0_0_rgba(255,255,255,0.6)] transition-all duration-300">
@@ -48,22 +64,60 @@ export default function Header() {
 
           <div className="flex flex-wrap items-center gap-1.5">
             {isClientWorkspace ? (
-              <Link
-                to="/"
-                search={{
-                  account: clientWorkspace.id,
-                  district: undefined,
-                  verification: undefined,
-                  package: undefined,
-                }}
-                className="nav-pill"
-                activeOptions={{ exact: true }}
-                activeProps={{ className: 'nav-pill is-active' }}
-              >
-                Dashboard
-              </Link>
+              <>
+                <Link
+                  to="/"
+                  search={{
+                    account: clientWorkspace.id,
+                    district: undefined,
+                    verification: undefined,
+                    package: undefined,
+                  }}
+                  className="nav-pill"
+                  activeOptions={{ exact: true }}
+                  activeProps={{ className: 'nav-pill is-active' }}
+                >
+                  Dashboard
+                </Link>
+                <Link
+                  to="/create-package"
+                  search={{
+                    step: 'context',
+                    account: clientWorkspace.id,
+                    district: createPackageDistrictId,
+                    verification: createPackageVerification.id,
+                    mode: 'monthly',
+                  }}
+                  className="nav-pill"
+                  activeProps={{ className: 'nav-pill is-active' }}
+                >
+                  Submission
+                </Link>
+              </>
             ) : (
               <>
+                <Link
+                  to="/internal-dashboard"
+                  className="nav-pill"
+                  activeProps={{ className: 'nav-pill is-active' }}
+                >
+                  Dashboard
+                </Link>
+                <Link
+                  to="/submission-inbox"
+                  search={{
+                    submissionId: undefined,
+                    entityId: undefined,
+                    workflow: undefined,
+                    state: undefined,
+                    duplicate: undefined,
+                    q: undefined,
+                  }}
+                  className="nav-pill"
+                  activeProps={{ className: 'nav-pill is-active' }}
+                >
+                  Inbox
+                </Link>
                 <Link
                   to="/review-workbench"
                   search={{ reviewId: undefined }}
@@ -83,6 +137,22 @@ export default function Header() {
                   activeProps={{ className: 'nav-pill is-active' }}
                 >
                   Approval
+                </Link>
+                <Link
+                  to="/verification-management"
+                  search={{ workflow: undefined, status: undefined }}
+                  className="nav-pill"
+                  activeProps={{ className: 'nav-pill is-active' }}
+                >
+                  Verifications
+                </Link>
+                <Link
+                  to="/entity-admin"
+                  search={{ tab: undefined }}
+                  className="nav-pill"
+                  activeProps={{ className: 'nav-pill is-active' }}
+                >
+                  Admin
                 </Link>
               </>
             )}
@@ -134,7 +204,7 @@ export default function Header() {
                   <SelectValue placeholder="Select account" />
                 </SelectTrigger>
                 <SelectContent align="end">
-                  {workOSWorkspaceAccounts.map((account) => (
+                  {visibleWorkspaceAccounts.map((account) => (
                     <SelectItem key={account.id} value={account.id}>
                       {account.accountLabel}
                     </SelectItem>
@@ -150,10 +220,12 @@ export default function Header() {
 }
 
 function getAccountIdFromHref(href: string) {
+  return getSearchParamFromHref(href, 'account')
+}
+
+function getSearchParamFromHref(href: string, key: string) {
   try {
-    return (
-      new URL(href, 'http://localhost').searchParams.get('account') ?? undefined
-    )
+    return new URL(href, 'http://localhost').searchParams.get(key) ?? undefined
   } catch {
     return undefined
   }

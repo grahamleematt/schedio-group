@@ -25,6 +25,15 @@ import {
   getUserCapabilityLabel,
   reviewItems,
 } from '#/lib/mock-data'
+import {
+  formatCurrency,
+  getApprovalTaskByReviewId,
+  getContractBudgetById,
+  getDuplicateMatchesBySubmission,
+  getEntityById,
+  getSubmissionById,
+  getWorkflowTypeLabel,
+} from '#/lib/internal-portal-data'
 import { cn } from '#/lib/utils'
 
 const queue = reviewItems.filter((item) => item.capability === 'approval')
@@ -148,6 +157,19 @@ function ReviewConsolePage() {
         },
       ]
     : []
+  const activeTask = activeReview
+    ? getApprovalTaskByReviewId(activeReview.id)
+    : undefined
+  const activeSubmission = activeTask
+    ? getSubmissionById(activeTask.submissionId)
+    : undefined
+  const activeEntity = activeTask ? getEntityById(activeTask.entityId) : undefined
+  const duplicateMatches = activeTask
+    ? getDuplicateMatchesBySubmission(activeTask.submissionId)
+    : []
+  const contractImpact = activeTask?.contractImpactId
+    ? getContractBudgetById(activeTask.contractImpactId)
+    : undefined
 
   return (
     <MockupShell
@@ -183,7 +205,7 @@ function ReviewConsolePage() {
             <div className="relative w-full">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-text-muted" />
               <Input
-                defaultValue={q ?? ''}
+                value={q ?? ''}
                 placeholder="Search approval queue"
                 className="h-10 w-full rounded-full border-border-base bg-surface-panel pl-9 text-sm"
                 onChange={(event) => {
@@ -340,6 +362,32 @@ function ReviewConsolePage() {
                           </div>
                         ))}
                       </div>
+
+                      {activeTask && activeSubmission ? (
+                        <div className="rounded-[1.15rem] border border-border-base bg-surface-panel px-4 py-4">
+                          <p className="ops-label text-text-accent">
+                            Submission context
+                          </p>
+                          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <DetailField
+                              label="Entity"
+                              value={activeEntity?.name ?? 'Unknown entity'}
+                            />
+                            <DetailField
+                              label="Workflow"
+                              value={getWorkflowTypeLabel(activeTask.workflowType)}
+                            />
+                            <DetailField
+                              label="Submission state"
+                              value={activeSubmission.queueState}
+                            />
+                            <DetailField
+                              label="Queue age"
+                              value={activeTask.queueAge}
+                            />
+                          </div>
+                        </div>
+                      ) : null}
 
                       <div className="flex flex-wrap gap-2">
                         <StatusBadge
@@ -509,76 +557,177 @@ function ReviewConsolePage() {
 
                     <TabsContent value="authority" className="pt-5">
                       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-                        <div className="workflow-panel-approval rounded-3xl border px-4 py-4">
-                          <p className="ops-label text-text-accent mb-4">
-                            Exception flags
-                          </p>
-                          <div className="flex flex-wrap gap-2">
-                            {activeReview.exceptionFlags.length > 0 ? (
-                              activeReview.exceptionFlags.map((flag) => (
-                                <span
-                                  key={flag}
-                                  className="rounded-full bg-status-error-bg px-3 py-1 text-xs font-semibold text-status-error-text"
-                                >
-                                  {getExceptionFlagLabel(flag)}
+                        <div className="space-y-6">
+                          <div className="workflow-panel-approval rounded-3xl border px-4 py-4">
+                            <p className="ops-label text-text-accent mb-4">
+                              Exception flags
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {activeReview.exceptionFlags.length > 0 ? (
+                                activeReview.exceptionFlags.map((flag) => (
+                                  <span
+                                    key={flag}
+                                    className="rounded-full bg-status-error-bg px-3 py-1 text-xs font-semibold text-status-error-text"
+                                  >
+                                    {getExceptionFlagLabel(flag)}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="rounded-full bg-status-success-bg px-3 py-1 text-xs font-semibold text-status-success-text">
+                                  No active exception flags
                                 </span>
-                              ))
-                            ) : (
-                              <span className="rounded-full bg-status-success-bg px-3 py-1 text-xs font-semibold text-status-success-text">
-                                No active exception flags
-                              </span>
-                            )}
+                              )}
+                            </div>
+
+                            <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                              <DetailField
+                                label="Current custody"
+                                value={
+                                  activeDocument
+                                    ? getCustodyStateLabel(
+                                        activeDocument.custodyState,
+                                      )
+                                    : 'Unknown'
+                                }
+                              />
+                              <DetailField
+                                label="Target state"
+                                value={getCustodyStateLabel(
+                                  activeReview.targetCustodyState,
+                                )}
+                              />
+                              <DetailField
+                                label="Capability"
+                                value={getUserCapabilityLabel(
+                                  activeReview.capability,
+                                )}
+                              />
+                            </div>
                           </div>
 
-                          <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                            <DetailField
-                              label="Current custody"
-                              value={
-                                activeDocument
-                                  ? getCustodyStateLabel(
-                                      activeDocument.custodyState,
-                                    )
-                                  : 'Unknown'
-                              }
-                            />
-                            <DetailField
-                              label="Target state"
-                              value={getCustodyStateLabel(
-                                activeReview.targetCustodyState,
+                          <div className="grid gap-6 lg:grid-cols-2">
+                            <div className="rounded-3xl border border-border-strong bg-surface-panel px-4 py-4">
+                              <p className="ops-label text-text-accent mb-4">
+                                Verified dollars
+                              </p>
+                              <div className="space-y-4">
+                                <DetailField
+                                  label="Submitted amount"
+                                  value={formatCurrency(
+                                    activeDocument?.submittedAmount ?? 0,
+                                  )}
+                                />
+                                <DetailField
+                                  label="Verified target"
+                                  value={formatCurrency(
+                                    activeTask?.verifiedAmountTarget ?? 0,
+                                  )}
+                                />
+                                <p className="text-sm leading-6 text-text-muted">
+                                  Manual SG entry remains the source of truth for
+                                  verified totals in this mockup phase.
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="rounded-3xl border border-border-strong bg-surface-panel px-4 py-4">
+                              <p className="ops-label text-text-accent mb-4">
+                                Duplicate resolution
+                              </p>
+                              {duplicateMatches.length > 0 ? (
+                                <div className="space-y-4">
+                                  {duplicateMatches.map((match) => (
+                                    <div
+                                      key={match.id}
+                                      className="rounded-[1.15rem] border border-border-base bg-surface-muted px-4 py-4"
+                                    >
+                                      <div className="flex items-center justify-between gap-3">
+                                        <p className="text-sm font-semibold text-text-strong">
+                                          {match.matchType}
+                                        </p>
+                                        <StatusBadge label={match.status} />
+                                      </div>
+                                      <p className="mt-2 text-sm leading-6 text-text-muted">
+                                        {match.note}
+                                      </p>
+                                      <p className="mt-2 text-xs text-text-muted">
+                                        Client action:{' '}
+                                        {match.clientDecision ?? 'No action yet'}
+                                      </p>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-sm leading-6 text-text-muted">
+                                  No duplicate override is currently required for
+                                  this approval.
+                                </p>
                               )}
-                            />
-                            <DetailField
-                              label="Capability"
-                              value={getUserCapabilityLabel(
-                                activeReview.capability,
-                              )}
-                            />
+                            </div>
                           </div>
                         </div>
 
-                        <div className="workflow-panel-approval rounded-3xl border px-4 py-4">
-                          <p className="ops-label text-text-accent mb-4">
-                            Approval buckets
-                          </p>
-                          <div className="space-y-4">
-                            {approvalBuckets.map((bucket) => (
-                              <div
-                                key={bucket.label}
-                                className="border-b border-border-base pb-4 last:border-b-0 last:pb-0"
-                              >
-                                <div className="flex items-center justify-between gap-3">
-                                  <div className="flex items-center gap-2">
-                                    <Siren className="size-4 text-text-accent" />
-                                    <p className="font-ops text-sm font-semibold text-text-strong">
-                                      {bucket.label}
-                                    </p>
-                                  </div>
-                                  <span className="font-mono text-xs font-semibold text-text-accent">
-                                    {bucket.count}
+                        <div className="space-y-6">
+                          {contractImpact ? (
+                            <div className="workflow-panel-approval rounded-3xl border px-4 py-4">
+                              <p className="ops-label text-text-accent mb-4">
+                                Contract impact preview
+                              </p>
+                              <div className="space-y-4">
+                                <DetailField
+                                  label="Vendor"
+                                  value={contractImpact.vendorName}
+                                />
+                                <DetailField
+                                  label="Authorized"
+                                  value={formatCurrency(
+                                    contractImpact.authorizedAmount,
+                                  )}
+                                />
+                                <DetailField
+                                  label="Spent"
+                                  value={formatCurrency(contractImpact.spentAmount)}
+                                />
+                                <DetailField
+                                  label="Remaining"
+                                  value={formatCurrency(
+                                    contractImpact.remainingAmount,
+                                  )}
+                                />
+                                <div className="flex flex-wrap gap-2">
+                                  <StatusBadge label={contractImpact.health} />
+                                  <span className="text-xs font-semibold text-text-muted">
+                                    {contractImpact.utilizationPercent}% utilized
                                   </span>
                                 </div>
                               </div>
-                            ))}
+                            </div>
+                          ) : null}
+
+                          <div className="workflow-panel-approval rounded-3xl border px-4 py-4">
+                            <p className="ops-label text-text-accent mb-4">
+                              Approval buckets
+                            </p>
+                            <div className="space-y-4">
+                              {approvalBuckets.map((bucket) => (
+                                <div
+                                  key={bucket.label}
+                                  className="border-b border-border-base pb-4 last:border-b-0 last:pb-0"
+                                >
+                                  <div className="flex items-center justify-between gap-3">
+                                    <div className="flex items-center gap-2">
+                                      <Siren className="size-4 text-text-accent" />
+                                      <p className="font-ops text-sm font-semibold text-text-strong">
+                                        {bucket.label}
+                                      </p>
+                                    </div>
+                                    <span className="font-mono text-xs font-semibold text-text-accent">
+                                      {bucket.count}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         </div>
                       </div>

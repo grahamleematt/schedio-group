@@ -9,11 +9,25 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as VerificationManagementRouteImport } from './routes/verification-management'
+import { Route as SubmissionInboxRouteImport } from './routes/submission-inbox'
 import { Route as ReviewWorkbenchRouteImport } from './routes/review-workbench'
 import { Route as ReviewConsoleRouteImport } from './routes/review-console'
+import { Route as InternalDashboardRouteImport } from './routes/internal-dashboard'
+import { Route as EntityAdminRouteImport } from './routes/entity-admin'
 import { Route as CreatePackageRouteImport } from './routes/create-package'
 import { Route as IndexRouteImport } from './routes/index'
 
+const VerificationManagementRoute = VerificationManagementRouteImport.update({
+  id: '/verification-management',
+  path: '/verification-management',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SubmissionInboxRoute = SubmissionInboxRouteImport.update({
+  id: '/submission-inbox',
+  path: '/submission-inbox',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReviewWorkbenchRoute = ReviewWorkbenchRouteImport.update({
   id: '/review-workbench',
   path: '/review-workbench',
@@ -22,6 +36,16 @@ const ReviewWorkbenchRoute = ReviewWorkbenchRouteImport.update({
 const ReviewConsoleRoute = ReviewConsoleRouteImport.update({
   id: '/review-console',
   path: '/review-console',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InternalDashboardRoute = InternalDashboardRouteImport.update({
+  id: '/internal-dashboard',
+  path: '/internal-dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EntityAdminRoute = EntityAdminRouteImport.update({
+  id: '/entity-admin',
+  path: '/entity-admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CreatePackageRoute = CreatePackageRouteImport.update({
@@ -38,44 +62,94 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/create-package': typeof CreatePackageRoute
+  '/entity-admin': typeof EntityAdminRoute
+  '/internal-dashboard': typeof InternalDashboardRoute
   '/review-console': typeof ReviewConsoleRoute
   '/review-workbench': typeof ReviewWorkbenchRoute
+  '/submission-inbox': typeof SubmissionInboxRoute
+  '/verification-management': typeof VerificationManagementRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/create-package': typeof CreatePackageRoute
+  '/entity-admin': typeof EntityAdminRoute
+  '/internal-dashboard': typeof InternalDashboardRoute
   '/review-console': typeof ReviewConsoleRoute
   '/review-workbench': typeof ReviewWorkbenchRoute
+  '/submission-inbox': typeof SubmissionInboxRoute
+  '/verification-management': typeof VerificationManagementRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/create-package': typeof CreatePackageRoute
+  '/entity-admin': typeof EntityAdminRoute
+  '/internal-dashboard': typeof InternalDashboardRoute
   '/review-console': typeof ReviewConsoleRoute
   '/review-workbench': typeof ReviewWorkbenchRoute
+  '/submission-inbox': typeof SubmissionInboxRoute
+  '/verification-management': typeof VerificationManagementRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/create-package' | '/review-console' | '/review-workbench'
+  fullPaths:
+    | '/'
+    | '/create-package'
+    | '/entity-admin'
+    | '/internal-dashboard'
+    | '/review-console'
+    | '/review-workbench'
+    | '/submission-inbox'
+    | '/verification-management'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/create-package' | '/review-console' | '/review-workbench'
+  to:
+    | '/'
+    | '/create-package'
+    | '/entity-admin'
+    | '/internal-dashboard'
+    | '/review-console'
+    | '/review-workbench'
+    | '/submission-inbox'
+    | '/verification-management'
   id:
     | '__root__'
     | '/'
     | '/create-package'
+    | '/entity-admin'
+    | '/internal-dashboard'
     | '/review-console'
     | '/review-workbench'
+    | '/submission-inbox'
+    | '/verification-management'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CreatePackageRoute: typeof CreatePackageRoute
+  EntityAdminRoute: typeof EntityAdminRoute
+  InternalDashboardRoute: typeof InternalDashboardRoute
   ReviewConsoleRoute: typeof ReviewConsoleRoute
   ReviewWorkbenchRoute: typeof ReviewWorkbenchRoute
+  SubmissionInboxRoute: typeof SubmissionInboxRoute
+  VerificationManagementRoute: typeof VerificationManagementRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/verification-management': {
+      id: '/verification-management'
+      path: '/verification-management'
+      fullPath: '/verification-management'
+      preLoaderRoute: typeof VerificationManagementRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/submission-inbox': {
+      id: '/submission-inbox'
+      path: '/submission-inbox'
+      fullPath: '/submission-inbox'
+      preLoaderRoute: typeof SubmissionInboxRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/review-workbench': {
       id: '/review-workbench'
       path: '/review-workbench'
@@ -88,6 +162,20 @@ declare module '@tanstack/react-router' {
       path: '/review-console'
       fullPath: '/review-console'
       preLoaderRoute: typeof ReviewConsoleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/internal-dashboard': {
+      id: '/internal-dashboard'
+      path: '/internal-dashboard'
+      fullPath: '/internal-dashboard'
+      preLoaderRoute: typeof InternalDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/entity-admin': {
+      id: '/entity-admin'
+      path: '/entity-admin'
+      fullPath: '/entity-admin'
+      preLoaderRoute: typeof EntityAdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/create-package': {
@@ -110,8 +198,12 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CreatePackageRoute: CreatePackageRoute,
+  EntityAdminRoute: EntityAdminRoute,
+  InternalDashboardRoute: InternalDashboardRoute,
   ReviewConsoleRoute: ReviewConsoleRoute,
   ReviewWorkbenchRoute: ReviewWorkbenchRoute,
+  SubmissionInboxRoute: SubmissionInboxRoute,
+  VerificationManagementRoute: VerificationManagementRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
