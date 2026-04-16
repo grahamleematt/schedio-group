@@ -9,24 +9,48 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as ReviewWorkbenchRouteImport } from './routes/review-workbench'
-import { Route as ReviewConsoleRouteImport } from './routes/review-console'
-import { Route as CreatePackageRouteImport } from './routes/create-package'
+import { Route as VerificationsRouteImport } from './routes/verifications'
+import { Route as UploadRouteImport } from './routes/upload'
+import { Route as ProcessingRouteImport } from './routes/processing'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as ConfirmationRouteImport } from './routes/confirmation'
+import { Route as ClientsRouteImport } from './routes/clients'
 import { Route as IndexRouteImport } from './routes/index'
 
-const ReviewWorkbenchRoute = ReviewWorkbenchRouteImport.update({
-  id: '/review-workbench',
-  path: '/review-workbench',
+const VerificationsRoute = VerificationsRouteImport.update({
+  id: '/verifications',
+  path: '/verifications',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ReviewConsoleRoute = ReviewConsoleRouteImport.update({
-  id: '/review-console',
-  path: '/review-console',
+const UploadRoute = UploadRouteImport.update({
+  id: '/upload',
+  path: '/upload',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CreatePackageRoute = CreatePackageRouteImport.update({
-  id: '/create-package',
-  path: '/create-package',
+const ProcessingRoute = ProcessingRouteImport.update({
+  id: '/processing',
+  path: '/processing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConfirmationRoute = ConfirmationRouteImport.update({
+  id: '/confirmation',
+  path: '/confirmation',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClientsRoute = ClientsRouteImport.update({
+  id: '/clients',
+  path: '/clients',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -37,64 +61,128 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/create-package': typeof CreatePackageRoute
-  '/review-console': typeof ReviewConsoleRoute
-  '/review-workbench': typeof ReviewWorkbenchRoute
+  '/clients': typeof ClientsRoute
+  '/confirmation': typeof ConfirmationRoute
+  '/dashboard': typeof DashboardRoute
+  '/login': typeof LoginRoute
+  '/processing': typeof ProcessingRoute
+  '/upload': typeof UploadRoute
+  '/verifications': typeof VerificationsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/create-package': typeof CreatePackageRoute
-  '/review-console': typeof ReviewConsoleRoute
-  '/review-workbench': typeof ReviewWorkbenchRoute
+  '/clients': typeof ClientsRoute
+  '/confirmation': typeof ConfirmationRoute
+  '/dashboard': typeof DashboardRoute
+  '/login': typeof LoginRoute
+  '/processing': typeof ProcessingRoute
+  '/upload': typeof UploadRoute
+  '/verifications': typeof VerificationsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/create-package': typeof CreatePackageRoute
-  '/review-console': typeof ReviewConsoleRoute
-  '/review-workbench': typeof ReviewWorkbenchRoute
+  '/clients': typeof ClientsRoute
+  '/confirmation': typeof ConfirmationRoute
+  '/dashboard': typeof DashboardRoute
+  '/login': typeof LoginRoute
+  '/processing': typeof ProcessingRoute
+  '/upload': typeof UploadRoute
+  '/verifications': typeof VerificationsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/create-package' | '/review-console' | '/review-workbench'
+  fullPaths:
+    | '/'
+    | '/clients'
+    | '/confirmation'
+    | '/dashboard'
+    | '/login'
+    | '/processing'
+    | '/upload'
+    | '/verifications'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/create-package' | '/review-console' | '/review-workbench'
+  to:
+    | '/'
+    | '/clients'
+    | '/confirmation'
+    | '/dashboard'
+    | '/login'
+    | '/processing'
+    | '/upload'
+    | '/verifications'
   id:
     | '__root__'
     | '/'
-    | '/create-package'
-    | '/review-console'
-    | '/review-workbench'
+    | '/clients'
+    | '/confirmation'
+    | '/dashboard'
+    | '/login'
+    | '/processing'
+    | '/upload'
+    | '/verifications'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  CreatePackageRoute: typeof CreatePackageRoute
-  ReviewConsoleRoute: typeof ReviewConsoleRoute
-  ReviewWorkbenchRoute: typeof ReviewWorkbenchRoute
+  ClientsRoute: typeof ClientsRoute
+  ConfirmationRoute: typeof ConfirmationRoute
+  DashboardRoute: typeof DashboardRoute
+  LoginRoute: typeof LoginRoute
+  ProcessingRoute: typeof ProcessingRoute
+  UploadRoute: typeof UploadRoute
+  VerificationsRoute: typeof VerificationsRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/review-workbench': {
-      id: '/review-workbench'
-      path: '/review-workbench'
-      fullPath: '/review-workbench'
-      preLoaderRoute: typeof ReviewWorkbenchRouteImport
+    '/verifications': {
+      id: '/verifications'
+      path: '/verifications'
+      fullPath: '/verifications'
+      preLoaderRoute: typeof VerificationsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/review-console': {
-      id: '/review-console'
-      path: '/review-console'
-      fullPath: '/review-console'
-      preLoaderRoute: typeof ReviewConsoleRouteImport
+    '/upload': {
+      id: '/upload'
+      path: '/upload'
+      fullPath: '/upload'
+      preLoaderRoute: typeof UploadRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/create-package': {
-      id: '/create-package'
-      path: '/create-package'
-      fullPath: '/create-package'
-      preLoaderRoute: typeof CreatePackageRouteImport
+    '/processing': {
+      id: '/processing'
+      path: '/processing'
+      fullPath: '/processing'
+      preLoaderRoute: typeof ProcessingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/confirmation': {
+      id: '/confirmation'
+      path: '/confirmation'
+      fullPath: '/confirmation'
+      preLoaderRoute: typeof ConfirmationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/clients': {
+      id: '/clients'
+      path: '/clients'
+      fullPath: '/clients'
+      preLoaderRoute: typeof ClientsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -109,9 +197,13 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  CreatePackageRoute: CreatePackageRoute,
-  ReviewConsoleRoute: ReviewConsoleRoute,
-  ReviewWorkbenchRoute: ReviewWorkbenchRoute,
+  ClientsRoute: ClientsRoute,
+  ConfirmationRoute: ConfirmationRoute,
+  DashboardRoute: DashboardRoute,
+  LoginRoute: LoginRoute,
+  ProcessingRoute: ProcessingRoute,
+  UploadRoute: UploadRoute,
+  VerificationsRoute: VerificationsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

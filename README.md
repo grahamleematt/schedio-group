@@ -1,13 +1,6 @@
 # Schedio Group AI
 
-Static TanStack Start mock for the next Schedio pass. The app is structured like a product and backed by curated SG DREAM scenario packs, not a concept gallery:
-
-- `/` client operations dashboard
-- `/create-package` intake task flow launched from the dashboard
-- `/review-workbench` internal drafting workspace
-- `/review-console` internal approval console
-
-The client-facing focus of this pass is the dashboard plus create-package flow. The internal routes remain structurally essential because SG DREAM requires drafting and approval to stay separate capabilities.
+Static TanStack Start mock for SG DREAM — the Schedio Group Document Review, Evaluation, and Monitoring client portal. This pass implements the **green flow (District Direct Pay) end to end**, with every shared screen built workflow-aware so the blue flow (Developer Reimbursement) can be turned on later by flipping one value.
 
 ## Commands
 
@@ -16,43 +9,64 @@ yarn install
 yarn dev
 yarn lint
 yarn build
-yarn test
 ```
 
 ## Route Map
 
-- `/` verification-first client operations dashboard with login-driven district switching, package selection, custody pipeline, and inventory
-- `/create-package` 4-step intake flow with `monthly` and `setup` package modes
-- `/review-workbench` analyst drafting workspace with PDF preview, manifests, rationale, and field confirmation
-- `/review-console` engineer approval console with authority transitions, blocked packages, duplicates, and archive history
+The green flow is seven screens long and reads like a real client journey:
 
-## Scenario Coverage
+- `/login` — Screen 1. Email + password, invitation-only. `?error=bad_creds` shows the error state. Submit links to `/clients`.
+- `/clients` — Screen 2. Lists only entities the signed-in user has access to. Continue is disabled until a client is selected; selection is kept in `?selected=`.
+- `/verifications` — Screen 3. Primary card is the currently open verification. Past verifications are listed below with status + amounts. Requires `?client=…`.
+- `/upload` — Screen 4. Touch Point 1. Drag-and-drop zone, file queue with inline `exact` / `likely` duplicate flags, orange summary bar. `?clean=1` previews the non-flagged variant. Analyze CTA routes to `/processing`.
+- `/processing` — Screen 5. Touch Point 2. CSS-only six-step animated log. Step 5 amber branch when `?dupes>0`. CTA to `/confirmation`.
+- `/confirmation` — Screen 6. Touch Point 3. Shows the generated reference number (`SGD-DP-V4-2026-0011`), client / workflow strip, `DuplicateAlertPanel` when applicable, CTAs to Notify Schedio or continue to dashboard.
+- `/dashboard` — Screens 7 + 9. District Direct Pay stacked view: verification card → document inventory tiles → verification summary table → contract tracking table → document library → what happens next → actions.
 
-The current mock is built around five archive-backed workflow paths:
+`/` simply redirects to `/login` so the app has a single entry point.
 
-- CAB monthly close with a complete contract -> task order -> change order -> invoice -> proof chain
-- CAB late rollover into the next verification
-- CAB contract kickoff / setup intake
-- Metro finance package with a support gap
-- MD4 archived read-only package
+## Theming
 
-See [docs/scenario-matrix.md](./docs/scenario-matrix.md) for the exact file map, preview assets, and route usage.
+Workflows are driven by a `data-workflow="district_dp" | "developer_reimb"` attribute on the page root. The attribute rebinds `--wf-*` CSS variables, and every shared surface (banner, buttons, tables, pills) consumes those variables rather than a hard-coded color. Switching a screen from green to blue is a one-line change.
+
+- District Direct Pay (green) → `--wf-base: #1B5E20`
+- Developer Reimbursement (blue) → `--wf-base: var(--color-brand-blue)` (#003DA6)
+
+See `docs/brand-system.md` for the full token map.
+
+## Scenario Seed
+
+The seed lives in `src/lib/sg-dream.ts`. It models:
+
+- **Amy Lee** — entity owner with access to three District Direct Pay clients: Highlands Creek Authority (`HCA`), SR Metro District (`SRM`), Downtown BID (`DBI`).
+- Multiple verifications per client in mixed statuses (`approved`, `under_review`, `open`).
+- A queue of 11 realistic documents on HCA V4 including two exact duplicates and one likely duplicate — enough to exercise every flagged branch through the flow.
+- Per-vendor authorized / spent / remaining numbers covering the healthy, monitor, and amendment-likely utilization bands.
+
+See `docs/scenario-matrix.md` for the explicit list.
 
 ## Stack
 
-- TanStack Start
+- TanStack Start (file routes, search-param state)
 - React 19
 - Tailwind CSS v4
-- shadcn/ui
+- shadcn/ui primitives
 - TypeScript
 
 ## Design Notes
 
-- Palette, surfaces, and semantic colors come from `src/styles.css`.
-- Typography: `Open Sans` for major headings, `IBM Plex Sans` for dense operational UI, `IBM Plex Mono` for metadata, `Libre Franklin` for body text.
-- Dashboard uses modular sectioned panels (stats bar, custody pipeline, package selector, package detail, inventory). Internal routes use a 2-pane detail layout with PDF preview and fullscreen modal.
-- The main UI story is verification, cutoff, upload inventory, renamed files, submitted amount, and relationship-chain visibility.
-- Login switching drives district and verification context across the dashboard.
+- All base tokens, `.page-wrap`, `.brand-panel`, `.nav-pill`, `.data-table-*` primitives live in `src/styles.css`.
+- Workflow-specific primitives live under `src/components/sg-dream/`.
+- State is either URL-driven (search params) or derived. No component-level `useEffect`. The Screen 5 log uses CSS keyframes with staggered `animation-delay`; advancement to `/confirmation` is a user-clicked `Link`.
+
+## Gaps left for later
+
+The PDF handoff also lists work outside this pass. Noted here so the repo is honest about what is and isn't built:
+
+- Blue flow dashboard (Screen 7) — tokens are in place, component is not.
+- Schedio internal portal, admin console, account settings.
+- Email templates, session timeout UX, Terms of Service, historical onboarding.
+- Real error and empty states beyond the login `?error=bad_creds` variant.
 
 ## Docs
 
@@ -61,19 +75,6 @@ See [docs/scenario-matrix.md](./docs/scenario-matrix.md) for the exact file map,
 - [docs/mockup-brief.md](./docs/mockup-brief.md)
 - [docs/scenario-matrix.md](./docs/scenario-matrix.md)
 - [docs/agent-instruction-map.md](./docs/agent-instruction-map.md)
-
-## Source Of Truth
-
-Use this order when orienting a new agent in the repo:
-
-1. `README.md` for the current route map and repo shape.
-2. `docs/mockup-brief.md` for what each route is trying to prove.
-3. `docs/scenario-matrix.md` for the archive-backed scenario map.
-4. `docs/meeting-confirmed-details.md` for transcript-backed product direction.
-5. `docs/brand-system.md` for palette, typography, and route personality.
-6. `./.cursor/rules/director.mdc` as the canonical instruction entrypoint.
-
-If instruction files disagree, `.cursor` is canonical and `.claude` / `.codex` are mirrors.
 
 ## Agent Instructions
 

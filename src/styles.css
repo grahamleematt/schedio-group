@@ -44,20 +44,60 @@
   );
   --color-primary-soft: rgba(0, 61, 166, 0.08);
   --color-primary-softer: rgba(0, 61, 166, 0.04);
-  --color-primary-gradient: linear-gradient(135deg, #003da6 0%, #1e4a9c 48%, #2a5eb8 100%);
+  --color-primary-gradient: linear-gradient(
+    135deg,
+    #003da6 0%,
+    #1e4a9c 48%,
+    #2a5eb8 100%
+  );
 
-  --color-stage-drafting-bg: rgba(0, 61, 166, 0.08);
-  --color-stage-drafting-soft: rgba(0, 61, 166, 0.045);
-  --color-stage-drafting-border: rgba(0, 61, 166, 0.18);
-  --color-stage-drafting-text: var(--color-brand-blue);
+  /* WORKFLOW TOKENS — District Direct Pay (green)
+     Atlassian-inspired "cool green" family. Reads civic/enterprise rather
+     than forest/nature; pairs with the brand blue without clashing. */
+  --color-workflow-dp-base: #216e4e;
+  --color-workflow-dp-hover: color-mix(in oklab, #216e4e 86%, black 14%);
+  --color-workflow-dp-soft: rgba(33, 110, 78, 0.09);
+  --color-workflow-dp-softer: rgba(33, 110, 78, 0.045);
+  --color-workflow-dp-border: rgba(33, 110, 78, 0.22);
+  --color-workflow-dp-tint: rgba(33, 110, 78, 0.035);
+  --color-workflow-dp-strong: #164a34;
 
-  --color-stage-approval-bg: rgba(41, 46, 52, 0.07);
-  --color-stage-approval-soft: rgba(41, 46, 52, 0.045);
-  --color-stage-approval-border: rgba(41, 46, 52, 0.18);
-  --color-stage-approval-text: var(--color-brand-slate);
+  /* WORKFLOW TOKENS — Developer Reimbursement (blue) */
+  --color-workflow-dr-base: var(--color-brand-blue);
+  --color-workflow-dr-hover: var(--color-primary-hover);
+  --color-workflow-dr-soft: var(--color-primary-soft);
+  --color-workflow-dr-softer: var(--color-primary-softer);
+  --color-workflow-dr-border: var(--color-border-focus);
+  --color-workflow-dr-tint: rgba(0, 61, 166, 0.04);
+  --color-workflow-dr-strong: #002b7a;
 
-  --color-status-success-bg: rgba(0, 61, 166, 0.06);
-  --color-status-success-text: var(--color-brand-blue);
+  /* FLAG COLORS — duplicate detection */
+  --color-flag-exact-bg: rgba(148, 64, 64, 0.1);
+  --color-flag-exact-text: #8b2c2c;
+  --color-flag-exact-border: rgba(148, 64, 64, 0.28);
+  --color-flag-likely-bg: rgba(194, 65, 12, 0.1);
+  --color-flag-likely-text: #c2410c;
+  --color-flag-likely-border: rgba(194, 65, 12, 0.3);
+  --color-flag-summary-bg: #fb923c;
+  --color-flag-summary-text: #7c2d12;
+  --color-flag-panel-bg: rgba(251, 146, 60, 0.1);
+  --color-flag-panel-border: rgba(251, 146, 60, 0.45);
+
+  /* UTILIZATION BAND COLORS — muted enterprise semantics */
+  --color-util-healthy: #22734d;
+  --color-util-healthy-soft: rgba(34, 115, 77, 0.1);
+  --color-util-monitor: #a15c07;
+  --color-util-monitor-soft: rgba(161, 92, 7, 0.1);
+  --color-util-amend: #9b2c2c;
+  --color-util-amend-soft: rgba(155, 44, 44, 0.1);
+
+  /* STATUS COLORS */
+  --color-status-success-bg: rgba(33, 110, 78, 0.1);
+  --color-status-success-text: #164a34;
+  --color-status-review-bg: rgba(194, 65, 12, 0.08);
+  --color-status-review-text: #c2410c;
+  --color-status-open-bg: rgba(0, 61, 166, 0.08);
+  --color-status-open-text: var(--color-brand-blue);
   --color-status-error-bg: rgba(148, 64, 64, 0.08);
   --color-status-error-text: #8b2c2c;
   --color-status-warning-bg: rgba(194, 65, 12, 0.08);
@@ -72,7 +112,6 @@
   --color-popover-foreground: var(--color-text-base);
   --color-primary: var(--color-primary-base);
   --color-primary-foreground: var(--color-brand-white);
-  --color-primary-gradient: linear-gradient(135deg, #003da6 0%, #1e4a9c 48%, #2a5eb8 100%);
   --color-secondary: #eef2f7;
   --color-secondary-foreground: var(--color-text-strong);
   --color-muted: #eef1f4;
@@ -94,7 +133,38 @@
 @layer base {
   :root {
     --radius: 1rem;
-    --brand-grid: rgba(0, 61, 166, 0.06);
+    --brand-grid: rgba(35, 31, 32, 0.05);
+
+    /* Workflow accent aliases (default = district_dp green).
+       Shared screens only reference var(--wf-*) so the same markup themes itself
+       by data-workflow attribute on the page root. */
+    --wf-base: var(--color-workflow-dp-base);
+    --wf-hover: var(--color-workflow-dp-hover);
+    --wf-soft: var(--color-workflow-dp-soft);
+    --wf-softer: var(--color-workflow-dp-softer);
+    --wf-border: var(--color-workflow-dp-border);
+    --wf-tint: var(--color-workflow-dp-tint);
+    --wf-strong: var(--color-workflow-dp-strong);
+  }
+
+  [data-workflow='district_dp'] {
+    --wf-base: var(--color-workflow-dp-base);
+    --wf-hover: var(--color-workflow-dp-hover);
+    --wf-soft: var(--color-workflow-dp-soft);
+    --wf-softer: var(--color-workflow-dp-softer);
+    --wf-border: var(--color-workflow-dp-border);
+    --wf-tint: var(--color-workflow-dp-tint);
+    --wf-strong: var(--color-workflow-dp-strong);
+  }
+
+  [data-workflow='developer_reimb'] {
+    --wf-base: var(--color-workflow-dr-base);
+    --wf-hover: var(--color-workflow-dr-hover);
+    --wf-soft: var(--color-workflow-dr-soft);
+    --wf-softer: var(--color-workflow-dr-softer);
+    --wf-border: var(--color-workflow-dr-border);
+    --wf-tint: var(--color-workflow-dr-tint);
+    --wf-strong: var(--color-workflow-dr-strong);
   }
 
   * {
@@ -107,23 +177,15 @@
     overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Enterprise-neutral backdrop. Cool gray base with a soft warm ink
+       gradient — no radial brand color wash, so whichever workflow accent
+       is active reads cleanly against it. */
     background:
-      radial-gradient(
-        2400px 1250px at -12% -48%,
-        color-mix(in oklab, var(--color-brand-blue) 52%, transparent 48%),
-        transparent 32%
-      ),
-      radial-gradient(
-        1850px 980px at 105% -8%,
-        color-mix(in oklab, var(--color-brand-slate) 34%, transparent 66%),
-        transparent 42%
-      ),
       linear-gradient(
-        142deg,
-        #f8fafd 0%,
-        #f0f4fa 18%,
-        var(--color-surface-base) 48%,
-        #f5f8fc 100%
+        180deg,
+        #f7f8fa 0%,
+        #f4f5f7 40%,
+        var(--color-surface-base) 100%
       );
   }
 
@@ -133,32 +195,16 @@
     inset: 0;
     pointer-events: none;
     z-index: -1;
-    opacity: 0.75;
+    opacity: 0.5;
     background-image:
       linear-gradient(var(--brand-grid) 1px, transparent 1px),
       linear-gradient(90deg, var(--brand-grid) 1px, transparent 1px);
-    background-size: 36px 36px;
-    mask-image: radial-gradient(circle at 48% 22%, black, transparent 78%);
-  }
-
-  body::after {
-    content: '';
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: -1;
-    background:
-      radial-gradient(
-        circle at 12% 18%,
-        rgba(0, 61, 166, 0.14),
-        transparent 28%
-      ),
-      radial-gradient(
-        circle at 84% 22%,
-        rgba(35, 31, 32, 0.08),
-        transparent 32%
-      );
-    opacity: 0.65;
+    background-size: 44px 44px;
+    mask-image: radial-gradient(
+      ellipse 60% 40% at 50% 0%,
+      rgba(0, 0, 0, 0.5),
+      transparent 75%
+    );
   }
 
   html,
@@ -168,14 +214,14 @@
   }
 }
 
-a:not([data-slot='button']) {
+a:not([data-slot='button']):not(.wf-button-primary):not(.wf-button-secondary):not(.unstyled-link) {
   @apply text-text-accent transition-colors duration-150;
   text-decoration-color: rgba(0, 61, 166, 0.38);
   text-decoration-thickness: 1px;
   text-underline-offset: 2px;
 }
 
-a:not([data-slot='button']):hover {
+a:not([data-slot='button']):not(.wf-button-primary):not(.wf-button-secondary):not(.unstyled-link):hover {
   @apply text-primary-hover;
 }
 
@@ -203,10 +249,15 @@ pre code {
 }
 
 .eyebrow {
-  @apply inline-flex items-center gap-2 text-[0.72rem] font-bold tracking-[0.16em] uppercase text-text-accent;
+  @apply inline-flex items-center gap-2 text-[0.72rem] font-bold tracking-[0.16em] uppercase;
+  color: var(--wf-base);
 }
 
-/* COMPONENT TOKENS / CLASSES */
+.ops-label {
+  @apply font-mono text-[0.72rem] font-semibold tracking-[0.12em] uppercase;
+  color: var(--wf-base);
+}
+
 .brand-panel {
   @apply min-w-0 border border-border-base bg-surface-raised shadow-[0_28px_70px_rgba(12,33,77,0.09)];
 }
@@ -220,269 +271,9 @@ pre code {
 }
 
 .nav-pill.is-active {
-  @apply border-border-focus bg-surface-active text-text-accent;
-}
-
-.surface-operations {
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.98),
-    rgba(232, 238, 247, 0.98)
-  );
-  position: relative;
-}
-
-.surface-operations::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(rgba(0, 61, 166, 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 61, 166, 0.035) 1px, transparent 1px);
-  background-size: 20px 20px;
-  mask-image: linear-gradient(180deg, black 0%, transparent 92%);
-  pointer-events: none;
-  opacity: 0.7;
-}
-
-.surface-review-hero {
-  background: linear-gradient(
-    180deg,
-    rgba(41, 46, 52, 0.04),
-    rgba(41, 46, 52, 0.01) 60%,
-    rgba(255, 255, 255, 0.98)
-  );
-  position: relative;
-}
-
-.surface-review-hero::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(rgba(41, 46, 52, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(41, 46, 52, 0.025) 1px, transparent 1px);
-  background-size: 24px 24px;
-  mask-image: linear-gradient(180deg, black 0%, transparent 88%);
-  pointer-events: none;
-  opacity: 0.5;
-}
-
-.workflow-stage-strip {
-  @apply overflow-hidden rounded-[1.75rem] border px-5 py-5 sm:px-6;
-}
-
-.workflow-stage-strip-drafting {
-  border-color: var(--color-stage-drafting-border);
-  background:
-    linear-gradient(
-      135deg,
-      color-mix(in oklab, var(--color-stage-drafting-bg) 80%, white 20%),
-      rgba(255, 255, 255, 0.92)
-    ),
-    var(--color-surface-panel);
-}
-
-.workflow-stage-strip-approval {
-  border-color: var(--color-stage-approval-border);
-  background:
-    linear-gradient(
-      135deg,
-      color-mix(in oklab, var(--color-stage-approval-bg) 80%, white 20%),
-      rgba(255, 255, 255, 0.92)
-    ),
-    var(--color-surface-panel);
-}
-
-.workflow-stage-strip .ops-label {
-  color: var(--color-text-muted);
-}
-
-.workflow-stage-chip {
-  @apply inline-flex items-center rounded-full border px-3 py-1;
-  border-color: var(--color-border-base);
-  background: rgba(255, 255, 255, 0.72);
-  color: var(--color-text-strong);
-}
-
-.workflow-stage-chip-current {
-  box-shadow: inset 0 0 0 1px currentColor;
-}
-
-.workflow-stage-chip-drafting {
-  border-color: var(--color-stage-drafting-border);
-  color: var(--color-stage-drafting-text);
-}
-
-.workflow-stage-chip-approval {
-  border-color: var(--color-stage-approval-border);
-  color: var(--color-stage-approval-text);
-}
-
-.workflow-phase-strip {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 0.85rem;
-  min-width: 0;
-}
-
-.workflow-phase-item {
-  min-width: 0;
-}
-
-.workflow-phase-row {
-  display: flex;
-  align-items: center;
-}
-
-.workflow-step-node {
-  @apply flex size-9 shrink-0 items-center justify-center rounded-full border font-ops text-xs font-semibold;
-  border-color: var(--color-border-base);
-  background: rgba(255, 255, 255, 0.82);
-  color: var(--color-text-muted);
-}
-
-.workflow-step-node[data-phase-state='complete'] {
-  border-color: var(--color-border-focus);
-  background: var(--color-surface-active);
-  color: var(--color-text-accent);
-}
-
-.workflow-step-node[data-phase-state='active'][data-stage='drafting'] {
-  border-color: var(--color-stage-drafting-border);
-  background: var(--color-stage-drafting-bg);
-  color: var(--color-stage-drafting-text);
-  box-shadow: inset 0 0 0 1px rgba(0, 61, 166, 0.05);
-}
-
-.workflow-step-node[data-phase-state='active'][data-stage='approval'] {
-  border-color: var(--color-stage-approval-border);
-  background: var(--color-stage-approval-bg);
-  color: var(--color-stage-approval-text);
-  box-shadow: inset 0 0 0 1px rgba(41, 46, 52, 0.05);
-}
-
-.workflow-step-line {
-  height: 1px;
-  flex: 1;
-  min-width: 1rem;
-  margin-inline: 0.65rem;
-  background: var(--color-border-base);
-}
-
-.workflow-step-line[data-phase-state='complete'],
-.workflow-step-line[data-phase-state='active'][data-stage='drafting'] {
-  background: var(--color-stage-drafting-border);
-}
-
-.workflow-step-line[data-phase-state='active'][data-stage='approval'] {
-  background: var(--color-stage-approval-border);
-}
-
-.workflow-step-label {
-  @apply mt-3 block text-xs font-semibold;
-  color: var(--color-text-muted);
-}
-
-.workflow-step-label[data-phase-state='active'],
-.workflow-step-label[data-phase-state='complete'] {
-  color: var(--color-text-strong);
-}
-
-.workflow-panel-drafting {
-  border-color: var(--color-stage-drafting-border);
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in oklab, var(--color-stage-drafting-soft) 90%, white 10%),
-      rgba(255, 255, 255, 0.95)
-    ),
-    var(--color-surface-panel);
-}
-
-.workflow-panel-approval {
-  border-color: var(--color-stage-approval-border);
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in oklab, var(--color-stage-approval-soft) 90%, white 10%),
-      rgba(255, 255, 255, 0.95)
-    ),
-    var(--color-surface-panel);
-}
-
-.workflow-tabs-drafting {
-  background: color-mix(
-    in oklab,
-    var(--color-stage-drafting-soft) 84%,
-    white 16%
-  );
-}
-
-.workflow-tabs-drafting [data-slot='tabs-trigger'][data-state='active'] {
-  border-color: var(--color-stage-drafting-border);
-  background: var(--color-stage-drafting-bg);
-  color: var(--color-stage-drafting-text);
-}
-
-.workflow-tabs-approval {
-  background: color-mix(
-    in oklab,
-    var(--color-stage-approval-soft) 84%,
-    white 16%
-  );
-}
-
-.workflow-tabs-approval [data-slot='tabs-trigger'][data-state='active'] {
-  border-color: var(--color-stage-approval-border);
-  background: var(--color-stage-approval-bg);
-  color: var(--color-stage-approval-text);
-}
-
-.workflow-action-bar-drafting {
-  border-top-color: var(--color-stage-drafting-border);
-  background:
-    linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.92),
-      color-mix(in oklab, var(--color-stage-drafting-soft) 82%, white 18%)
-    ),
-    var(--color-surface-panel);
-}
-
-.workflow-action-bar-approval {
-  border-top-color: var(--color-stage-approval-border);
-  background:
-    linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.92),
-      color-mix(in oklab, var(--color-stage-approval-soft) 82%, white 18%)
-    ),
-    var(--color-surface-panel);
-}
-
-.package-stage-bridge {
-  @apply rounded-[1.2rem] border px-4 py-4;
-  border-color: var(--color-border-base);
-  background:
-    linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.88),
-      var(--color-surface-muted)
-    ),
-    var(--color-surface-panel);
-}
-
-.package-stage-next {
-  @apply inline-flex items-center rounded-full border px-3 py-1 text-[0.72rem] font-semibold;
-  border-color: var(--color-border-focus);
-  background: var(--color-primary-soft);
-  color: var(--color-text-accent);
-}
-
-.route-grid {
-  display: grid;
-  gap: 1.5rem;
+  border-color: var(--wf-border);
+  background: var(--wf-soft);
+  color: var(--wf-base);
 }
 
 .section-stack {
@@ -491,10 +282,6 @@ pre code {
   gap: 1.75rem;
   min-width: 0;
   overflow: hidden;
-}
-
-.ops-label {
-  @apply font-mono text-[0.72rem] font-semibold tracking-[0.12em] uppercase text-text-accent;
 }
 
 .data-table-frame {
@@ -506,30 +293,192 @@ pre code {
   min-width: 760px;
 }
 
-@media (min-width: 960px) {
-  .route-grid {
-    grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr);
+/* WORKFLOW BANNER — used on Screens 3, 4, 6 to announce active workflow */
+.workflow-banner {
+  @apply flex flex-wrap items-center gap-3 rounded-2xl border px-5 py-4;
+  border-color: var(--wf-border);
+  background:
+    linear-gradient(180deg, var(--wf-soft), var(--wf-softer)),
+    var(--color-surface-panel);
+}
+
+.workflow-banner-title {
+  color: var(--wf-strong);
+  @apply font-ops text-sm font-semibold;
+}
+
+.workflow-banner-subtitle {
+  @apply text-sm text-text-muted;
+}
+
+.workflow-pill {
+  @apply inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[0.75rem] font-semibold uppercase tracking-[0.12em];
+  border-color: var(--wf-border);
+  background: var(--wf-soft);
+  color: var(--wf-base);
+}
+
+.wf-button-primary {
+  @apply inline-flex h-10 items-center justify-center gap-2 rounded-full px-5 text-sm font-semibold no-underline shadow-sm transition-colors;
+  background: var(--wf-base);
+  color: var(--color-brand-white);
+}
+
+.wf-button-primary:hover {
+  background: var(--wf-hover);
+}
+
+.wf-button-primary[aria-disabled='true'],
+.wf-button-primary:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.wf-button-secondary {
+  @apply inline-flex h-10 items-center justify-center gap-2 rounded-full border bg-surface-panel px-5 text-sm font-semibold no-underline transition-colors;
+  border-color: var(--wf-border);
+  color: var(--wf-strong);
+}
+
+.wf-button-secondary:hover {
+  background: var(--wf-soft);
+}
+
+/* FLAG PILLS */
+.flag-pill-exact {
+  @apply inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[0.72rem] font-semibold uppercase tracking-[0.08em];
+  background: var(--color-flag-exact-bg);
+  color: var(--color-flag-exact-text);
+  border-color: var(--color-flag-exact-border);
+}
+
+.flag-pill-likely {
+  @apply inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[0.72rem] font-semibold uppercase tracking-[0.08em];
+  background: var(--color-flag-likely-bg);
+  color: var(--color-flag-likely-text);
+  border-color: var(--color-flag-likely-border);
+}
+
+.flag-summary-bar {
+  @apply flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold;
+  background: var(--color-flag-summary-bg);
+  color: var(--color-flag-summary-text);
+}
+
+.flag-alert-panel {
+  @apply rounded-2xl border;
+  background: var(--color-flag-panel-bg);
+  border-color: var(--color-flag-panel-border);
+}
+
+/* PROCESSING LOG — CSS-only staggered reveal */
+.processing-step {
+  --step-delay: calc(var(--step, 0) * 0.55s);
+  animation: processing-step-in 0.6s ease-out var(--step-delay) both;
+}
+
+.processing-step .processing-step-check {
+  animation: processing-step-check 0.35s ease-out
+    calc(var(--step-delay) + 0.25s) both;
+}
+
+.processing-step .processing-step-status {
+  animation: processing-step-status 0.3s ease-out calc(var(--step-delay) + 0.3s)
+    both;
+}
+
+@keyframes processing-step-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
   }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes processing-step-check {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes processing-step-status {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* UTILIZATION BAR */
+.util-bar {
+  @apply relative h-2 overflow-hidden rounded-full bg-surface-muted;
+}
+
+.util-bar-fill {
+  @apply absolute inset-y-0 left-0 rounded-full transition-[width] duration-300;
+}
+
+.util-bar-fill[data-band='healthy'] {
+  background: var(--color-util-healthy);
+}
+.util-bar-fill[data-band='monitor'] {
+  background: var(--color-util-monitor);
+}
+.util-bar-fill[data-band='amend'] {
+  background: var(--color-util-amend);
+}
+
+.util-pct[data-band='healthy'] {
+  color: var(--color-util-healthy);
+}
+.util-pct[data-band='monitor'] {
+  color: var(--color-util-monitor);
+}
+.util-pct[data-band='amend'] {
+  color: var(--color-util-amend);
+}
+
+/* STATUS PILLS */
+.status-pill-approved {
+  @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[0.72rem] font-semibold uppercase tracking-[0.08em];
+  background: var(--color-status-success-bg);
+  color: var(--color-status-success-text);
+}
+
+.status-pill-review {
+  @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[0.72rem] font-semibold uppercase tracking-[0.08em];
+  background: var(--color-status-review-bg);
+  color: var(--color-status-review-text);
+}
+
+.status-pill-open {
+  @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[0.72rem] font-semibold uppercase tracking-[0.08em];
+  background: var(--color-status-open-bg);
+  color: var(--color-status-open-text);
+}
+
+/* RUNNING TOTAL ROW — tinted with workflow accent */
+.running-total-row {
+  background: var(--wf-base);
+  color: var(--color-brand-white);
+}
+
+.running-total-row td {
+  font-weight: 600;
 }
 
 @media (max-width: 767px) {
   .page-wrap {
     width: min(100%, calc(100% - 1rem));
-  }
-
-  .workflow-phase-strip {
-    grid-template-columns: 1fr;
-    gap: 0.75rem;
-  }
-
-  .workflow-phase-item {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 0.35rem;
-  }
-
-  .workflow-step-line {
-    display: none;
   }
 
   .section-stack {

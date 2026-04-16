@@ -1,40 +1,55 @@
-import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '#/components/ui/select'
-import {
-  getActiveVerificationByDistrict,
-  getClientWorkspaceSession,
-  getWorkspaceAccountById,
-  getWorkspaceContext,
-  workOSWorkspaceAccounts,
-} from '#/lib/mock-data'
+import { Link, useRouterState } from '@tanstack/react-router'
+import { LogOut, ShieldCheck } from 'lucide-react'
+import { clients, mockUser, workflowConfigs } from '#/lib/sg-dream'
+import type { Workflow } from '#/lib/sg-dream'
 
+/**
+ * SG DREAM header. Two modes:
+ *   - unauthenticated (/login, /clients): minimal shell, no entity context.
+ *   - inside an entity workspace: workflow pill, entity name, user initials,
+ *     sign-out link. Driven entirely by ?client= search param so the header
+ *     stays stateless.
+ */
 export default function Header() {
-  const navigate = useNavigate()
   const location = useRouterState({
-    select: (state) => ({
-      pathname: state.location.pathname,
-      href: state.location.href,
+    select: (s) => ({
+      pathname: s.location.pathname,
+      search: s.location.search as Record<string, unknown>,
     }),
   })
-  const accountId = getAccountIdFromHref(location.href)
-  const workspace = getWorkspaceContext(location.pathname, accountId)
-  const isClientWorkspace = workspace.workspaceType === 'client'
-  const clientWorkspace = getClientWorkspaceSession(accountId)
+
+  const isUnauthed =
+    location.pathname === '/login' ||
+    location.pathname === '/clients' ||
+    location.pathname === '/'
+
+  const clientIdParam =
+    typeof location.search.client === 'string'
+      ? location.search.client
+      : undefined
+
+  const client = clientIdParam
+    ? clients.find((c) => c.id === clientIdParam)
+    : undefined
 
   return (
-    <header className="sticky top-0 z-50 border-b border-white/20 bg-white/95 px-4 backdrop-blur-2xl shadow-[0_2px_40px_-12px_rgb(0,61,166,0.12),inset_0_-1px_0_0_rgba(255,255,255,0.6)] transition-all duration-300">
-      <nav className="page-wrap flex flex-col gap-4 py-4 lg:flex-row lg:items-center lg:justify-between">
+    <header
+      className="sticky top-0 z-50 border-b border-white/30 bg-white/95 px-4 backdrop-blur-2xl shadow-[0_2px_40px_-12px_rgb(0,61,166,0.1),inset_0_-1px_0_0_rgba(255,255,255,0.6)]"
+      data-workflow={client?.workflow ?? 'district_dp'}
+    >
+      <nav className="page-wrap flex flex-col gap-3 py-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-1 flex-wrap items-center gap-4">
           <Link
-            to={isClientWorkspace ? '/' : workspace.defaultRoute}
+            to={isUnauthed ? '/login' : '/dashboard'}
             search={
-              isClientWorkspace ? { account: clientWorkspace.id } : undefined
+              !isUnauthed && client
+                ? {
+                    client: client.id,
+                    verification: undefined,
+                    libraryQuery: undefined,
+                    libraryOpen: undefined,
+                  }
+                : undefined
             }
             className="inline-flex items-center rounded-full bg-white px-1 py-1 no-underline"
             aria-label="Schedio Group"
@@ -42,119 +57,85 @@ export default function Header() {
             <img
               src="/schedio-logo.svg"
               alt="Schedio Group"
-              className="h-10 w-auto sm:h-11"
+              className="h-9 w-auto sm:h-10"
             />
           </Link>
 
-          <div className="flex flex-wrap items-center gap-1.5">
-            {isClientWorkspace ? (
-              <Link
-                to="/"
-                search={{
-                  account: clientWorkspace.id,
-                  district: undefined,
-                  verification: undefined,
-                  package: undefined,
-                }}
-                className="nav-pill"
-                activeOptions={{ exact: true }}
-                activeProps={{ className: 'nav-pill is-active' }}
-              >
-                Dashboard
-              </Link>
-            ) : (
-              <>
-                <Link
-                  to="/review-workbench"
-                  search={{ reviewId: undefined }}
-                  className="nav-pill"
-                  activeProps={{ className: 'nav-pill is-active' }}
-                >
-                  Drafting
-                </Link>
-                <Link
-                  to="/review-console"
-                  search={{
-                    reviewId: undefined,
-                    q: undefined,
-                    districtId: undefined,
-                  }}
-                  className="nav-pill"
-                  activeProps={{ className: 'nav-pill is-active' }}
-                >
-                  Approval
-                </Link>
-              </>
-            )}
+          <div className="flex items-center gap-2 text-sm">
+            <span className="font-ops text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-text-muted">
+              SG DREAM
+            </span>
+            <span className="text-text-muted">·</span>
+            <span className="text-text-muted">
+              Document Review &amp; Management
+            </span>
           </div>
         </div>
 
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 lg:max-w-[420px] lg:flex-none lg:justify-end">
-          <div className="min-w-0 flex-1 rounded-[1.35rem] border border-white/60 bg-white/95 px-3 py-2.5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_4px_20px_-4px_rgb(0,61,166,0.08)] lg:flex-none lg:min-w-[320px] relative overflow-hidden">
-            <p className="ops-label text-text-accent">Switch login</p>
-            <div className="mt-2 flex flex-col gap-2">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-text-strong">
-                  {workspace.accountLabel}
-                </p>
-                <p className="truncate text-xs text-text-muted">
-                  {workspace.organizationName} • {workspace.roleLabel}
-                </p>
-              </div>
-              <Select
-                value={workspace.id}
-                onValueChange={(nextAccountId) => {
-                  const nextAccount = getWorkspaceAccountById(nextAccountId)
-
-                  if (nextAccount && nextAccount.id !== workspace.id) {
-                    if (nextAccount.workspaceType === 'client') {
-                      const primaryDistrictId =
-                        nextAccount.permittedDistrictIds[0]
-                      const activeVerification =
-                        getActiveVerificationByDistrict(primaryDistrictId)
-                      void navigate({
-                        to: '/',
-                        search: {
-                          account: nextAccount.id,
-                          district: primaryDistrictId,
-                          verification: activeVerification.id,
-                          package: undefined,
-                        },
-                      })
-                    } else {
-                      void navigate({
-                        to: nextAccount.defaultRoute,
-                        search: undefined,
-                      })
-                    }
-                  }
-                }}
-              >
-                <SelectTrigger className="h-10 w-full rounded-full border-border-base bg-surface-panel font-ops text-text-strong">
-                  <SelectValue placeholder="Select account" />
-                </SelectTrigger>
-                <SelectContent align="end">
-                  {workOSWorkspaceAccounts.map((account) => (
-                    <SelectItem key={account.id} value={account.id}>
-                      {account.accountLabel}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </div>
+        {isUnauthed ? (
+          <UnauthedRightSide />
+        ) : client ? (
+          <AuthedRightSide workflow={client.workflow} clientName={client.name} />
+        ) : null}
       </nav>
     </header>
   )
 }
 
-function getAccountIdFromHref(href: string) {
-  try {
-    return (
-      new URL(href, 'http://localhost').searchParams.get('account') ?? undefined
-    )
-  } catch {
-    return undefined
-  }
+function UnauthedRightSide() {
+  return (
+    <div className="flex items-center gap-2 text-xs text-text-muted">
+      <ShieldCheck className="size-4 text-text-accent" />
+      <span>Invitation-based access · Schedio Group administers every entity.</span>
+    </div>
+  )
 }
+
+function AuthedRightSide({
+  workflow,
+  clientName,
+}: {
+  workflow: Workflow
+  clientName: string
+}) {
+  const config = workflowConfigs[workflow]
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <span className="workflow-pill">
+        <span
+          aria-hidden
+          className="inline-block size-1.5 rounded-full"
+          style={{ background: 'var(--wf-base)' }}
+        />
+        {config.label}
+      </span>
+      <div className="hidden text-right sm:block">
+        <p className="font-ops text-sm font-semibold text-text-strong">
+          {clientName}
+        </p>
+        <p className="font-mono text-[0.72rem] text-text-muted">
+          {mockUser.name} · Entity Owner
+        </p>
+      </div>
+      <span
+        aria-hidden
+        className="inline-flex size-10 items-center justify-center rounded-full font-ops text-sm font-semibold"
+        style={{
+          background: 'var(--wf-soft)',
+          color: 'var(--wf-strong)',
+        }}
+      >
+        {mockUser.initials}
+      </span>
+      <Link
+        to="/login"
+        search={{ error: undefined }}
+        className="nav-pill"
+      >
+        <LogOut className="size-4" />
+        Sign out
+      </Link>
+    </div>
+  )
+}
+

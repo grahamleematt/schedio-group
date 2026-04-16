@@ -1,64 +1,68 @@
-# Scenario Matrix
+# SG DREAM Scenario Seed
 
-This file maps the current Schedio mock routes back to the exact SG DREAM archive files used in the product mock.
+The mock is static. All runtime data comes from `src/lib/sg-dream.ts` and is fully typed. This document is the human-readable map of what's in that seed.
 
-## Scenario Packs
+## Logged-in user
 
-| Scenario | District | Verification | Package | Route coverage | Core files |
-| --- | --- | --- | --- | --- | --- |
-| CAB monthly close | Sterling Ranch CAB | Verification 16 | `package-cab-monthly-close` | `/`, `/review-console` | `VC_SRCAB_AGW_MSA FOR GEOTECHNICAL SERVICES_XXX.pdf`, `VT_Sterling Ranch CAB_AGW_F6-00001-005_$55,410.00.pdf`, `VO_Rusin_CO2_$3,880.01.pdf`, `VI_JDS_3601_$2,639.67.pdf`, `Unconditional Waiver and Release Form (002).pdf` |
-| CAB late rollover | Sterling Ranch CAB | Verification 17 | `package-cab-rollover` | `/`, `/create-package`, `/review-workbench` | `VI_JDS_3645_$100,000.00.pdf`, `Blank Conditional Lien Waiver.pdf`, carried-forward task order `VT_Sterling Ranch CAB_AGW_F6-00001-005_$55,410.00.pdf` |
-| CAB contract kickoff | Sterling Ranch CAB | Verification 17 | `package-cab-kickoff` | `/`, `/create-package`, `/review-workbench` | `VC_Atwell LLC_Master Service Agreement_(Fully Executed).pdf`, `VC_Atwell Sterling Ranch F2 Townhome - Advanced Concrete Work Order - EXECUTED.pdf`, `VO_Rusin_CO1_$2,254.00.pdf` |
-| Metro finance support gap | Sterling Ranch Metro District | Verification 11 | `package-md-finance` | `/`, `/create-package`, `/review-workbench`, `/review-console` | `VI_Classic_Pay App 23_$788,747.57.pdf`, `Blank Conditional Lien Waiver.pdf` |
-| MD4 archived read-only | Sterling Ranch MD4 | Verification 9 | `package-md4-archived` | `/`, `/review-console` | `VI_Classic_Pay App 17_$865,464.69.pdf`, `Unconditional Waiver and Release Form (002).pdf` |
+- Amy Lee (`AL`), `amy.lee@districts.example`, role `entity_owner`.
+- Permitted clients: `hca`, `srm`, `dbi`. Per the PDF isolation rule, no other entities are visible in this session.
 
-## Preview Assets
+## Clients (District Direct Pay)
 
-The internal routes currently use this curated preview set in `public/review-previews/`:
+| Code | Name | Region | Status |
+| --- | --- | --- | --- |
+| `HCA` | Highlands Creek Authority | Arapahoe County, CO | Active |
+| `SRM` | SR Metro District | Douglas County, CO | Active |
+| `DBI` | Downtown BID | Denver, CO | Active |
 
-| Preview asset | Exact archive source |
-| --- | --- |
-| `review-contract-agw-xxx.pdf` | `1.0 Examples/2.1 Contracts/AGW/VC_SRCAB_AGW_MSA FOR GEOTECHNICAL SERVICES_XXX.pdf` |
-| `review-jds-3601.pdf` | `1.0 Examples/3.1 Invoices/Ver 4/VI_JDS_3601_$2,639.67.pdf` |
-| `review-mcdonal-7981.pdf` | `1.0 Examples/3.1 Invoices/Ver 3/McDonal Paving/VI_McDonal Paving_7981_$.pdf` |
-| `review-payapp-pages-20.pdf` | `1.0 Examples/3.1 Invoices/Ver 4/Pages from SRMD - SRD Pay App 20 - 7.31.24.pdf` |
-| `review-sunflower-duplicate.pdf` | `1.0 Examples/3.1 Invoices/Ver 5/VI_Sunflower_33032_$96,141.00 (2).pdf` |
-| `review-atwell-contract.pdf` | `1.0 Examples/2.1 Contracts/Atwell/VC_Atwell LLC_Master Service Agreement_(Fully Executed).pdf` |
-| `review-atwell-task-order.pdf` | `1.0 Examples/2.2 Task Orders/Atwell/VC_Atwell Sterling Ranch F2 Townhome - Advanced Concrete Work Order - EXECUTED.pdf` |
-| `review-rusin-co1.pdf` | `1.0 Examples/2.3 Change Orders/Rusin/VO_Rusin_CO1_$2,254.00.pdf` |
-| `review-jds-3645-rollover.pdf` | `1.0 Examples/3.1 Invoices/Ver 5/VI_JDS_3645_$100,000.00.pdf` |
-| `review-conditional-waiver.pdf` | `1.0 Examples/4.2 Proofs of Payments - Conditional Lien Waivers/Blank Conditional Lien Waiver.pdf` |
-| `review-classic-payapp-23.pdf` | `1.0 Examples/3.2 Pay Applications/VI_Classic_Pay App 23_$788,747.57.pdf` |
-| `review-classic-payapp-17.pdf` | `1.0 Examples/3.2 Pay Applications/VI_Classic_Pay App 17_$865,464.69.pdf` |
+## Verifications
 
-## Route Usage
+Each client has multiple verifications in mixed statuses. The **current demo target is HCA V4** — it is the open verification, it has enough docs to populate every inventory tile, and it contains the flagged documents used by the duplicate detection branches.
 
-### `/`
+| Client | No. | Period | Cutoff | Status |
+| --- | --- | --- | --- | --- |
+| HCA | V1 | Oct 2025 | Nov 10 | Approved |
+| HCA | V2 | Nov 2025 | Dec 10 | Approved |
+| HCA | V3 | Dec 2025 | Jan 12 | Under Review |
+| HCA | V4 | Jan 2026 | Feb 10 | **Open** |
+| SRM | V1 | Nov 2025 | Dec 15 | Approved |
+| SRM | V2 | Dec 2025 | Jan 15 | Under Review |
+| SRM | V3 | Jan 2026 | Feb 15 | **Open** |
+| DBI | V1 | Q4 2025 | Jan 20 | Approved |
+| DBI | V2 | Q1 2026 | Apr 20 | **Open** |
 
-- Uses the five package scenarios for district, verification, and package drilldown.
-- Filters the uploaded inventory to the selected package.
-- Shows inline relationship-chain detail for the selected package only.
+## HCA V4 documents
 
-### `/create-package`
+11 documents, hitting every doc-type category used in the flow.
 
-- `mode=monthly` maps to CAB monthly close, CAB rollover, or Metro finance depending on district and verification.
-- `mode=setup` maps to CAB contract kickoff.
-- Archived districts are excluded from package creation and fall back to the first non-archived permitted district.
+- 3 exact / likely duplicates cover both branches:
+  - `Apex_Invoice_INV-2026-0044.pdf` — likely duplicate, matches `SGD-DP-V3-2026-0008`.
+  - `Meridian-Invoice-December-2025.pdf` — exact duplicate, matches `SGD-DP-V3-2026-0008`.
+  - `HighlandsCreek_Plat_Phase_2.pdf` — exact duplicate, matches `SGD-DP-V2-2026-0004`.
+- Every document is renamed per the PDF convention: `SG-HCA-V004-[DOCTYPE]-[VENDOR]-2026-[SEQ].pdf`.
 
-### `/review-workbench`
+## Vendors + utilization
 
-- Covers drafting on:
-  - pay-app variant / missing support
-  - malformed amount
-  - late rollover
-  - contract kickoff
-  - Metro support gap
-- Field-confirmation states are attached only to ambiguous drafting cases.
+Each client has multiple vendors with authorized / spent numbers that land across the three bands:
 
-### `/review-console`
+- `APEX` on HCA — ~94% utilized → **amend** band.
+- `DLTA` on HCA — ~75% utilized → **monitor** band.
+- `SLNO` on HCA — ~43% utilized → **healthy** band.
+- Similar distributions exist on SRM and DBI.
 
-- Covers approval on:
-  - clean happy-path lock
-  - duplicate suppression
-  - blocked missing-support package
-  - archived package with superseded history
+## Helpers
+
+The file also exports helpers the routes depend on:
+
+- `getOpenVerification(clientId)` — resolves the verification shown in the primary card on `/verifications`.
+- `getDocumentsByVerification(verificationId)` — drives inventory, upload queue, processing, confirmation, and library.
+- `formatRef({ workflow, number, year, seq })` — generates `SGD-DP-V#-YEAR-####` reference numbers.
+- `getDuplicateCounts(docs)` — exact / likely / total, used for the queue summary and processing amber branch.
+- `computeVendorUtilization(vendor)` + `getUtilizationBand(pct)` — drive the Contract Tracking bar + color.
+- `summarizeDocTypes(docs)` — drives the 8-tile Document Inventory and the confirmation summary line.
+
+## Not yet covered
+
+- **Blue flow (Developer Reimbursement)** — no vendors or verifications seeded for a blue-flow entity yet. When we turn it on, add a client with `workflow: 'developer_reimb'`, plug a single-table dashboard component into `/dashboard`, and pass `dashboardKind: 'single'`.
+- **Pending-approval client** — the `Client` type supports `status: 'pending_approval'`, but no such client is currently in the seed. Add one when we want to demonstrate the "blocked state" referenced in §7.3.
+- **Schedio staff view** — entirely out of scope for this pass.

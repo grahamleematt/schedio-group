@@ -1,65 +1,85 @@
 # Mockup Brief
 
-## `/`
+This mock is a clickable end-to-end walkthrough of the **District Direct Pay (green)** workflow in the SG DREAM client portal. Shared screens (login, client selection, verifications, upload, processing, confirmation, library / what-happens-next) are built once and themed by workflow so the blue flow can be turned on later by flipping one value.
 
-Goal:
-Show the client operations dashboard Tim reacted most strongly to in the March 30 meeting, with real district and package variation.
+## `/login`
 
-What it should communicate:
+Goal: Establish the invitation-only entry point.
 
-- A client can switch between permitted districts on one login.
-- Every upload belongs to a specific verification with a visible cutoff.
-- The main surface is the uploaded inventory, not a concept grid.
-- Package selection changes the inventory, class counts, submitted amount, and relationship chain inline.
-- Original filenames stay visible, renamed outputs are obvious, and duplicates are easy to spot.
-- Submitted amount, class counts, and the contract-to-proof chain are visible without exposing internal approval controls.
-- CAB, Metro, and MD4 should feel materially different: active operations, finance/in-progress, and archived read-only.
+- Email + password, no self-serve signup, MFA encouraged.
+- `?error=bad_creds` previews the error state.
+- Submit always lands on `/clients`.
 
-## `/create-package`
+## `/clients`
 
-Goal:
-Show the intake task flow that feeds the dashboard.
+Goal: Show clients they are explicitly granted access to — nothing else.
 
-What it should communicate:
+- One list, driven by `mockUser.permittedClientIds`.
+- Selection is kept in the URL (`?selected=`). Continue is disabled until a client is picked.
+- Selecting a client fixes the workflow for the session; the URL then carries `?client=…` through the rest of the flow.
 
-- The route supports two modes: recurring monthly intake and contract kickoff / setup.
-- The default case is the recurring monthly package: invoices, pay applications, and proof of payment.
-- The client sees verification context before uploading.
-- The flow uses reviewable language: proposed class, needs confirmation, ready for review.
-- The client can compare original filenames to renamed inventory before the package is created.
-- The package enters as `Incoming`, then moves into processing and classification afterward.
-- Archived districts do not use this flow; they stay read-only on the dashboard.
+## `/verifications`
 
-## `/review-workbench`
+Goal: Make the currently open verification unmistakable, with historical context.
 
-Goal:
-Show the internal drafting workspace where governed meaning is prepared.
+- Primary card: the open verification, cutoff date, counts, costs submitted, work authorization.
+- Secondary list: previous verifications with `Approved` / `Under Review` / `Open` pills and submitted / verified totals.
+- Workflow banner + pill sit above the card so the workflow is always on screen.
 
-What it should communicate:
+## `/upload` — Touch Point 1
 
-- The PDF/source record is the primary artifact.
-- Draft rationale, document manifest, run manifest, and evidence hierarchy are assembled here.
-- Region or field confirmation belongs here when the system needs human teaching or validation.
-- The queue should cover multiple scenario types: rollover, kickoff, malformed amount, pay-app variant, and Metro support gaps.
-- This role prepares the package that approval will later act on.
+Goal: Show duplicate detection as an assist, not a gate.
 
-## `/review-console`
+- Drag-and-drop zone, queue with original filenames, renamed filenames, duplicate flags.
+- Exact match → red pill with previous filename and verification ref.
+- Likely match → amber pill with the same inline context.
+- Orange summary bar counts total flagged files.
+- `?clean=1` previews the variant without any flags for demo purposes.
 
-Goal:
-Show the governance and approval console where authority state changes are decided.
+## `/processing` — Touch Point 2
 
-What it should communicate:
+Goal: Make the behind-the-scenes work visible and legible.
 
-- Drafting and approval are separate capabilities.
-- Approval decisions center on custody transitions, governance checks, rationale, and adjustment history.
-- The source record remains available for spot-checking, but it is secondary to the approval decision.
-- Only approval can move a record into `Relied` or `Locked`.
-- The queue should include a clean approval, a duplicate suppression decision, a blocked missing-support package, and an archived/superseded-history example.
+- Six-step animated log (CSS `animation-delay` stagger, no timers or effects).
+- Step 5 switches to amber + flagged count when `?dupes>0`.
+- The CTA is always visible so the user advances on their schedule, not ours.
 
-## Shared Constraints
+## `/confirmation` — Touch Point 3
 
-- Static mockups only
-- No real integrations
-- No reimbursement-estimate concept in this version
-- One client dashboard, one intake flow, two internal governance routes
-- All visible source filenames and preview assets should map back to exact SG DREAM archive files
+Goal: Issue the reference number and tell the user what to do next.
+
+- Generated reference (`SGD-DP-V4-2026-0011`) printed in mono alongside the workflow pill.
+- Document summary strip (count, flagged, types, workflow).
+- `DuplicateAlertPanel` shows up only when duplicates were detected, with Keep / Remove / View Previous per file and a Notify Schedio CTA.
+- Primary CTA leads to `/dashboard`.
+
+## `/dashboard` — Screens 7 + 9 (District Direct Pay)
+
+Goal: Give the client a single page that summarizes everything Schedio has accepted and what is coming next.
+
+Stacked for District Direct Pay (Developer Reimbursement will use the single-table variant when that flow is added):
+
+1. `VerificationDashboardCard` — active verification, key stats.
+2. `DocumentInventoryTiles` — eight doc-type tiles, active in workflow color, amber badge when any flag.
+3. `VerificationSummaryTable` — per-verification submitted vs verified, running total row tinted in workflow accent.
+4. `ContractTrackingTable` — per-vendor authorized / spent / remaining with utilization bar (healthy / monitor / amend bands).
+5. `DocumentLibrary` — collapsible category groups, URL-driven search and open category, duplicate rows highlighted.
+6. `WhatHappensNext` — three-step timeline with ETA copy keyed off the workflow.
+7. `DashboardActions` — Upload More + Email Me This Summary.
+
+## Shared constraints
+
+- Static mocks only — no real integrations, no server functions, no API routes, no loaders.
+- State is derived or lives in URL search params; no component-level `useEffect`.
+- Workflow is an attribute on the page root, not a theme switch. The same markup renders both workflows.
+- Filenames, reference numbers, and vendor codes all follow the PDF naming convention (`SG-[CLIENT]-V###-[DOCTYPE]-[VENDOR]-[YEAR]-[SEQ]`, `SGD-DP-V#-YEAR-####`).
+
+## Gaps called out but not built
+
+Per §8 of the PDF, these belong in later passes:
+
+- Blue flow (Developer Reimbursement) dashboard.
+- Schedio internal portal + admin console.
+- Email templates, session timeout, Terms of Service.
+- Account settings and historical onboarding UX.
+- Robust error and empty states beyond the login error variant.
