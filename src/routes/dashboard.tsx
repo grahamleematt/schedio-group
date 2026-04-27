@@ -1,4 +1,10 @@
-import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
+import {
+  Link,
+  createFileRoute,
+  redirect,
+  useNavigate,
+} from '@tanstack/react-router'
+import { useSuspenseQuery } from '@tanstack/react-query'
 import { UploadCloud } from 'lucide-react'
 import { WorkflowChrome } from '#/components/sg-dream/WorkflowChrome'
 import { WorkflowBanner } from '#/components/sg-dream/WorkflowBanner'
@@ -15,7 +21,6 @@ import {
   computeContractSummary,
   docTypeOrder,
   getClientById,
-  getDocumentsByVerification,
   getOpenVerification,
   getVendorsByClient,
   getVerificationById,
@@ -25,6 +30,8 @@ import {
 } from '#/lib/sg-dream'
 import type { DocType } from '#/lib/sg-dream'
 import type { NameDisplay } from '#/components/sg-dream/DocumentLibrary'
+import { verificationSnapshotQuery } from '#/lib/queries'
+import { storedListToDisplay } from '#/lib/sg-dream-adapter'
 
 type DashboardSearch = {
   client: string
@@ -52,7 +59,8 @@ export const Route = createFileRoute('/dashboard')({
         ? s.libraryQuery
         : undefined,
     libraryOpen:
-      typeof s.libraryOpen === 'string' && docTypes.has(s.libraryOpen as DocType)
+      typeof s.libraryOpen === 'string' &&
+      docTypes.has(s.libraryOpen as DocType)
         ? (s.libraryOpen as DocType)
         : undefined,
     nameDisplay:
@@ -65,6 +73,29 @@ export const Route = createFileRoute('/dashboard')({
         ? s.expandedVendor
         : undefined,
   }),
+  loader: ({ context, location }) => {
+    const search = location.search as DashboardSearch
+    const clientId = typeof search.client === 'string' ? search.client : 'srcab'
+    const requested =
+      typeof search.verification === 'string' ? search.verification : ''
+    if (requested) {
+      const verification = getVerificationById(requested, clientId)
+      if (!verification) {
+        const open = getOpenVerification(clientId)
+        throw redirect({
+          to: '/dashboard',
+          search: { client: clientId, verification: open.id },
+        })
+      }
+      return context.queryClient.ensureQueryData(
+        verificationSnapshotQuery(verification.id),
+      )
+    }
+    const open = getOpenVerification(clientId)
+    return context.queryClient.ensureQueryData(
+      verificationSnapshotQuery(open.id),
+    )
+  },
   head: () => ({ meta: [{ title: 'Dashboard | SG DREAM' }] }),
   component: DashboardPage,
 })
@@ -81,12 +112,17 @@ function DashboardPage() {
   } = Route.useSearch()
 
   const client = getClientById(clientId)
-  const activeVerification = verificationId
-    ? getVerificationById(verificationId)
-    : getOpenVerification(client.id)
+  const activeVerification =
+    (verificationId ? getVerificationById(verificationId, client.id) : null) ??
+    getOpenVerification(client.id)
+
+  const snapshotQuery = useSuspenseQuery(
+    verificationSnapshotQuery(activeVerification.id),
+  )
 
   const allVerifications = getVerificationsByClient(client.id)
-  const docs = getDocumentsByVerification(activeVerification.id)
+  const storedDocs = snapshotQuery.data?.verification.documents ?? []
+  const docs = storedListToDisplay(storedDocs)
   const summaries = summarizeDocTypes(docs)
   const activeSummaries = summaries.filter((s) => s.count > 0)
   const vendors = getVendorsByClient(client.id)
@@ -141,7 +177,6 @@ function DashboardPage() {
   return (
     <WorkflowChrome
       workflow={client.workflow}
-      entityName={client.name}
       eyebrow="Entity dashboard"
       title={`${client.name} · Dashboard`}
       description={`${workflowConfigs[client.workflow].label}. Verification summary and contract tracking stack below. Everything on this page is scoped to the active verification.`}
@@ -151,7 +186,6 @@ function DashboardPage() {
           search={{
             client: client.id,
             verification: activeVerification.id,
-            clean: undefined,
           }}
           className="wf-button-primary"
         >

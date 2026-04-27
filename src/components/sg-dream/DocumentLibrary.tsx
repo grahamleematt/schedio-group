@@ -201,7 +201,7 @@ export function DocumentLibrary({
                                 ? doc.renamedName
                                 : doc.originalName}
                             </p>
-                            {isFlagged ? (
+                            {isFlagged && doc.duplicateFlag !== 'none' ? (
                               <DuplicateFlagPill flag={doc.duplicateFlag} />
                             ) : null}
                           </div>
@@ -227,6 +227,18 @@ export function DocumentLibrary({
                               <span className="font-mono">
                                 {doc.matchedVerificationRef ?? 'prior filing'}
                               </span>
+                            </p>
+                          ) : null}
+                          {doc.egnyteWebUrl ? (
+                            <p className="text-xs">
+                              <a
+                                href={doc.egnyteWebUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1 font-semibold text-text-muted underline-offset-4 hover:text-text-strong hover:underline"
+                              >
+                                Filed in Egnyte
+                              </a>
                             </p>
                           ) : null}
                         </div>

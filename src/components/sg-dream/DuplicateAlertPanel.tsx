@@ -8,14 +8,12 @@ type DuplicateAlertPanelProps = {
   flaggedDocs: ReadonlyArray<Document>
   clientId: string
   verificationId: string
-  dupes: number
 }
 
 export function DuplicateAlertPanel({
   flaggedDocs,
   clientId,
   verificationId,
-  dupes,
 }: DuplicateAlertPanelProps) {
   if (flaggedDocs.length === 0) return null
 
@@ -107,7 +105,6 @@ export function DuplicateAlertPanel({
                 search={{
                   client: clientId,
                   verification: verificationId,
-                  dupes,
                   compare: doc.id,
                 }}
                 className="inline-flex h-8 items-center rounded-full border bg-white px-3 text-xs font-semibold text-text-strong no-underline hover:bg-[color:var(--color-surface-muted)] unstyled-link"

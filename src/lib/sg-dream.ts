@@ -359,16 +359,47 @@ export type Document = {
   duplicateFlag: DuplicateFlag
   matchedPreviousName?: string
   matchedVerificationRef?: string
+  /**
+   * Optional custody + trust metadata, surfaced by the server when available
+   * and absent in the pure-mock rows below. Kept optional so every existing
+   * component stays working without extra guards.
+   */
+  egnyteWebUrl?: string
+  egnyteClassifiedPath?: string
+  custodyState?:
+    | 'incoming'
+    | 'processing'
+    | 'classified'
+    | 'relied'
+    | 'locked'
+  visualReviewUrl?: string
+  fieldConfidence?: Record<string, number>
+  lowConfidence?: boolean
 }
 
-const year = 2026
+/**
+ * Default year used by the seed mock documents (Sterling Ranch CAB V4 was
+ * filed in 2026). The webhook always passes the verification's actual year
+ * so this default never escapes seed data.
+ */
+const DEFAULT_RENAMED_YEAR = 2026
 
-function renamed(
+/**
+ * Build the canonical SG DREAM renamed filename for a verified document.
+ * Exported so the server-side webhook can rename the file identically
+ * before promoting it from Egnyte Incoming/ to Classified/.
+ *
+ * @param year — verification year. Defaults to {@link DEFAULT_RENAMED_YEAR}
+ *   so the in-repo mock seeds remain a single-arg call; the webhook should
+ *   always pass `verification.year` explicitly.
+ */
+export function renamed(
   clientCode: string,
   vNumber: number,
   docType: DocType,
   vendor: string,
   seq: number,
+  year: number = DEFAULT_RENAMED_YEAR,
   ext = 'pdf',
 ) {
   const v = `V${String(vNumber).padStart(3, '0')}`
@@ -810,10 +841,26 @@ export function getOpenVerification(clientId: string): Verification {
   return all.find((v) => v.status === 'open') ?? all[0]
 }
 
+/**
+ * Lookup a verification by id, optionally guarded by `clientId` to prevent
+ * URL drift between entities. Returns `null` when the verification belongs
+ * to a different client than `clientId`; callers should handle this by
+ * redirecting to the requested client's open verification.
+ *
+ * Without `clientId`, this is the legacy lookup that just falls back to
+ * `verifications[0]` — kept for the few internal callers (e.g. the upload
+ * server fn) that already know the client out-of-band.
+ */
 export function getVerificationById(
   verificationId: string | undefined,
-): Verification {
-  return verifications.find((v) => v.id === verificationId) ?? verifications[0]
+  clientId?: string,
+): Verification | null {
+  const found = verifications.find((v) => v.id === verificationId)
+  if (!found) {
+    return clientId ? null : verifications[0]
+  }
+  if (clientId && found.clientId !== clientId) return null
+  return found
 }
 
 export function getDocumentsByVerification(verificationId: string) {

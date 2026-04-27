@@ -1,4 +1,5 @@
-import { Link, createFileRoute } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
 import { WorkflowChrome } from '#/components/sg-dream/WorkflowChrome'
 import { WorkflowBanner } from '#/components/sg-dream/WorkflowBanner'
 import { VerificationPill } from '#/components/sg-dream/VerificationPill'
@@ -11,6 +12,7 @@ import {
   getVerificationsByClient,
   mockUser,
 } from '#/lib/sg-dream'
+import { verificationSnapshotQuery } from '#/lib/queries'
 
 type VerificationsSearch = {
   client: string
@@ -30,11 +32,22 @@ function VerificationsPage() {
   const all = getVerificationsByClient(client.id)
   const open = getOpenVerification(client.id)
   const previous = all.filter((v) => v.id !== open.id)
+  // Non-blocking read; the gate banner is additive, the page renders
+  // whether or not the snapshot is ready yet.
+  const snapshotQuery = useQuery(verificationSnapshotQuery(open.id))
+  const lowConfidenceFieldCount =
+    snapshotQuery.data?.verification.documents.reduce((sum, d) => {
+      if (!d.lowConfidence || !d.fieldConfidence) return sum
+      let lowCount = 0
+      for (const v of Object.values(d.fieldConfidence)) {
+        if (v < 0.85) lowCount += 1
+      }
+      return sum + lowCount
+    }, 0) ?? 0
 
   return (
     <WorkflowChrome
       workflow={client.workflow}
-      entityName={client.name}
       eyebrow="Step 2 · Verifications"
       title={`${client.name} · Verifications`}
       description="The verification currently open for submission is shown first. Past verifications are listed below with their status and totals."
@@ -46,6 +59,7 @@ function VerificationsPage() {
         client={client}
         verification={open}
         workflow={client.workflow}
+        lowConfidenceFieldCount={lowConfidenceFieldCount}
       />
 
       <section

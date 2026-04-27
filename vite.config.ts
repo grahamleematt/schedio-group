@@ -9,6 +9,11 @@ import viteReact from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 const config = defineConfig({
+  // Allow tunnel hostnames (ngrok, cloudflared) so DocuPipe webhooks can
+  // reach the local dev server without "Invalid Host header" 403s.
+  server: {
+    allowedHosts: ['.ngrok-free.dev', '.ngrok.app', '.trycloudflare.com'],
+  },
   plugins: [
     devtools(),
     tsconfigPaths({ projects: ['./tsconfig.json'] }),

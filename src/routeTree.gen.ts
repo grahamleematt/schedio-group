@@ -17,6 +17,8 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ConfirmationRouteImport } from './routes/confirmation'
 import { Route as ClientsRouteImport } from './routes/clients'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiUploadsRouteImport } from './routes/api/uploads'
+import { Route as ApiDocupipeWebhookRouteImport } from './routes/api/docupipe/webhook'
 
 const VerificationsRoute = VerificationsRouteImport.update({
   id: '/verifications',
@@ -58,6 +60,16 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiUploadsRoute = ApiUploadsRouteImport.update({
+  id: '/api/uploads',
+  path: '/api/uploads',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDocupipeWebhookRoute = ApiDocupipeWebhookRouteImport.update({
+  id: '/api/docupipe/webhook',
+  path: '/api/docupipe/webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -68,6 +80,8 @@ export interface FileRoutesByFullPath {
   '/processing': typeof ProcessingRoute
   '/upload': typeof UploadRoute
   '/verifications': typeof VerificationsRoute
+  '/api/uploads': typeof ApiUploadsRoute
+  '/api/docupipe/webhook': typeof ApiDocupipeWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -78,6 +92,8 @@ export interface FileRoutesByTo {
   '/processing': typeof ProcessingRoute
   '/upload': typeof UploadRoute
   '/verifications': typeof VerificationsRoute
+  '/api/uploads': typeof ApiUploadsRoute
+  '/api/docupipe/webhook': typeof ApiDocupipeWebhookRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -89,6 +105,8 @@ export interface FileRoutesById {
   '/processing': typeof ProcessingRoute
   '/upload': typeof UploadRoute
   '/verifications': typeof VerificationsRoute
+  '/api/uploads': typeof ApiUploadsRoute
+  '/api/docupipe/webhook': typeof ApiDocupipeWebhookRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -101,6 +119,8 @@ export interface FileRouteTypes {
     | '/processing'
     | '/upload'
     | '/verifications'
+    | '/api/uploads'
+    | '/api/docupipe/webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -111,6 +131,8 @@ export interface FileRouteTypes {
     | '/processing'
     | '/upload'
     | '/verifications'
+    | '/api/uploads'
+    | '/api/docupipe/webhook'
   id:
     | '__root__'
     | '/'
@@ -121,6 +143,8 @@ export interface FileRouteTypes {
     | '/processing'
     | '/upload'
     | '/verifications'
+    | '/api/uploads'
+    | '/api/docupipe/webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -132,6 +156,8 @@ export interface RootRouteChildren {
   ProcessingRoute: typeof ProcessingRoute
   UploadRoute: typeof UploadRoute
   VerificationsRoute: typeof VerificationsRoute
+  ApiUploadsRoute: typeof ApiUploadsRoute
+  ApiDocupipeWebhookRoute: typeof ApiDocupipeWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -192,6 +218,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/uploads': {
+      id: '/api/uploads'
+      path: '/api/uploads'
+      fullPath: '/api/uploads'
+      preLoaderRoute: typeof ApiUploadsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/docupipe/webhook': {
+      id: '/api/docupipe/webhook'
+      path: '/api/docupipe/webhook'
+      fullPath: '/api/docupipe/webhook'
+      preLoaderRoute: typeof ApiDocupipeWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -204,6 +244,8 @@ const rootRouteChildren: RootRouteChildren = {
   ProcessingRoute: ProcessingRoute,
   UploadRoute: UploadRoute,
   VerificationsRoute: VerificationsRoute,
+  ApiUploadsRoute: ApiUploadsRoute,
+  ApiDocupipeWebhookRoute: ApiDocupipeWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

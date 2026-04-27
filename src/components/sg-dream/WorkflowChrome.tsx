@@ -1,6 +1,4 @@
 import type { ReactNode } from 'react'
-import { Link } from '@tanstack/react-router'
-import { ArrowLeftRight } from 'lucide-react'
 import { cn } from '#/lib/utils'
 import { workflowConfigs } from '#/lib/sg-dream'
 import type { Workflow } from '#/lib/sg-dream'
@@ -13,10 +11,6 @@ type WorkflowChromeProps = {
   actions?: ReactNode
   aside?: ReactNode
   children: ReactNode
-  /** Optional current entity name. When supplied, a persistent
-   *  "Not {entityName}? Switch entity" link is rendered so users
-   *  can always undo a wrong-entity selection without hunting. */
-  entityName?: string
 }
 
 export function WorkflowChrome({
@@ -27,7 +21,6 @@ export function WorkflowChrome({
   actions,
   aside,
   children,
-  entityName,
 }: WorkflowChromeProps) {
   const config = workflowConfigs[workflow]
 
@@ -61,20 +54,6 @@ export function WorkflowChrome({
                 {config.label}
               </span>
               <p className="ops-label m-0">{eyebrow}</p>
-              {entityName ? (
-                <Link
-                  to="/clients"
-                  search={{ selected: undefined }}
-                  className="inline-flex items-center gap-1 rounded-full border bg-white/80 px-2.5 py-0.5 text-[0.72rem] font-semibold uppercase tracking-[0.08em] no-underline"
-                  style={{
-                    borderColor: 'var(--color-border-base)',
-                    color: 'var(--color-text-muted)',
-                  }}
-                >
-                  <ArrowLeftRight className="size-3" aria-hidden />
-                  Not {entityName}? Switch entity
-                </Link>
-              ) : null}
             </div>
 
             <div className="space-y-1.5">

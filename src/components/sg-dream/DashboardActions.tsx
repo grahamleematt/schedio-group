@@ -27,7 +27,6 @@ export function DashboardActions({
           search={{
             client: clientId,
             verification: verificationId,
-            dupes: undefined,
           }}
           className="wf-button-secondary"
         >

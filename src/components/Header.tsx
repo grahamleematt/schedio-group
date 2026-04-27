@@ -1,5 +1,5 @@
 import { Link, useRouterState } from '@tanstack/react-router'
-import { LogOut, ShieldCheck } from 'lucide-react'
+import { ChevronsUpDown, LogOut, ShieldCheck } from 'lucide-react'
 import { clients, mockUser, workflowConfigs } from '#/lib/sg-dream'
 import type { Workflow } from '#/lib/sg-dream'
 
@@ -109,16 +109,33 @@ function AuthedRightSide({
         />
         {config.label}
       </span>
-      <div className="hidden text-right sm:block">
-        <p className="font-ops text-sm font-semibold text-text-strong">
+      <Link
+        to="/clients"
+        search={{ selected: undefined }}
+        title={`Switch entity (currently ${clientName})`}
+        aria-label={`Switch entity (currently ${clientName})`}
+        className="group inline-flex items-center gap-2 rounded-full border bg-white/85 px-3 py-1.5 no-underline shadow-sm transition-colors hover:bg-white"
+        style={{ borderColor: 'var(--color-border-base)' }}
+      >
+        <span className="hidden text-right sm:block">
+          <span className="block font-ops text-sm font-semibold leading-tight text-text-strong">
+            {clientName}
+          </span>
+          <span className="block font-mono text-[0.7rem] leading-tight text-text-muted">
+            Switch entity
+          </span>
+        </span>
+        <span className="font-ops text-sm font-semibold text-text-strong sm:hidden">
           {clientName}
-        </p>
-        <p className="font-mono text-[0.72rem] text-text-muted">
-          {mockUser.name} · Entity Owner
-        </p>
-      </div>
+        </span>
+        <ChevronsUpDown
+          className="size-4 text-text-muted transition-colors group-hover:text-text-strong"
+          aria-hidden
+        />
+      </Link>
       <span
-        aria-hidden
+        title={`${mockUser.name} · Entity Owner`}
+        aria-label={`${mockUser.name}, Entity Owner`}
         className="inline-flex size-10 items-center justify-center rounded-full font-ops text-sm font-semibold"
         style={{
           background: 'var(--wf-soft)',
