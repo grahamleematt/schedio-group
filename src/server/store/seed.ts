@@ -122,6 +122,7 @@ export function buildSeedState(): DreamStoreState {
     documents: {},
     documentsByVerification: {},
     docSeqs: {},
+    auditEvents: [],
     revision: 1,
     seeded: true,
   }

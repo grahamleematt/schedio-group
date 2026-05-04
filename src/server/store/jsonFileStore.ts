@@ -17,6 +17,7 @@ import type {
   DreamSnapshot,
   DreamStore,
   DreamStoreState,
+  StoredAuditEvent,
   StoredDocument,
   StoredVerification,
 } from './types'
@@ -30,6 +31,7 @@ function emptyState(): DreamStoreState {
     documents: {},
     documentsByVerification: {},
     docSeqs: {},
+    auditEvents: [],
     revision: 0,
     seeded: false,
   }
@@ -53,6 +55,7 @@ class JsonFileStore implements DreamStore {
         documents: parsed.documents ?? {},
         documentsByVerification: parsed.documentsByVerification ?? {},
         docSeqs: parsed.docSeqs ?? {},
+        auditEvents: parsed.auditEvents ?? [],
         revision: parsed.revision ?? 0,
         seeded: parsed.seeded ?? false,
       }
@@ -181,6 +184,35 @@ class JsonFileStore implements DreamStore {
     this.state.docSeqs[key] = next
     await this.flush()
     return next
+  }
+
+  async appendAuditEvent(event: StoredAuditEvent): Promise<void> {
+    await this.init()
+    if (this.state.auditEvents.some((existing) => existing.id === event.id)) {
+      return
+    }
+    this.state.auditEvents.push(event)
+    await this.flush()
+  }
+
+  async listAuditEvents(input?: {
+    clientId?: string
+    verificationId?: string
+    limit?: number
+  }): Promise<ReadonlyArray<StoredAuditEvent>> {
+    await this.init()
+    let events = this.state.auditEvents.slice()
+    if (input?.clientId) {
+      events = events.filter((e) => e.clientId === input.clientId)
+    }
+    if (input?.verificationId) {
+      events = events.filter((e) => e.verificationId === input.verificationId)
+    }
+    events.sort((a, b) => b.ts.localeCompare(a.ts))
+    if (input?.limit !== undefined) {
+      events = events.slice(0, input.limit)
+    }
+    return events
   }
 }
 

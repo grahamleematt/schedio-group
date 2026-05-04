@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { resolveStandardizedDocType, statusFromEvent, toDocType } from './webhook'
+import {
+  resolveStandardizedDocType,
+  stableAuditEventId,
+  statusFromEvent,
+  toDocType,
+} from './webhook'
 import type { StoredDocument } from '#/server/store'
 
 function row(overrides: Partial<StoredDocument> = {}): StoredDocument {
@@ -110,5 +115,62 @@ describe('resolveStandardizedDocType', () => {
   it('returns UNK when neither source resolves to a known DocType', () => {
     expect(resolveStandardizedDocType('unknown', 'UNK')).toBe('UNK')
     expect(resolveStandardizedDocType(undefined, 'UNK')).toBe('UNK')
+  })
+})
+
+describe('stableAuditEventId', () => {
+  it('returns the same DocuPipe audit id for a replayed event', () => {
+    const event = {
+      eventType: 'standardization.processed.success',
+      eventId: 'evt-replayed-1',
+      documentId: 'dp-doc-1',
+      standardizationId: 'std-1',
+    }
+
+    expect(
+      stableAuditEventId({
+        scope: 'docupipe',
+        event,
+        document: row({ id: 'doc-1', docupipeDocumentId: 'dp-doc-1' }),
+      }),
+    ).toBe(
+      stableAuditEventId({
+        scope: 'docupipe',
+        event,
+        document: row({ id: 'doc-1', docupipeDocumentId: 'dp-doc-1' }),
+      }),
+    )
+  })
+
+  it('uses separate stable ids for DocuPipe and Egnyte rows from the same replay', () => {
+    const event = {
+      eventType: 'standardization.processed.success',
+      eventId: 'evt-replayed-1',
+      documentId: 'dp-doc-1',
+      standardizationId: 'std-1',
+    }
+    const document = row({ id: 'doc-1', docupipeDocumentId: 'dp-doc-1' })
+
+    const docupipeId = stableAuditEventId({
+      scope: 'docupipe',
+      event,
+      document,
+    })
+    const egnyteId = stableAuditEventId({
+      scope: 'egnyte-promote',
+      event,
+      document,
+      detail: '/Shared/SRCAB/V3/Classified/INV/file.pdf',
+    })
+
+    expect(egnyteId).not.toBe(docupipeId)
+    expect(egnyteId).toBe(
+      stableAuditEventId({
+        scope: 'egnyte-promote',
+        event,
+        document,
+        detail: '/Shared/SRCAB/V3/Classified/INV/file.pdf',
+      }),
+    )
   })
 })

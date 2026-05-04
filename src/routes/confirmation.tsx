@@ -1,32 +1,20 @@
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import {
-  AlertTriangle,
-  ArrowRight,
-  CheckCircle2,
-  CircleCheck,
-  FolderOpen,
-  Lock,
-  X,
-} from 'lucide-react'
-import { WorkflowChrome } from '#/components/sg-dream/WorkflowChrome'
-import { WorkflowBanner } from '#/components/sg-dream/WorkflowBanner'
-import { VerificationPill } from '#/components/sg-dream/VerificationPill'
+import { ArrowRight, FolderOpen } from 'lucide-react'
+import { AppShell } from '#/components/sg-dream/AppShell'
 import { DuplicateAlertPanel } from '#/components/sg-dream/DuplicateAlertPanel'
-import { DuplicateFlagPill } from '#/components/sg-dream/DuplicateFlag'
 import {
-  docTypeLabels,
+  clients,
+  displayRef,
+  formatCurrency,
   getClientById,
   getOpenVerification,
   getVerificationById,
   summarizeDocTypes,
   workflowConfigs,
 } from '#/lib/sg-dream'
-import type { Document } from '#/lib/sg-dream'
 import { verificationSnapshotQuery } from '#/lib/queries'
 import { storedListToDisplay } from '#/lib/sg-dream-adapter'
-
-const LOW_CONFIDENCE_UI_THRESHOLD = 0.85
 
 type ConfirmationSearch = {
   client: string
@@ -46,7 +34,17 @@ export const Route = createFileRoute('/confirmation')({
   }),
   loader: ({ context, location }) => {
     const search = location.search as ConfirmationSearch
-    const clientId = typeof search.client === 'string' ? search.client : 'srcab'
+    const requestedClient =
+      typeof search.client === 'string' ? search.client : 'srcab'
+    const knownClient = clients.find((c) => c.id === requestedClient)
+    if (!knownClient) {
+      const open = getOpenVerification('srcab')
+      throw redirect({
+        to: '/confirmation',
+        search: { client: 'srcab', verification: open.id },
+      })
+    }
+    const clientId = knownClient.id
     const requested =
       typeof search.verification === 'string' ? search.verification : ''
     const verification = getVerificationById(requested, clientId)
@@ -65,9 +63,89 @@ export const Route = createFileRoute('/confirmation')({
   component: ConfirmationPage,
 })
 
+type AuditEvent = {
+  ts: string
+  label: string
+  detail?: string
+}
+
+function timeOnly(iso: string | undefined): string | null {
+  if (!iso) return null
+  try {
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return null
+    return new Intl.DateTimeFormat('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'America/Denver',
+    }).format(d)
+  } catch {
+    return null
+  }
+}
+
+function buildAuditTrail(input: {
+  docs: ReturnType<typeof storedListToDisplay>
+  flaggedCount: number
+  ref: string
+  reviewNeeded: boolean
+}): ReadonlyArray<AuditEvent> {
+  const { docs, flaggedCount, ref, reviewNeeded } = input
+  const events: Array<AuditEvent> = []
+
+  const uploadedAt = docs
+    .map((d) => d.uploadedAt)
+    .filter((s): s is string => Boolean(s))
+    .sort()[0]
+  const firstUploadTs = timeOnly(uploadedAt) ?? '—'
+
+  events.push({
+    ts: firstUploadTs,
+    label: 'Files received',
+    detail: `${docs.length}`,
+  })
+
+  if (docs.some((d) => d.docType !== 'UNK')) {
+    events.push({
+      ts: firstUploadTs,
+      label: 'Classification complete',
+    })
+  }
+
+  if (flaggedCount > 0) {
+    events.push({
+      ts: firstUploadTs,
+      label: 'Duplicates flagged',
+      detail: `${flaggedCount}`,
+    })
+  }
+
+  if (reviewNeeded) {
+    events.push({
+      ts: firstUploadTs,
+      label: 'Reference held for duplicate review',
+      detail: ref,
+    })
+  } else {
+    events.push({
+      ts: firstUploadTs,
+      label: 'Reference issued',
+      detail: ref,
+    })
+  }
+
+  if (docs.some((d) => d.egnyteClassifiedPath)) {
+    events.push({
+      ts: firstUploadTs,
+      label: 'Filed to Egnyte',
+    })
+  }
+
+  return events
+}
+
 function ConfirmationPage() {
-  const { client: clientId, verification: verificationId, compare } =
-    Route.useSearch()
+  const { client: clientId, verification: verificationId } = Route.useSearch()
   const client = getClientById(clientId)
   const verification =
     getVerificationById(verificationId, clientId) ??
@@ -82,524 +160,283 @@ function ConfirmationPage() {
   const summaries = summarizeDocTypes(docs).filter((s) => s.count > 0)
   const flaggedDocs = docs.filter((d) => d.duplicateFlag !== 'none')
   const flaggedCount = flaggedDocs.length
-  const lowConfidenceDocs = docs.filter((d) => d.lowConfidence)
+  const reviewNeeded = flaggedCount > 0
+
+  const totalSubmitted = docs
+    .filter((d) => d.docType === 'INV')
+    .reduce((sum, d) => sum + d.amount, 0)
+
+  const ref = displayRef({
+    snapshotRef: snapshot?.verification.ref ?? null,
+    client,
+    verification,
+  })
+  const config = workflowConfigs[client.workflow]
+
   const classifiedFolder = (() => {
     const classified = docs.find((d) => d.egnyteClassifiedPath)
     if (!classified?.egnyteClassifiedPath) return undefined
     const parts = classified.egnyteClassifiedPath.split('/')
-    // Trim filename and DocType folder to show the per-verification Classified/.
     return parts.slice(0, -2).join('/') + '/Classified/'
   })()
-  const compareDoc = compare
-    ? docs.find((d) => d.id === compare)
-    : undefined
 
-  const refNumber =
-    snapshot?.verification.ref ?? `${workflowConfigs[client.workflow].refPrefix}-V${verification.number}-${verification.year}`
-  const config = workflowConfigs[client.workflow]
+  const auditTrail = buildAuditTrail({ docs, flaggedCount, ref, reviewNeeded })
+
+  const notifySubject = encodeURIComponent(
+    reviewNeeded
+      ? `Duplicate review needed for ${ref}`
+      : `Submission summary for ${ref}`,
+  )
+  const notifyBody = encodeURIComponent(
+    reviewNeeded
+      ? `${flaggedCount} duplicate flag${
+          flaggedCount === 1 ? '' : 's'
+        } need review before acceptance.\n\n${flaggedDocs
+          .map(
+            (doc) =>
+              `${doc.originalName} matched ${
+                doc.matchedPreviousName ?? 'a prior filing'
+              }`,
+          )
+          .join('\n')}`
+      : `Submission ${ref} is ready for Schedio review.`,
+  )
+
+  const rail = (
+    <>
+      <section className="v2-card">
+        <header className="v2-card-head">
+          <h3>Audit trail</h3>
+        </header>
+        <div className="v2-card-body">
+          <div className="text-[12px] leading-[1.6]">
+            {auditTrail.map((e, i) => (
+              <div
+                key={`${e.label}-${i}`}
+                className={
+                  i < auditTrail.length - 1
+                    ? 'border-line-2 border-b border-dashed py-1.5'
+                    : 'py-1.5'
+                }
+              >
+                <span className="mono text-[11px] text-muted-1">{e.ts}</span>
+                {' · '}
+                {e.label}
+                {e.detail ? (
+                  <>
+                    {' '}
+                    <span className="mono">{e.detail}</span>
+                  </>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {classifiedFolder ? (
+        <section className="v2-card">
+          <header className="v2-card-head">
+            <h3>Egnyte location</h3>
+          </header>
+          <div className="v2-card-body">
+            <p className="m-0 text-[12.5px] text-ink-2">
+              <FolderOpen className="mr-1 inline size-3.5" aria-hidden />
+              <span className="mono break-all">{classifiedFolder}</span>
+            </p>
+            <p className="text-muted-1 mt-2 m-0 text-[11.5px]">
+              All standardized files were filed under this folder. Originals
+              remain in the upload location.
+            </p>
+          </div>
+        </section>
+      ) : null}
+    </>
+  )
 
   return (
-    <WorkflowChrome
-      workflow={client.workflow}
-      eyebrow="Step 5 · Submission confirmed"
-      title="Your submission has been received"
-      description="Schedio Group has logged the submission. Review any flagged items, then head to the dashboard to track approval."
-      actions={
-        <Link
-          to="/dashboard"
-          search={{
-            client: client.id,
-            verification: verification.id,
-            libraryQuery: undefined,
-            libraryOpen: undefined,
-          }}
-          className="wf-button-primary"
-        >
-          Continue to dashboard
-          <ArrowRight className="size-4" />
-        </Link>
-      }
+    <AppShell
+      active="submit"
+      crumbs={[{ label: 'Submitted' }]}
+      rail={rail}
     >
-      <section
-        className="brand-panel overflow-hidden rounded-2xl p-6"
-        style={{
-          background:
-            'linear-gradient(180deg, var(--wf-softer), rgba(255,255,255,0.98))',
-          borderColor: 'var(--wf-border)',
-        }}
-      >
-        <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-4">
-            <span
-              aria-hidden
-              className="inline-flex size-12 items-center justify-center rounded-2xl"
+      <header className="mb-3">
+        <p className="v2-eyebrow">
+          Touch Point 3 · {reviewNeeded ? 'Review needed' : 'Submitted'}
+        </p>
+        <h1 className="v2-h1">
+          {reviewNeeded
+            ? `V${verification.number} needs duplicate review`
+            : `V${verification.number} is in Schedio's review queue`}
+        </h1>
+        <p className="v2-lede">
+          {reviewNeeded
+            ? 'The documents finished processing, but duplicate flags must be reviewed before this package is accepted into the submission queue.'
+            : "Your submission has been accepted and assigned the reference below. Schedio's project manager reviews submissions within 3-5 business days of the cutoff."}
+        </p>
+      </header>
+
+      <section className="confirm">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="ops-label m-0 text-(--wf-ink)">
+              {reviewNeeded ? 'Review reference' : 'Submission reference'}
+            </p>
+            <p className="ref-mono mt-1">{ref}</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="pill pill-wf">
+              <span className="dot" />
+              {config.label}
+            </span>
+            <span className="chip mono">
+              V{verification.number} · {verification.period}
+            </span>
+          </div>
+        </div>
+
+        <div
+          className="v2-stats mt-4"
+          style={{ borderColor: 'var(--wf-border)' }}
+        >
+          <div className="v2-stat">
+            <div className="k">Files submitted</div>
+            <div className="v">{docs.length}</div>
+          </div>
+          <div className="v2-stat">
+            <div className="k">Doc types</div>
+            <div className="v">{summaries.length}</div>
+          </div>
+          <div className="v2-stat">
+            <div className="k">Invoice costs extracted</div>
+            <div className="v mono">{formatCurrency(totalSubmitted)}</div>
+          </div>
+          <div className="v2-stat">
+            <div className="k">Flagged</div>
+            <div
+              className="v"
               style={{
-                background: 'var(--wf-base)',
-                color: 'var(--color-brand-white)',
+                color:
+                  flaggedCount > 0
+                    ? 'var(--color-amber-base)'
+                    : 'var(--color-ink)',
               }}
             >
-              <CheckCircle2 className="size-6" />
-            </span>
-            <div className="space-y-1.5">
-              <div className="flex flex-wrap items-center gap-2">
-                <VerificationPill
-                  number={verification.number}
-                  period={verification.period}
-                />
-                <span className="workflow-pill">{config.label}</span>
-              </div>
-              <p className="font-ops text-xl font-semibold tracking-[-0.02em] text-text-strong">
-                Reference{' '}
-                <span className="font-mono text-[color:var(--wf-strong)]">
-                  {refNumber}
-                </span>
-              </p>
-              <p className="text-sm text-text-muted">
-                {client.name} · Submitted just now · Schedio PM will begin
-                review shortly.
-              </p>
-              {classifiedFolder ? (
-                <p className="inline-flex items-center gap-1.5 rounded-full border bg-white/80 px-2.5 py-1 font-mono text-[0.72rem] text-text-muted"
-                  style={{ borderColor: 'var(--color-border-base)' }}
-                >
-                  <FolderOpen className="size-3.5" aria-hidden />
-                  Filed to Egnyte: <span className="text-text-strong">{classifiedFolder}</span>
-                </p>
-              ) : null}
+              {flaggedCount}
             </div>
           </div>
         </div>
 
-        <dl className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatTile
-            label="Documents"
-            value={docs.length.toString()}
-            tone="default"
-          />
-          <StatTile
-            label="Flagged"
-            value={flaggedCount.toString()}
-            tone={flaggedCount > 0 ? 'alert' : 'default'}
-          />
-          <StatTile
-            label="Document types"
-            value={summaries.length.toString()}
-            tone="default"
-          />
-          <StatTile label="Workflow" value={config.shortLabel} tone="default" />
-        </dl>
-      </section>
+        {classifiedFolder ? (
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <span className="pill pill-green">
+              <span className="dot" />
+              Filed to Egnyte · Classified/
+            </span>
+            <span className="chip mono break-all text-[11px]">
+              {classifiedFolder}
+            </span>
+            <span className="pill pill-ink">
+              DocuPipe · standardization.processed.success
+            </span>
+          </div>
+        ) : null}
 
-      <WorkflowBanner
-        workflow={client.workflow}
-        headline="What's included in this submission"
-      >
-        {summaries.map((s) => `${s.count} ${docTypeLabels[s.docType]}`).join(
-          ' · ',
-        )}
-      </WorkflowBanner>
+        {reviewNeeded ? (
+          <div className="errbar amber mt-4" role="status">
+            <span className="icn">!</span>
+            <div className="min-w-0">
+              <p className="m-0 font-semibold">
+                Acceptance paused for duplicate review
+              </p>
+              <p className="m-0 text-[12.5px]">
+                The field detector found exact or likely matches using vendor,
+                document number, amount, and date. Review the items below
+                before treating this package as submitted.
+              </p>
+            </div>
+          </div>
+        ) : null}
 
-      {compareDoc ? (
-        <CompareDuplicatePanel
-          doc={compareDoc}
-          clientId={client.id}
-          verificationId={verification.id}
-        />
-      ) : flaggedDocs.length > 0 ? (
-        <DuplicateAlertPanel
-          flaggedDocs={flaggedDocs}
-          clientId={client.id}
-          verificationId={verification.id}
-        />
-      ) : null}
-
-      {docs.some((d) => d.visualReviewUrl || d.fieldConfidence) ? (
-        <VerificationEvidence
-          docs={docs}
-          lowConfidenceCount={lowConfidenceDocs.length}
-        />
-      ) : null}
-
-      <section
-        className="brand-panel overflow-hidden rounded-2xl p-5"
-        style={{ borderColor: 'var(--color-border-base)' }}
-      >
-        <p className="ops-label m-0">Keep it moving</p>
-        <p className="mt-1 text-sm text-text-muted">
-          Head to the entity dashboard to review the full verification, the
-          contract tracking table, and the searchable document library.
-        </p>
-        <div className="mt-4 flex flex-wrap gap-3">
-          <Link
-            to="/dashboard"
-            search={{
-              client: client.id,
-              verification: verification.id,
-              libraryQuery: undefined,
-              libraryOpen: undefined,
-            }}
-            className="wf-button-primary"
+        <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+          <a
+            href={`mailto:?subject=${notifySubject}&body=${notifyBody}`}
+            className="v2-btn"
           >
-            View dashboard
+            {reviewNeeded ? 'Email review note' : 'Email me this summary'}
+          </a>
+          <a
+            href={`mailto:?subject=${notifySubject}&body=${notifyBody}`}
+            className="v2-btn"
+          >
+            Notify Schedio PM
+          </a>
+          <Link
+            to={reviewNeeded ? '/processing' : '/dashboard'}
+            search={
+              reviewNeeded
+                ? { client: client.id, verification: verification.id }
+                : {
+                    client: client.id,
+                    verification: verification.id,
+                    libraryQuery: undefined,
+                    libraryOpen: undefined,
+                  }
+            }
+            className="v2-btn primary"
+          >
+            {reviewNeeded ? 'Back to processing' : 'Back to dashboard'}
             <ArrowRight className="size-4" />
           </Link>
-          <Link
-            to="/upload"
-            search={{ client: client.id, verification: verification.id }}
-            className="wf-button-secondary"
-          >
-            Upload more documents
-          </Link>
         </div>
       </section>
-    </WorkflowChrome>
-  )
-}
 
-function CompareDuplicatePanel({
-  doc,
-  clientId,
-  verificationId,
-}: {
-  doc: Document
-  clientId: string
-  verificationId: string
-}) {
-  const matchedRef =
-    doc.matchedVerificationRef ?? 'Previous verification reference'
-  const matchedName = doc.matchedPreviousName ?? doc.originalName
-
-  return (
-    <section
-      className="brand-panel overflow-hidden rounded-2xl"
-      style={{ borderColor: 'var(--color-flag-panel-border)' }}
-    >
-      <header
-        className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4"
-        style={{
-          borderColor: 'var(--color-flag-panel-border)',
-          background: 'var(--color-flag-panel-bg)',
-        }}
-      >
-        <div>
-          <p className="font-mono text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-[color:var(--color-flag-likely-text)]">
-            Side-by-side compare
-          </p>
-          <h2 className="font-ops text-base font-semibold text-text-strong">
-            Review this submission against its matched prior filing
-          </h2>
+      {flaggedDocs.length > 0 ? (
+        <div className="mt-4">
+          <DuplicateAlertPanel
+            flaggedDocs={flaggedDocs}
+            clientId={client.id}
+            verificationId={verification.id}
+          />
         </div>
-        <Link
-          to="/confirmation"
-          search={{
-            client: clientId,
-            verification: verificationId,
-            compare: undefined,
-          }}
-          className="inline-flex h-9 items-center gap-1.5 rounded-full border bg-white px-3 text-xs font-semibold text-text-strong no-underline hover:bg-[color:var(--color-surface-muted)] unstyled-link"
-          style={{ borderColor: 'var(--color-border-strong)' }}
-        >
-          <X className="size-4" />
-          Close compare
-        </Link>
-      </header>
+      ) : null}
 
-      <div className="grid gap-px bg-[color:var(--color-border-base)] md:grid-cols-2">
-        <ComparePane
-          heading="This submission"
-          tone="current"
-          docType={doc.docType}
-          vendor={`${doc.vendorName} (${doc.vendor})`}
-          originalName={doc.originalName}
-          renamedName={doc.renamedName}
-          verificationRef="This submission — not yet referenced"
-          flag={doc.duplicateFlag}
-        />
-        <ComparePane
-          heading="Matched prior filing"
-          tone="prior"
-          docType={doc.docType}
-          vendor={`${doc.vendorName} (${doc.vendor})`}
-          originalName={matchedName}
-          renamedName={doc.renamedName}
-          verificationRef={matchedRef}
-          flag={doc.duplicateFlag}
-        />
-      </div>
-
-      <footer
-        className="flex flex-wrap items-center justify-between gap-3 border-t px-5 py-4"
-        style={{ borderColor: 'var(--color-flag-panel-border)' }}
-      >
-        <p className="inline-flex items-center gap-2 text-xs text-text-muted">
-          <Lock className="size-3.5" />
-          You can only remove the current submission. Prior filings are locked
-          in Schedio Group's records.
-        </p>
-        <button
-          type="button"
-          className="inline-flex h-9 items-center gap-2 rounded-full border bg-white px-4 text-sm font-semibold text-text-strong hover:bg-[color:var(--color-surface-muted)]"
-          style={{ borderColor: 'var(--color-border-strong)' }}
-        >
-          Remove current submission
-        </button>
-      </footer>
-    </section>
-  )
-}
-
-function ComparePane({
-  heading,
-  tone,
-  docType,
-  vendor,
-  originalName,
-  renamedName,
-  verificationRef,
-  flag,
-}: {
-  heading: string
-  tone: 'current' | 'prior'
-  docType: Document['docType']
-  vendor: string
-  originalName: string
-  renamedName: string
-  verificationRef: string
-  flag: Document['duplicateFlag']
-}) {
-  return (
-    <article
-      className="space-y-3 bg-white px-5 py-4"
-      style={
-        tone === 'prior'
-          ? { background: 'var(--color-surface-muted)' }
-          : undefined
-      }
-    >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="font-mono text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-text-muted">
-          {heading}
-        </p>
-        {tone === 'prior' ? (
-          <span className="inline-flex items-center gap-1 font-mono text-[0.68rem] font-semibold uppercase tracking-[0.1em] text-text-muted">
-            <Lock className="size-3" />
-            Locked
-          </span>
-        ) : flag !== 'none' ? (
-          <DuplicateFlagPill flag={flag} />
-        ) : null}
-      </div>
-
-      <dl className="space-y-2.5 text-sm">
-        <Field label="Document type" value={docTypeLabels[docType]} />
-        <Field label="Vendor" value={vendor} />
-        <Field label="Original file" value={originalName} mono />
-        <Field label="Standardized name" value={renamedName} mono />
-        <Field label="Verification ref" value={verificationRef} mono />
-      </dl>
-    </article>
-  )
-}
-
-function Field({
-  label,
-  value,
-  mono,
-}: {
-  label: string
-  value: string
-  mono?: boolean
-}) {
-  return (
-    <div>
-      <dt className="font-mono text-[0.64rem] font-semibold uppercase tracking-[0.1em] text-text-muted">
-        {label}
-      </dt>
-      <dd
-        className={
-          mono
-            ? 'break-words font-mono text-sm text-text-strong'
-            : 'text-sm text-text-strong'
-        }
-      >
-        {value}
-      </dd>
-    </div>
-  )
-}
-
-function VerificationEvidence({
-  docs,
-  lowConfidenceCount,
-}: {
-  docs: ReadonlyArray<Document>
-  lowConfidenceCount: number
-}) {
-  const evidenceDocs = docs.filter(
-    (d) => d.visualReviewUrl || d.fieldConfidence,
-  )
-  if (evidenceDocs.length === 0) return null
-  return (
-    <section
-      className="brand-panel overflow-hidden rounded-2xl"
-      style={{ borderColor: 'var(--color-border-base)' }}
-    >
-      <header
-        className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4"
-        style={{ borderColor: 'var(--color-border-base)' }}
-      >
-        <div>
-          <p className="ops-label m-0">Verification evidence</p>
-          <h2 className="font-ops text-base font-semibold text-text-strong">
-            Visual review and per-field confidence from DocuPipe
-          </h2>
+      <section className="v2-card mt-4">
+        <header className="v2-card-head">
+          <h3>What happens next</h3>
+        </header>
+        <div className="v2-card-body">
+          <ol className="v2-tl m-0 list-none p-0">
+            <li className="step">
+              <span className="n">Today</span>
+              <h5>
+                {reviewNeeded ? 'Duplicate review' : 'Confirmation emailed'}
+              </h5>
+              <p>
+                {reviewNeeded
+                  ? 'Schedio reviews the flagged matches and decides whether each document stays in the package.'
+                  : 'You, the Schedio PM, and your Entity Owner receive the reference and this summary.'}
+              </p>
+            </li>
+            <li className="step">
+              <span className="n">Within 5 days</span>
+              <h5>Schedio verifies</h5>
+              <p>
+                SG reviews invoices against contracts and posts verified
+                amounts to your dashboard.
+              </p>
+            </li>
+            <li className="step">
+              <span className="n">Within 10 days</span>
+              <h5>Funds released</h5>
+              <p>
+                Approved vendors receive direct payment per the program's
+                disbursement policy.
+              </p>
+            </li>
+          </ol>
         </div>
-        {lowConfidenceCount > 0 ? (
-          <span
-            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold"
-            style={{
-              background: 'var(--color-flag-likely-bg)',
-              color: 'var(--color-flag-likely-text)',
-            }}
-          >
-            <AlertTriangle className="size-3.5" aria-hidden />
-            {lowConfidenceCount} doc{lowConfidenceCount === 1 ? '' : 's'} below
-            confidence threshold
-          </span>
-        ) : null}
-      </header>
-      <ul
-        className="divide-y"
-        style={{ borderColor: 'var(--color-border-base)' }}
-      >
-        {evidenceDocs.map((doc) => (
-          <li key={doc.id} className="flex flex-col gap-3 px-5 py-4 md:flex-row">
-            <div className="flex-shrink-0 md:w-40">
-              {doc.visualReviewUrl ? (
-                <a
-                  href={doc.visualReviewUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block overflow-hidden rounded-lg border bg-[color:var(--color-surface-muted)]"
-                  style={{ borderColor: 'var(--color-border-base)' }}
-                >
-                  <img
-                    src={doc.visualReviewUrl}
-                    alt={`Visual review overlay for ${doc.originalName}`}
-                    loading="lazy"
-                    className="h-32 w-full object-cover"
-                  />
-                </a>
-              ) : (
-                <div
-                  className="flex h-32 items-center justify-center rounded-lg border bg-[color:var(--color-surface-muted)] text-[0.68rem] font-semibold uppercase tracking-[0.1em] text-text-muted"
-                  style={{ borderColor: 'var(--color-border-base)' }}
-                >
-                  No visual review
-                </div>
-              )}
-            </div>
-            <div className="min-w-0 flex-1 space-y-2">
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <p className="truncate font-mono text-sm font-semibold text-text-strong">
-                  {doc.renamedName || doc.originalName}
-                </p>
-                <p className="font-mono text-[0.68rem] uppercase tracking-[0.08em] text-text-muted">
-                  {docTypeLabels[doc.docType]} · {doc.vendorName}
-                </p>
-              </div>
-              <ConfidenceChips fieldConfidence={doc.fieldConfidence} />
-            </div>
-          </li>
-        ))}
-      </ul>
-    </section>
-  )
-}
-
-function ConfidenceChips({
-  fieldConfidence,
-}: {
-  fieldConfidence: Record<string, number> | undefined
-}) {
-  if (!fieldConfidence || Object.keys(fieldConfidence).length === 0) {
-    return (
-      <p className="text-xs text-text-muted">
-        No per-field confidence reported by DocuPipe.
-      </p>
-    )
-  }
-  const entries = Object.entries(fieldConfidence).sort(([a], [b]) =>
-    a.localeCompare(b),
-  )
-  return (
-    <ul className="flex flex-wrap gap-1.5">
-      {entries.map(([field, conf]) => {
-        const low = conf < LOW_CONFIDENCE_UI_THRESHOLD
-        return (
-          <li
-            key={field}
-            className="inline-flex items-center gap-1 rounded-full border bg-white px-2.5 py-1 font-mono text-[0.68rem]"
-            style={{
-              borderColor: low
-                ? 'var(--color-flag-panel-border)'
-                : 'var(--color-border-base)',
-              background: low ? 'var(--color-flag-likely-bg)' : undefined,
-              color: low ? 'var(--color-flag-likely-text)' : undefined,
-            }}
-          >
-            {low ? (
-              <AlertTriangle className="size-3" aria-hidden />
-            ) : (
-              <CircleCheck className="size-3 text-text-muted" aria-hidden />
-            )}
-            <span className="uppercase tracking-[0.06em]">
-              {field.replace(/_/g, ' ')}
-            </span>
-            <span className="text-text-muted">{Math.round(conf * 100)}%</span>
-          </li>
-        )
-      })}
-    </ul>
-  )
-}
-
-function StatTile({
-  label,
-  value,
-  tone,
-}: {
-  label: string
-  value: string
-  tone: 'default' | 'alert'
-}) {
-  const isAlert = tone === 'alert'
-  return (
-    <div
-      className="rounded-xl border bg-white/95 px-4 py-3"
-      style={{
-        borderColor: isAlert
-          ? 'var(--color-flag-panel-border)'
-          : 'var(--color-border-base)',
-        background: isAlert ? 'var(--color-flag-panel-bg)' : undefined,
-      }}
-    >
-      <p
-        className="font-mono text-[0.68rem] font-semibold uppercase tracking-[0.1em]"
-        style={{
-          color: isAlert ? 'var(--color-flag-likely-text)' : 'var(--color-text-muted)',
-        }}
-      >
-        {label}
-      </p>
-      <p
-        className="mt-0.5 font-ops text-lg font-semibold"
-        style={{
-          color: isAlert ? 'var(--color-flag-likely-text)' : 'var(--color-text-strong)',
-        }}
-      >
-        {value}
-      </p>
-    </div>
+      </section>
+    </AppShell>
   )
 }

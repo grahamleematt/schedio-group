@@ -35,9 +35,12 @@ import { getStore } from '#/server/store'
 import { detectDuplicate } from '#/server/duplicateDetector'
 import type { DocType } from '#/lib/sg-dream'
 import type {
+  AuditCategory,
+  AuditResult,
   CustodyState,
   DocumentStatus,
   ExtractedFields,
+  StoredAuditEvent,
   StoredDocument,
 } from '#/server/store'
 
@@ -97,6 +100,32 @@ function extractDocupipeDocumentId(event: BaseEvent): string | undefined {
       asString(root.documentId) ??
       asString(root.document_id) ??
       asString(root.id)
+    if (id) return id
+  }
+  return undefined
+}
+
+function extractDocupipeJobId(event: BaseEvent): string | undefined {
+  for (const root of payloadRoots(event)) {
+    const id = asString(root.jobId) ?? asString(root.job_id)
+    if (id) return id
+  }
+  return undefined
+}
+
+function extractWebhookDeliveryId(event: BaseEvent): string | undefined {
+  for (const root of payloadRoots(event)) {
+    const id =
+      asString(root.eventId) ??
+      asString(root.event_id) ??
+      asString(root.webhookEventId) ??
+      asString(root.webhook_event_id) ??
+      asString(root.svixId) ??
+      asString(root.svix_id) ??
+      asString(root.svixMessageId) ??
+      asString(root.svix_message_id) ??
+      asString(root.messageId) ??
+      asString(root.message_id)
     if (id) return id
   }
   return undefined
@@ -455,6 +484,211 @@ async function docTypeForClassId(classId: string): Promise<DocType> {
   }
 }
 
+function auditIdPart(value: string | undefined): string {
+  const normalized = value?.trim().replace(/[^A-Za-z0-9_.:-]+/g, '_')
+  return normalized && normalized.length > 0 ? normalized.slice(0, 160) : 'none'
+}
+
+export function stableAuditEventId(input: {
+  scope: 'docupipe' | 'egnyte-promote' | 'egnyte-error'
+  event: BaseEvent
+  document: StoredDocument
+  detail?: string
+}): string {
+  const { event, document, detail, scope } = input
+  const identity =
+    extractWebhookDeliveryId(event) ??
+    [
+      event.eventType,
+      extractDocupipeDocumentId(event) ?? document.docupipeDocumentId,
+      extractStandardizationId(event) ?? document.docupipeStandardizationId,
+      extractClassId(event),
+      extractDocupipeJobId(event) ?? document.docupipeJobId,
+      detail,
+    ]
+      .filter((part): part is string => Boolean(part))
+      .join(':')
+
+  return [
+    'audit',
+    scope,
+    document.id,
+    event.eventType,
+    identity || detail || 'event',
+  ]
+    .map(auditIdPart)
+    .join(':')
+}
+
+/**
+ * Translate a DocuPipe webhook event into a human-friendly audit row label.
+ * Returns null when the event isn't worth logging (e.g. an unrecognized
+ * sub-type that the handler ignored anyway).
+ */
+function describeAuditEvent(input: {
+  eventType: string
+  stored: StoredDocument
+  next: StoredDocument
+  errorMessage?: string
+}): { event: string; result: AuditResult; detail?: string } | null {
+  const { eventType, stored, next, errorMessage } = input
+  if (eventType.endsWith('.error')) {
+    return {
+      event: 'DocuPipe error',
+      result: 'failed',
+      detail: errorMessage,
+    }
+  }
+  if (isDocumentSuccess(eventType)) {
+    return { event: 'DocuPipe accepted document', result: 'ok' }
+  }
+  if (isClassificationSuccess(eventType)) {
+    const docType = next.docType !== 'UNK' ? next.docType : stored.docType
+    return {
+      event: `Document classified as ${docType}`,
+      result: 'ok',
+    }
+  }
+  if (isStandardizationSuccess(eventType)) {
+    const flagged =
+      next.duplicateFlag === 'exact' || next.duplicateFlag === 'likely'
+    if (flagged) {
+      return {
+        event: 'Duplicate flagged',
+        result: 'flagged',
+        detail: next.matchedPreviousName
+          ? `matches ${next.matchedPreviousName}`
+          : undefined,
+      }
+    }
+    return {
+      event: 'Field extraction complete',
+      result: 'ok',
+      detail:
+        next.extractedFields?.amount !== undefined
+          ? `$${next.extractedFields.amount.toLocaleString()} from ${
+              next.extractedFields.vendorName ?? 'unknown vendor'
+            }`
+          : undefined,
+    }
+  }
+  if (isWorkflowSuccess(eventType)) {
+    return { event: 'Workflow complete', result: 'ok' }
+  }
+  return null
+}
+
+/**
+ * Append one or more audit rows for the document state transition we just
+ * persisted. We log the DocuPipe event itself, plus a separate row when the
+ * webhook also promoted the file in Egnyte (so the timeline shows custody
+ * promotion explicitly, not buried inside "standardization complete").
+ *
+ * Failures inside the audit writer are swallowed — the audit log is a UX
+ * surface, not a transactional dependency.
+ */
+async function emitAuditEvents(input: {
+  event: BaseEvent
+  stored: StoredDocument
+  next: StoredDocument
+  promotion?: PromotionResult
+  errorMessage?: string
+}): Promise<void> {
+  const store = getStore()
+  const { event, stored, next, promotion, errorMessage } = input
+  const ts = new Date().toISOString()
+  const description = describeAuditEvent({
+    eventType: event.eventType,
+    stored,
+    next,
+    errorMessage,
+  })
+  const rows: Array<StoredAuditEvent> = []
+  if (description) {
+    const category: AuditCategory =
+      event.eventType.endsWith('.error') &&
+      next.status === 'error'
+        ? 'documents'
+        : 'documents'
+    rows.push({
+      id: stableAuditEventId({
+        scope: 'docupipe',
+        event,
+        document: next,
+        detail: description.detail,
+      }),
+      ts,
+      source: 'docupipe',
+      category,
+      actor: 'DocuPipe',
+      event: description.event,
+      object: next.displayName || next.originalName,
+      result: description.result,
+      ip: 'webhook',
+      clientId: next.clientId,
+      verificationId: next.verificationId,
+      documentId: next.id,
+      docupipeDocumentId: next.docupipeDocumentId,
+      docupipeEventType: event.eventType,
+      detail: description.detail,
+    })
+  }
+
+  if (promotion) {
+    if (promotion.errorMessage) {
+      rows.push({
+        id: stableAuditEventId({
+          scope: 'egnyte-error',
+          event,
+          document: next,
+          detail: promotion.errorMessage,
+        }),
+        ts,
+        source: 'egnyte',
+        category: 'documents',
+        actor: 'Egnyte',
+        event: 'Egnyte promotion failed',
+        object: next.displayName || next.originalName,
+        result: 'failed',
+        ip: 'system',
+        clientId: next.clientId,
+        verificationId: next.verificationId,
+        documentId: next.id,
+        detail: promotion.errorMessage,
+      })
+    } else if (promotion.classifiedPath) {
+      rows.push({
+        id: stableAuditEventId({
+          scope: 'egnyte-promote',
+          event,
+          document: next,
+          detail: promotion.classifiedPath,
+        }),
+        ts,
+        source: 'egnyte',
+        category: 'documents',
+        actor: 'Egnyte',
+        event: 'Filed in Egnyte',
+        object: promotion.renamedName ?? next.displayName,
+        result: 'ok',
+        ip: 'system',
+        clientId: next.clientId,
+        verificationId: next.verificationId,
+        documentId: next.id,
+        detail: promotion.classifiedPath,
+      })
+    }
+  }
+
+  for (const row of rows) {
+    try {
+      await store.appendAuditEvent(row)
+    } catch (err) {
+      console.warn('[docupipe webhook] audit write failed', err)
+    }
+  }
+}
+
 async function handleEvent(event: BaseEvent): Promise<void> {
   const metadata = extractMetadata(event)
   const docupipeDocumentId = extractDocupipeDocumentId(event)
@@ -592,7 +826,7 @@ async function handleEvent(event: BaseEvent): Promise<void> {
           vendorName: extracted.vendorName,
         })
 
-        await store.upsertDocument({
+        const persisted = await store.upsertDocument({
           ...stored,
           ...baseUpdate,
           status: 'completed',
@@ -612,14 +846,27 @@ async function handleEvent(event: BaseEvent): Promise<void> {
           lowConfidence,
           errorMessage: promotion.errorMessage,
         })
+        await emitAuditEvents({
+          event,
+          stored,
+          next: persisted,
+          promotion,
+        })
         return
       } catch (err) {
-        await store.upsertDocument({
+        const message =
+          err instanceof Error ? err.message : 'getStandardization failed'
+        const persisted = await store.upsertDocument({
           ...stored,
           ...baseUpdate,
           status: 'error',
-          errorMessage:
-            err instanceof Error ? err.message : 'getStandardization failed',
+          errorMessage: message,
+        })
+        await emitAuditEvents({
+          event,
+          stored,
+          next: persisted,
+          errorMessage: message,
         })
         return
       }
@@ -633,16 +880,23 @@ async function handleEvent(event: BaseEvent): Promise<void> {
       asString(root.message) ??
       asString((root.error as Record<string, unknown> | undefined)?.message) ??
       'DocuPipe reported an error'
-    await store.upsertDocument({
+    const persisted = await store.upsertDocument({
       ...stored,
       ...baseUpdate,
       status: 'error',
       errorMessage: message,
     })
+    await emitAuditEvents({
+      event,
+      stored,
+      next: persisted,
+      errorMessage: message,
+    })
     return
   }
 
-  await store.upsertDocument({ ...stored, ...baseUpdate })
+  const persisted = await store.upsertDocument({ ...stored, ...baseUpdate })
+  await emitAuditEvents({ event, stored, next: persisted })
 }
 
 export const Route = createFileRoute('/api/docupipe/webhook')({

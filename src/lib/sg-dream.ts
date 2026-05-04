@@ -114,6 +114,18 @@ export const clients: ReadonlyArray<Client> = [
     region: 'City & County of Denver, CO',
     status: 'active',
   },
+  // Promoted from ghostDeveloperEntities so the entity picker can switch
+  // into a Developer Reimbursement (DR) workspace and demo the alternate
+  // dashboard layout. Phase C8.
+  {
+    id: 'oakwood-homes',
+    code: 'OAK',
+    name: 'Oakwood Homes',
+    workflow: 'developer_reimb',
+    entityOwnerName: 'Amy Lee',
+    region: 'Denver Metro, CO',
+    status: 'active',
+  },
 ]
 
 /**
@@ -131,13 +143,6 @@ type GhostEntity = {
 }
 
 export const ghostDeveloperEntities: ReadonlyArray<GhostEntity> = [
-  {
-    id: 'oakwood-homes',
-    code: 'OAK',
-    name: 'Oakwood Homes',
-    workflow: 'developer_reimb',
-    region: 'Denver Metro, CO',
-  },
   {
     id: 'lennar-colorado',
     code: 'LEN',
@@ -162,7 +167,7 @@ export const mockUser: User = {
   name: 'Amy Lee',
   email: 'amy.lee@districts.example',
   role: 'entity_owner',
-  permittedClientIds: ['srcab', 'hca', 'dbi'],
+  permittedClientIds: ['srcab', 'hca', 'dbi', 'oakwood-homes'],
 }
 
 type VerificationStatus = 'open' | 'under_review' | 'approved'
@@ -342,6 +347,55 @@ export const verifications: ReadonlyArray<Verification> = [
     workAuthValue: 280_000,
     seq: 4,
   },
+
+  // Oakwood Homes — Developer Reimbursement workspace demo (Phase C8).
+  // The DR flow tracks reimbursable public-eligible costs against a
+  // district cap rather than per-period pay applications.
+  {
+    id: 'oak-v1',
+    clientId: 'oakwood-homes',
+    number: 1,
+    year: 2025,
+    period: 'H1 2025',
+    cutoffDate: 'Aug 15, 2025',
+    cutoffDateISO: '2025-08-15',
+    status: 'approved',
+    docsCount: 16,
+    costsSubmitted: 612_400.0,
+    costsVerified: 588_220.0,
+    workAuthValue: 2_400_000,
+    seq: 16,
+  },
+  {
+    id: 'oak-v2',
+    clientId: 'oakwood-homes',
+    number: 2,
+    year: 2025,
+    period: 'H2 2025',
+    cutoffDate: 'Feb 15, 2026',
+    cutoffDateISO: '2026-02-15',
+    status: 'approved',
+    docsCount: 22,
+    costsSubmitted: 894_120.0,
+    costsVerified: 851_980.0,
+    workAuthValue: 2_400_000,
+    seq: 22,
+  },
+  {
+    id: 'oak-v3',
+    clientId: 'oakwood-homes',
+    number: 3,
+    year: 2026,
+    period: 'H1 2026',
+    cutoffDate: 'May 30, 2026',
+    cutoffDateISO: '2026-05-30',
+    status: 'open',
+    docsCount: 9,
+    costsSubmitted: 318_640.0,
+    costsVerified: 0,
+    workAuthValue: 2_400_000,
+    seq: 9,
+  },
 ]
 
 export type DuplicateFlag = 'none' | 'exact' | 'likely'
@@ -375,6 +429,21 @@ export type Document = {
   visualReviewUrl?: string
   fieldConfidence?: Record<string, number>
   lowConfidence?: boolean
+  /**
+   * Lifecycle status mirrored from the server `StoredDocument`. Optional so
+   * the in-repo mock seed rows below stay valid; the adapter populates it
+   * for live rows.
+   */
+  status?:
+    | 'queued'
+    | 'classifying'
+    | 'standardizing'
+    | 'completed'
+    | 'error'
+  /** First failure message when `status === 'error'`. */
+  errorMessage?: string
+  /** ISO timestamp of when the upload landed on the server. */
+  uploadedAt?: string
 }
 
 /**
@@ -830,6 +899,10 @@ export function getClientById(clientId: string | undefined): Client {
   return clients.find((c) => c.id === clientId) ?? clients[0]
 }
 
+export function getKnownClientById(clientId: string | undefined): Client | null {
+  return clients.find((c) => c.id === clientId) ?? null
+}
+
 export function getVerificationsByClient(clientId: string) {
   return verifications
     .filter((v) => v.clientId === clientId)
@@ -923,6 +996,25 @@ export function formatRef(input: {
   return `${prefix}-V${input.number}-${input.year}-${seq}`
 }
 
+/**
+ * Prefer the live Schedio-assigned ref off the snapshot; otherwise rebuild
+ * from the verification's mock seq. Centralised so /processing, /dashboard,
+ * /confirmation, and the AppShell topbar all show the same value.
+ */
+export function displayRef(input: {
+  snapshotRef?: string | null
+  client: Client
+  verification: Verification
+}) {
+  if (input.snapshotRef) return input.snapshotRef
+  return formatRef({
+    workflow: input.client.workflow,
+    number: input.verification.number,
+    year: input.verification.year,
+    seq: input.verification.seq,
+  })
+}
+
 export function formatCurrency(value: number): string {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -979,16 +1071,29 @@ export function summarizeDocTypes(
 
 export type CutoffUrgency = 'healthy' | 'warning' | 'critical' | 'passed'
 
+const MOCKUP_TODAY_ISO = '2026-04-16'
+
+function isoDateToUtcMs(iso: string): number {
+  const [year, month, day] = iso.split('-').map(Number)
+  if (!year || !month || !day) return Number.NaN
+  return Date.UTC(year, month - 1, day)
+}
+
+export function daysUntilCutoff(
+  cutoffDateISO: string,
+  todayISO = MOCKUP_TODAY_ISO,
+): number {
+  const target = isoDateToUtcMs(cutoffDateISO)
+  const today = isoDateToUtcMs(todayISO)
+  if (Number.isNaN(target) || Number.isNaN(today)) return 0
+  return Math.round((target - today) / (1000 * 60 * 60 * 24))
+}
+
 export function computeCutoffUrgency(cutoffDateISO: string): {
   daysLeft: number
   urgency: CutoffUrgency
 } {
-  // Using a render-time Date() call is fine in this mockup; no useEffect needed.
-  const now = new Date()
-  now.setHours(0, 0, 0, 0)
-  const target = new Date(`${cutoffDateISO}T00:00:00`)
-  const diffMs = target.getTime() - now.getTime()
-  const daysLeft = Math.round(diffMs / (1000 * 60 * 60 * 24))
+  const daysLeft = daysUntilCutoff(cutoffDateISO)
 
   let urgency: CutoffUrgency
   if (daysLeft < 0) urgency = 'passed'
@@ -1048,3 +1153,244 @@ export function sumTaskOrders(taskOrders?: ReadonlyArray<TaskOrder>) {
 export function sumChangeOrders(changeOrders?: ReadonlyArray<ChangeOrder>) {
   return (changeOrders ?? []).reduce((s, co) => s + co.value, 0)
 }
+
+/* ───────────────────────────── Users & access (mock) ───────────────────────────── */
+
+export type AccessRole =
+  | 'sg_admin'
+  | 'sg_pm'
+  | 'entity_owner'
+  | 'client_mgr'
+  | 'client_viewer'
+
+export const accessRoleLabels: Record<AccessRole, string> = {
+  sg_admin: 'SG Admin',
+  sg_pm: 'SG PM',
+  entity_owner: 'Entity Owner',
+  client_mgr: 'Client Mgr',
+  client_viewer: 'Client Viewer',
+}
+
+export type PendingUser = {
+  id: string
+  initials: string
+  name: string
+  affiliation: string
+  email: string
+  requestedRole: AccessRole
+  entityCode: string
+  expiresInHours: number
+}
+
+export const pendingUsers: ReadonlyArray<PendingUser> = [
+  {
+    id: 'jchen',
+    initials: 'JC',
+    name: 'Jordan Chen',
+    affiliation: 'Apex Construction · External',
+    email: 'jchen@apexcon.example',
+    requestedRole: 'client_mgr',
+    entityCode: 'HCA',
+    expiresInHours: 38,
+  },
+  {
+    id: 'mrodriguez',
+    initials: 'MR',
+    name: 'Maya Rodriguez',
+    affiliation: 'SR Metro Board · Trustee',
+    email: 'm.rodriguez@srmetro.example',
+    requestedRole: 'client_viewer',
+    entityCode: 'SRM',
+    expiresInHours: 64,
+  },
+]
+
+export type MfaState = 'enabled' | 'not_set'
+
+export type ActiveUser = {
+  id: string
+  initials: string
+  name: string
+  email: string
+  role: AccessRole
+  entityCodes: ReadonlyArray<string>
+  mfa: MfaState
+  lastSignInLabel: string
+  isYou?: boolean
+}
+
+export const activeUsers: ReadonlyArray<ActiveUser> = [
+  {
+    id: 'amy-lee',
+    initials: 'AL',
+    name: 'Amy Lee',
+    email: 'amy.lee@districts.example',
+    role: 'entity_owner',
+    entityCodes: ['HCA', 'SRC', 'DBI'],
+    mfa: 'enabled',
+    lastSignInLabel: '2m ago',
+    isYou: true,
+  },
+  {
+    id: 'd-kim',
+    initials: 'DK',
+    name: 'Daniel Kim',
+    email: 'd.kim@districts.example',
+    role: 'client_mgr',
+    entityCodes: ['HCA'],
+    mfa: 'enabled',
+    lastSignInLabel: '1d ago',
+  },
+  {
+    id: 'p-tan',
+    initials: 'PT',
+    name: 'Priya Tan',
+    email: 'p.tan@srmetro.example',
+    role: 'client_mgr',
+    entityCodes: ['SRC'],
+    mfa: 'not_set',
+    lastSignInLabel: '8d ago',
+  },
+  {
+    id: 's-park',
+    initials: 'SP',
+    name: 'Sam Park',
+    email: 'sam@apexcon.example',
+    role: 'client_viewer',
+    entityCodes: ['HCA'],
+    mfa: 'enabled',
+    lastSignInLabel: '23d ago',
+  },
+]
+
+/* ───────────────────────────── Audit log (mock) ───────────────────────────── */
+
+export type AuditCategory =
+  | 'auth'
+  | 'documents'
+  | 'verifications'
+  | 'access'
+
+export type AuditResult = 'ok' | 'override' | 'flagged' | 'pending' | 'failed'
+
+export const auditResultLabels: Record<AuditResult, string> = {
+  ok: 'OK',
+  override: 'Override',
+  flagged: 'Flagged',
+  pending: 'Pending',
+  failed: 'Failed',
+}
+
+export type AuditEvent = {
+  id: string
+  timeLabel: string
+  clientId: string
+  actor: string
+  event: string
+  object: string
+  result: AuditResult
+  ip: string
+  category: AuditCategory
+}
+
+export const auditEvents: ReadonlyArray<AuditEvent> = [
+  {
+    id: 'a-001',
+    timeLabel: 'Feb 06 · 10:43',
+    clientId: 'srcab',
+    actor: 'System',
+    event: 'Verification submitted',
+    object: 'SGD-DP-V4-2026-0011',
+    result: 'ok',
+    ip: '—',
+    category: 'verifications',
+  },
+  {
+    id: 'a-002',
+    timeLabel: 'Feb 06 · 10:43',
+    clientId: 'srcab',
+    actor: 'Amy Lee',
+    event: 'Confirmation acknowledged',
+    object: 'SGD-DP-V4-2026-0011',
+    result: 'ok',
+    ip: '98.21.×.×',
+    category: 'verifications',
+  },
+  {
+    id: 'a-003',
+    timeLabel: 'Feb 06 · 10:43',
+    clientId: 'srcab',
+    actor: 'Amy Lee',
+    event: 'Duplicate kept (override)',
+    object: 'INV-MERI-2026-002',
+    result: 'override',
+    ip: '98.21.×.×',
+    category: 'documents',
+  },
+  {
+    id: 'a-004',
+    timeLabel: 'Feb 06 · 10:42',
+    clientId: 'srcab',
+    actor: 'System',
+    event: 'Duplicate detected',
+    object: '3 files',
+    result: 'flagged',
+    ip: '—',
+    category: 'documents',
+  },
+  {
+    id: 'a-005',
+    timeLabel: 'Feb 06 · 10:41',
+    clientId: 'srcab',
+    actor: 'Amy Lee',
+    event: 'Files uploaded',
+    object: '11 files · 28.7 MB',
+    result: 'ok',
+    ip: '98.21.×.×',
+    category: 'documents',
+  },
+  {
+    id: 'a-006',
+    timeLabel: 'Feb 04 · 14:08',
+    clientId: 'srcab',
+    actor: 'SG PM (T. Reyes)',
+    event: 'V3 status changed',
+    object: 'SGD-DP-V3 → Under Review',
+    result: 'ok',
+    ip: '10.0.×.×',
+    category: 'verifications',
+  },
+  {
+    id: 'a-007',
+    timeLabel: 'Feb 02 · 09:11',
+    clientId: 'hca',
+    actor: 'Amy Lee',
+    event: 'User invited',
+    object: 'jchen@apexcon.example',
+    result: 'pending',
+    ip: '98.21.×.×',
+    category: 'access',
+  },
+  {
+    id: 'a-008',
+    timeLabel: 'Jan 28 · 16:55',
+    clientId: 'hca',
+    actor: 'SG Admin',
+    event: 'Entity Owner set',
+    object: 'HCA → Amy Lee',
+    result: 'ok',
+    ip: '10.0.×.×',
+    category: 'access',
+  },
+  {
+    id: 'a-009',
+    timeLabel: 'Jan 24 · 22:12',
+    clientId: 'srcab',
+    actor: 'Anonymous',
+    event: 'Sign-in attempt',
+    object: 'amy.lee@districts.example',
+    result: 'failed',
+    ip: '203.×.×.×',
+    category: 'auth',
+  },
+]

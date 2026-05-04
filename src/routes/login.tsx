@@ -1,5 +1,12 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { KeyRound, LockKeyhole, Mail, ShieldCheck } from 'lucide-react'
+import {
+  ArrowRight,
+  CircleHelp,
+  KeyRound,
+  LockKeyhole,
+  Mail,
+  ShieldCheck,
+} from 'lucide-react'
 
 type LoginSearch = {
   error?: 'bad_creds'
@@ -18,113 +25,120 @@ function LoginPage() {
   const hasError = error === 'bad_creds'
 
   return (
-    <main className="page-wrap page-frame" data-workflow="district_dp">
-      <div className="mx-auto flex max-w-[480px] flex-col gap-6">
-        <header className="text-center">
-          <p className="ops-label justify-center">SG DREAM · Entity Portal</p>
-          <h1 className="mt-2 font-ops text-2xl font-semibold tracking-[-0.02em] text-text-strong">
-            Sign in to your entity workspace
-          </h1>
-          <p className="mt-2 text-sm text-text-muted">
-            Access is invitation-only. Schedio Group manages every entity in
-            this portal.
-          </p>
-        </header>
+    <main className="stage login-stage" data-workflow="district_dp">
+      <div className="login-card">
+        <div className="login-brand">
+          <img
+            src="/schedio-logo.svg"
+            alt="Schedio Group"
+            className="login-logo"
+          />
+          <div className="login-product">SG DREAM entity portal</div>
+        </div>
 
-        <section
-          className="brand-panel rounded-2xl p-6"
-          style={{ borderColor: 'var(--color-border-base)' }}
-        >
-          {hasError ? (
-            <div
-              className="mb-4 rounded-xl border px-4 py-3 text-sm"
-              style={{
-                background: 'var(--color-status-error-bg)',
-                color: 'var(--color-status-error-text)',
-                borderColor: 'var(--color-flag-exact-border)',
-              }}
-            >
-              We couldn&rsquo;t verify those credentials. Check your email or
-              request a password reset.
-            </div>
-          ) : null}
+        <h2 className="mt-6 font-ops text-[20px] font-semibold tracking-[-0.02em] text-ink">
+          Sign in to your workspace
+        </h2>
+        <p className="text-ink-2 mt-1 text-[12.5px]">
+          Access is invitation-only. Schedio Group manages every entity in this
+          portal.
+        </p>
 
-          <form
-            className="space-y-4"
-            onSubmit={(e) => e.preventDefault()}
+        {hasError ? (
+          <div
+            className="border-line bg-red-bg mt-4 rounded-3 border px-3 py-2 text-[12.5px]"
+            style={{ color: 'var(--color-red-base)' }}
+            role="alert"
           >
-            <label htmlFor="login-email" className="block space-y-1.5">
-              <span className="font-ops text-xs font-semibold uppercase tracking-[0.1em] text-text-muted">
-                Email
-              </span>
-              <span
-                className="flex h-11 items-center gap-2 rounded-xl border bg-white px-3 focus-within:ring-2 focus-within:ring-[color:var(--color-ring)]"
-                style={{ borderColor: 'var(--color-border-base)' }}
-              >
-                <Mail className="size-4 text-text-muted" aria-hidden />
-                <input
-                  id="login-email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  defaultValue="amy.lee@districts.example"
-                  className="w-full border-none bg-transparent text-sm outline-none"
-                />
-              </span>
-            </label>
+            We couldn&rsquo;t verify those credentials. Check your email or
+            request a password reset.
+          </div>
+        ) : null}
 
-            <label htmlFor="login-password" className="block space-y-1.5">
-              <span className="font-ops text-xs font-semibold uppercase tracking-[0.1em] text-text-muted">
-                Password
-              </span>
-              <span
-                className="flex h-11 items-center gap-2 rounded-xl border bg-white px-3 focus-within:ring-2 focus-within:ring-[color:var(--color-ring)]"
-                style={{ borderColor: 'var(--color-border-base)' }}
-              >
-                <LockKeyhole className="size-4 text-text-muted" aria-hidden />
-                <input
-                  id="login-password"
-                  name="password"
-                  type="password"
-                  autoComplete="current-password"
-                  defaultValue="••••••••••"
-                  className="w-full border-none bg-transparent text-sm outline-none"
-                />
-              </span>
-            </label>
+        <form
+          onSubmit={(e) => e.preventDefault()}
+          className="mt-3"
+          aria-label="Sign in"
+        >
+          <label className="field-block" htmlFor="login-email">
+            <span className="field-label">Email</span>
+            <span className="field-input">
+              <Mail className="text-muted-1 size-4" aria-hidden />
+              <input
+                id="login-email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                defaultValue="amy.lee@districts.example"
+              />
+            </span>
+          </label>
 
-            <div className="flex flex-col gap-3 pt-2">
-              <Link
-                to="/clients"
-                search={{ selected: undefined }}
-                className="wf-button-primary w-full"
-              >
-                <KeyRound className="size-4" />
-                Continue
-              </Link>
-              <div className="flex items-center justify-between text-xs">
-                <Link
-                  to="/login"
-                  search={{ error: 'bad_creds' }}
-                  className="font-mono uppercase tracking-[0.08em] text-text-muted no-underline hover:text-text-strong"
-                >
-                  Preview error state
-                </Link>
+          <label className="field-block" htmlFor="login-password">
+            <span className="field-label">Password</span>
+            <span className="field-input">
+              <LockKeyhole className="text-muted-1 size-4" aria-hidden />
+              <input
+                id="login-password"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                defaultValue="••••••••••"
+              />
+            </span>
+          </label>
+
+          <div className="field-block">
+            <div className="login-reset-head">
+              <span className="field-label">Password reset</span>
+              <span className="login-help">
                 <button
                   type="button"
-                  className="font-mono uppercase tracking-[0.08em] text-text-muted hover:text-text-strong"
+                  className="login-help-button"
+                  aria-label="Password resets are managed by SG Admin after identity verification."
                 >
-                  Reset password
+                  <CircleHelp className="size-3.5" aria-hidden />
                 </button>
-              </div>
+                <span className="login-tooltip" role="tooltip">
+                  SG Admin verifies identity and sends a reset invitation.
+                </span>
+              </span>
             </div>
-          </form>
-        </section>
+            <Link
+              to="/login"
+              search={{ error: undefined }}
+              className="login-reset-field"
+            >
+              <span className="login-reset-copy">
+                <KeyRound className="size-4" aria-hidden />
+                Request reset invitation
+              </span>
+              <ArrowRight className="size-4" aria-hidden />
+            </Link>
+          </div>
 
-        <p className="flex items-center justify-center gap-2 text-xs text-text-muted">
-          <ShieldCheck className="size-3.5 text-text-accent" />
-          MFA encouraged for all entity users · required for Schedio staff.
-        </p>
+          <Link
+            to="/clients"
+            search={{ selected: undefined }}
+            className="v2-btn primary mt-2 w-full justify-center"
+          >
+            Continue
+            <ArrowRight className="size-4" aria-hidden />
+          </Link>
+
+          <div className="login-trust">
+            <ShieldCheck className="size-3.5" aria-hidden />
+            MFA encouraged for every entity owner
+          </div>
+
+          <Link
+            to="/login"
+            search={{ error: 'bad_creds' }}
+            className="login-preview-link"
+          >
+            Preview error state
+          </Link>
+        </form>
       </div>
     </main>
   )

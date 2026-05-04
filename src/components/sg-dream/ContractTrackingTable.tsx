@@ -244,9 +244,9 @@ function VendorRows({
                 Amendment recommended — request a change order before the next
                 task order.
               </span>
-              <button
-                type="button"
-                className="inline-flex h-8 items-center gap-1.5 rounded-full bg-white px-3 text-xs font-semibold"
+              <a
+                href={`mailto:?subject=${encodeURIComponent(`Change order request: ${vendor.name}`)}&body=${encodeURIComponent(`${vendor.name} is in amendment territory. Please review a change order before the next task order.`)}`}
+                className="inline-flex h-8 items-center gap-1.5 rounded-full bg-white px-3 text-xs font-semibold no-underline"
                 style={{
                   color: 'var(--color-util-amend)',
                   border:
@@ -255,7 +255,7 @@ function VendorRows({
                 onClick={(e) => e.stopPropagation()}
               >
                 Request change order
-              </button>
+              </a>
             </div>
           </td>
         </tr>

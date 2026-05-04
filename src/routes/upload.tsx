@@ -1,22 +1,35 @@
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
-import { ArrowRight, UploadCloud, Loader2 } from 'lucide-react'
+import { ArrowRight, FileText, Loader2, UploadCloud } from 'lucide-react'
 import { useRef, useState } from 'react'
-import { WorkflowChrome } from '#/components/sg-dream/WorkflowChrome'
-import { WorkflowBanner } from '#/components/sg-dream/WorkflowBanner'
-import { VerificationPill } from '#/components/sg-dream/VerificationPill'
-import { UploadQueue } from '#/components/sg-dream/UploadQueue'
+import type { DragEvent } from 'react'
+import { AppShell } from '#/components/sg-dream/AppShell'
 import {
+  clients,
+  displayRef,
+  docTypeLabels,
+  formatCurrencyPrecise,
   getClientById,
   getOpenVerification,
   getVerificationById,
 } from '#/lib/sg-dream'
+import type { Document } from '#/lib/sg-dream'
 import { verificationSnapshotQuery } from '#/lib/queries'
 import { storedListToDisplay } from '#/lib/sg-dream-adapter'
+
+type UploadState = 'normal' | 'empty' | 'error'
 
 type UploadSearch = {
   client: string
   verification: string
+  state?: UploadState
+}
+
+const stateValues = new Set<UploadState>(['normal', 'empty', 'error'])
+
+export function snapshotUploadFiles(files: FileList | null): File[] {
+  if (!files || files.length === 0) return []
+  return Array.from(files)
 }
 
 export const Route = createFileRoute('/upload')({
@@ -24,10 +37,24 @@ export const Route = createFileRoute('/upload')({
     client: typeof s.client === 'string' ? s.client : 'srcab',
     verification:
       typeof s.verification === 'string' ? s.verification : 'srcab-v4',
+    state:
+      typeof s.state === 'string' && stateValues.has(s.state as UploadState)
+        ? (s.state as UploadState)
+        : undefined,
   }),
   loader: ({ context, location }) => {
     const search = location.search as UploadSearch
-    const clientId = typeof search.client === 'string' ? search.client : 'srcab'
+    const requestedClient =
+      typeof search.client === 'string' ? search.client : 'srcab'
+    const knownClient = clients.find((c) => c.id === requestedClient)
+    if (!knownClient) {
+      const open = getOpenVerification('srcab')
+      throw redirect({
+        to: '/upload',
+        search: { client: 'srcab', verification: open.id },
+      })
+    }
+    const clientId = knownClient.id
     const requested =
       typeof search.verification === 'string' ? search.verification : ''
     const verification = getVerificationById(requested, clientId)
@@ -47,7 +74,11 @@ export const Route = createFileRoute('/upload')({
 })
 
 function UploadPage() {
-  const { client: clientId, verification: verificationId } = Route.useSearch()
+  const {
+    client: clientId,
+    verification: verificationId,
+    state: variant = 'normal',
+  } = Route.useSearch()
   const client = getClientById(clientId)
   const verification =
     getVerificationById(verificationId, clientId) ??
@@ -58,28 +89,38 @@ function UploadPage() {
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
 
   const snapshot = snapshotQuery.data
+  const ref = displayRef({
+    snapshotRef: snapshot?.verification.ref,
+    client,
+    verification,
+  })
   const storedDocs = snapshot?.verification.documents ?? []
   const displayDocs = storedListToDisplay(storedDocs)
-  const flaggedCount = storedDocs.filter(
-    (d) => d.duplicateFlag !== 'none' && d.status === 'completed',
+  const flaggedDocs = displayDocs.filter(
+    (d) => d.duplicateFlag !== 'none',
+  )
+  const exactCount = flaggedDocs.filter(
+    (d) => d.duplicateFlag === 'exact',
   ).length
-  const exactCount = storedDocs.filter(
-    (d) => d.duplicateFlag === 'exact' && d.status === 'completed',
+  const likelyCount = flaggedDocs.filter(
+    (d) => d.duplicateFlag === 'likely',
   ).length
-  const likelyCount = storedDocs.filter(
-    (d) => d.duplicateFlag === 'likely' && d.status === 'completed',
-  ).length
+  const inFlight = displayDocs.filter(
+    (d) =>
+      d.status === 'queued' ||
+      d.status === 'classifying' ||
+      d.status === 'standardizing',
+  )
 
   const mutation = useMutation({
-    mutationFn: async (files: FileList) => {
+    mutationFn: async (files: File[]) => {
       const fd = new FormData()
       fd.set('verificationId', verificationId)
       fd.set('clientId', client.id)
-      for (const file of Array.from(files)) fd.append('files', file)
-      // Hit the server route directly (not a server function) so the browser
-      // sends a real multipart/form-data body and Files survive the transport.
+      for (const file of files) fd.append('files', file)
       const res = await fetch('/api/uploads', { method: 'POST', body: fd })
       if (!res.ok) {
         let message = `upload failed (${res.status})`
@@ -105,95 +146,116 @@ function UploadPage() {
   })
 
   const onFilesChosen = (files: FileList | null) => {
-    if (!files || files.length === 0) return
-    mutation.mutate(files)
+    const chosenFiles = snapshotUploadFiles(files)
+    if (chosenFiles.length === 0) return
+    mutation.mutate(chosenFiles)
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
-  const hasQueue = storedDocs.length > 0
-  const anyInFlight = storedDocs.some(
-    (d) =>
-      d.status === 'queued' ||
-      d.status === 'classifying' ||
-      d.status === 'standardizing',
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    setIsDragging(false)
+    if (e.dataTransfer.files.length > 0) onFilesChosen(e.dataTransfer.files)
+  }
+
+  const renderEmpty = variant === 'empty'
+  const renderError = variant === 'error' || Boolean(uploadError)
+  const showQueue = !renderEmpty && displayDocs.length > 0
+
+  const rail = (
+    <>
+      <section className="v2-card">
+        <header className="v2-card-head">
+          <h3>Submission preview</h3>
+        </header>
+        <div className="v2-card-body">
+          <div className="kv">
+            <span className="k">Verification</span>
+            <span className="v">V{verification.number}</span>
+          </div>
+          <div className="kv">
+            <span className="k">Period</span>
+            <span className="v">{verification.period}</span>
+          </div>
+          <div className="kv">
+            <span className="k">Cutoff</span>
+            <span className="v">{verification.cutoffDate}</span>
+          </div>
+          <div className="kv">
+            <span className="k">Reference</span>
+            <span className="v mono">{ref}</span>
+          </div>
+          <div className="kv">
+            <span className="k">Files in queue</span>
+            <span className="v">{displayDocs.length}</span>
+          </div>
+          {inFlight.length > 0 ? (
+            <div className="kv">
+              <span className="k">Processing</span>
+              <span className="v">{inFlight.length}</span>
+            </div>
+          ) : null}
+        </div>
+      </section>
+
+      <section className="v2-card">
+        <header className="v2-card-head">
+          <h3>Tips</h3>
+        </header>
+        <div className="v2-card-body space-y-3 text-[12.5px] text-ink-2">
+          <p className="m-0">
+            Upload PDF, TIFF, or JPG. DocuPipe runs classify + standardize on
+            every file as it lands.
+          </p>
+          <p className="m-0">
+            Duplicate checks run after each file finishes classification —
+            results appear on this page and on the processing screen.
+          </p>
+          <p className="m-0 text-muted-1">
+            Schedio Group assigns a final reference number when this
+            verification is submitted.
+          </p>
+        </div>
+      </section>
+    </>
   )
 
   return (
-    <WorkflowChrome
-      workflow={client.workflow}
-      eyebrow="Step 3 · Upload & duplicate detection"
-      title={`Submit to Verification No. ${verification.number}`}
-      description="Drop files into the queue. DocuPipe classifies each file, extracts vendor and cost details, and compares the submission against every prior filing for this entity."
-      aside={
-        <div className="space-y-2 text-sm">
-          <VerificationPill
-            number={verification.number}
-            period={verification.period}
-          />
-          <p className="font-ops text-base font-semibold text-text-strong">
-            {client.name}
+    <AppShell
+      active="submit"
+      crumbs={[
+        { label: 'Submit Documents' },
+      ]}
+      rail={rail}
+    >
+      <header className="mb-4 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="v2-eyebrow">Step 3 · Upload &amp; duplicate detection</p>
+          <h1 className="v2-h1">Submit to V{verification.number}</h1>
+          <p className="v2-lede">
+            Drop files into the queue. DocuPipe classifies each file, extracts
+            vendor + cost details, and compares the submission against every
+            prior filing for {client.name}.
           </p>
-          <p className="text-xs text-text-muted">
-            Cutoff <strong>{verification.cutoffDate}</strong>. Files stream
-            through the queue until DocuPipe finishes each one.
-          </p>
-          <div
-            className="mt-3 rounded-xl border bg-white/90 px-3 py-2"
-            style={{ borderColor: 'var(--color-border-base)' }}
-          >
-            <p className="font-mono text-[0.68rem] uppercase tracking-[0.1em] text-text-muted">
-              Queue
-            </p>
-            <p className="font-ops text-base font-semibold text-text-strong">
-              {storedDocs.length} file{storedDocs.length === 1 ? '' : 's'}
-            </p>
-            <p className="text-xs text-text-muted">
-              {flaggedCount > 0
-                ? `${flaggedCount} flagged · ${exactCount} exact · ${likelyCount} likely`
-                : anyInFlight
-                  ? 'Processing…'
-                  : 'No duplicates detected yet.'}
-            </p>
-          </div>
         </div>
-      }
-      actions={
-        <>
-          {hasQueue ? (
+        <div className="flex flex-wrap gap-2">
+          {displayDocs.length > 0 ? (
             <Link
               to="/processing"
               search={{ client: client.id, verification: verification.id }}
-              className="wf-button-primary"
+              className="v2-btn primary"
             >
-              Analyze documents
+              Analyze &amp; submit to V{verification.number}
               <ArrowRight className="size-4" />
             </Link>
           ) : (
-            <button type="button" className="wf-button-primary" disabled>
-              Analyze documents
+            <button type="button" className="v2-btn primary" disabled>
+              Analyze &amp; submit to V{verification.number}
               <ArrowRight className="size-4" />
             </button>
           )}
-          <button
-            type="button"
-            className="wf-button-secondary"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={mutation.isPending}
-          >
-            {mutation.isPending ? (
-              <>
-                <Loader2 className="size-4 animate-spin" /> Uploading…
-              </>
-            ) : (
-              <>
-                <UploadCloud className="size-4" /> Browse files
-              </>
-            )}
-          </button>
-        </>
-      }
-    >
-      <WorkflowBanner workflow={client.workflow} />
+        </div>
+      </header>
 
       <input
         ref={fileInputRef}
@@ -204,27 +266,180 @@ function UploadPage() {
         onChange={(e) => onFilesChosen(e.target.files)}
       />
 
-      {uploadError ? (
-        <div
-          role="alert"
-          className="rounded-2xl border px-4 py-3 text-sm"
-          style={{
-            borderColor: 'var(--color-flag-panel-border)',
-            background: 'var(--color-flag-panel-bg)',
-            color: 'var(--color-flag-exact-text, var(--color-flag-likely-text))',
-          }}
-        >
-          {uploadError}
+      {renderError ? (
+        <div className="errbar red mb-3" role="alert">
+          <span className="icn">!</span>
+          <div className="min-w-0">
+            <p className="m-0 font-semibold">Upload failed</p>
+            <p className="m-0 text-[12.5px]">
+              {uploadError ??
+                'One or more files were rejected by DocuPipe. Try again or contact Schedio Group.'}
+            </p>
+          </div>
         </div>
       ) : null}
 
-      <UploadQueue
-        queuedDocs={displayDocs}
-        onBrowseClick={() => fileInputRef.current?.click()}
-        isUploading={mutation.isPending}
-        onDropFiles={(files) => onFilesChosen(files)}
-      />
+      {flaggedDocs.length > 0 ? (
+        <div className="errbar amber mb-3" role="status">
+          <span className="icn">!</span>
+          <div className="min-w-0 flex-1">
+            <p className="m-0 font-semibold">
+              {flaggedDocs.length} file{flaggedDocs.length === 1 ? '' : 's'}{' '}
+              flagged for possible duplication
+            </p>
+            <p className="m-0 text-[12.5px]">
+              {exactCount} exact · {likelyCount} likely. Review each row before
+              submitting to V{verification.number}.
+            </p>
+          </div>
+          <span className="pill pill-amber">
+            <span className="dot" />
+            Decisions captured after analysis
+          </span>
+        </div>
+      ) : null}
 
-    </WorkflowChrome>
+      <div
+        className={`dropzone${isDragging ? ' hot' : ''}`}
+        onDrop={handleDrop}
+        onDragOver={(e) => {
+          e.preventDefault()
+          if (!isDragging) setIsDragging(true)
+        }}
+        onDragLeave={() => setIsDragging(false)}
+      >
+        <div className="grid place-items-center gap-2">
+          <span
+            aria-hidden
+            className="grid size-12 place-items-center rounded-2xl"
+            style={{ background: 'var(--wf-soft)', color: 'var(--wf-strong)' }}
+          >
+            {mutation.isPending ? (
+              <Loader2 className="size-6 animate-spin" />
+            ) : (
+              <UploadCloud className="size-6" />
+            )}
+          </span>
+          <p className="m-0 font-ops text-[15px] font-semibold text-ink">
+            {mutation.isPending
+              ? 'Uploading to DocuPipe…'
+              : 'Drag and drop documents here'}
+          </p>
+          <p className="m-0 text-[12.5px] text-muted-1">
+            PDF, TIFF, or JPG. Duplicate checks run after upload.
+          </p>
+          <button
+            type="button"
+            className="v2-btn primary mt-2"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={mutation.isPending}
+          >
+            <UploadCloud className="size-4" /> Browse files
+          </button>
+        </div>
+      </div>
+
+      {showQueue ? (
+        <section className="v2-card mt-4">
+          <header className="v2-card-head">
+            <h3>Queue</h3>
+            <span className="sub">
+              {displayDocs.length} file{displayDocs.length === 1 ? '' : 's'}
+            </span>
+          </header>
+          <div>
+            {displayDocs.map((doc) => (
+              <UploadRow key={doc.id} doc={doc} />
+            ))}
+          </div>
+        </section>
+      ) : renderEmpty ? (
+        <section className="v2-card mt-4">
+          <header className="v2-card-head">
+            <h3>No files yet</h3>
+          </header>
+          <div className="v2-card-body text-[13px] text-ink-2">
+            <p className="m-0 mb-2">
+              When you drop files here, DocuPipe will:
+            </p>
+            <ol className="m-0 ml-5 list-decimal space-y-1 text-muted-1">
+              <li>Classify each file (CTR / TO / CO / PA / INV / POP / LSP).</li>
+              <li>
+                Extract vendor + cost details from the document body.
+              </li>
+              <li>
+                Compare every file to prior filings for {client.name} and flag
+                exact or likely duplicates.
+              </li>
+            </ol>
+          </div>
+        </section>
+      ) : null}
+    </AppShell>
+  )
+}
+
+function UploadRow({ doc }: { doc: Document }) {
+  const status =
+    doc.status ?? (doc.duplicateFlag !== 'none' ? 'completed' : 'queued')
+  const statusLabel: Record<string, string> = {
+    queued: 'Queued',
+    classifying: 'Classifying',
+    standardizing: 'Extracting',
+    completed: 'Ready',
+    error: 'Error',
+  }
+  const statusClass =
+    status === 'error'
+      ? 'pill-red'
+      : status === 'completed'
+        ? 'pill-green'
+        : 'pill-amber'
+  const dupClass =
+    doc.duplicateFlag === 'exact'
+      ? 'pill-red'
+      : doc.duplicateFlag === 'likely'
+        ? 'pill-amber'
+        : null
+  const hasStandardizedName = doc.renamedName !== doc.originalName
+  const displayName = hasStandardizedName ? doc.renamedName : doc.originalName
+  const typeAndVendor = [docTypeLabels[doc.docType], doc.vendorName]
+    .filter(Boolean)
+    .join(' · ')
+
+  return (
+    <div className="queue-row">
+      <span className="doc-ico" aria-hidden />
+      <div className="qmeta min-w-0">
+        <p className="qtitle truncate">{displayName}</p>
+        <div className="qdetail">
+          {hasStandardizedName ? (
+            <span className="truncate">Original: {doc.originalName}</span>
+          ) : null}
+          <span>{typeAndVendor}</span>
+          {dupClass ? (
+            <span className={`pill ${dupClass}`}>
+              {doc.duplicateFlag === 'exact' ? 'Exact' : 'Likely'}
+            </span>
+          ) : null}
+        </div>
+        {doc.errorMessage ? (
+          <p className="qerror">
+            {doc.errorMessage}
+          </p>
+        ) : null}
+      </div>
+      <span className="queue-amount mono">
+        {doc.amount > 0 ? formatCurrencyPrecise(doc.amount) : '—'}
+      </span>
+      <span className={`pill ${statusClass}`}>
+        {status === 'classifying' || status === 'standardizing' ? (
+          <Loader2 className="size-3 animate-spin" />
+        ) : (
+          <FileText className="size-3" />
+        )}
+        {statusLabel[status]}
+      </span>
+    </div>
   )
 }

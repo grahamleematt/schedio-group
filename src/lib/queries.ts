@@ -12,6 +12,7 @@
 import { queryOptions } from '@tanstack/react-query'
 
 import { getVerificationSnapshot } from '#/server/fns/getVerificationSnapshot'
+import { getAuditLog } from '#/server/fns/getAuditLog'
 import type { DreamSnapshot } from '#/server/store'
 
 const POLL_INTERVAL_MS = 2_000
@@ -48,3 +49,20 @@ export function verificationSnapshotQuery(verificationId: string) {
 export type VerificationQueryKey = ReturnType<
   typeof verificationSnapshotQuery
 >['queryKey']
+
+const AUDIT_POLL_MS = 5_000
+
+/**
+ * Audit log for a single client. Polls every five seconds while the page
+ * is open; the underlying server fn is cheap (single store read) so the
+ * UI can stay reactive without an SSE channel.
+ */
+export function auditLogQuery(clientId: string) {
+  return queryOptions({
+    queryKey: ['audit-log', clientId] as const,
+    queryFn: () => getAuditLog({ data: { clientId } }),
+    staleTime: 0,
+    refetchInterval: AUDIT_POLL_MS,
+    refetchIntervalInBackground: false,
+  })
+}

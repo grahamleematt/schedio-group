@@ -113,6 +113,58 @@ export type DreamSnapshot = {
   priorFilings: ReadonlyArray<StoredDocument>
 }
 
+/* ─────────────────────────────── Audit events ──────────────────────────── */
+
+export type AuditCategory =
+  | 'auth'
+  | 'documents'
+  | 'verifications'
+  | 'access'
+  | 'system'
+
+export type AuditResult =
+  | 'ok'
+  | 'override'
+  | 'flagged'
+  | 'pending'
+  | 'failed'
+
+export type AuditSource = 'docupipe' | 'egnyte' | 'system' | 'user'
+
+/**
+ * Single immutable audit row appended to the store. Events are
+ * append-only (the caller never updates an existing row); each row carries
+ * enough provenance to render in the UI and to be filtered per-entity.
+ *
+ * `docupipeEventType` carries the raw DocuPipe event name (e.g.
+ * `standardization.processed.success`) so the audit table can show it as
+ * the technical "event" and the rendered label is purely cosmetic.
+ */
+export type StoredAuditEvent = {
+  id: string
+  /** ISO timestamp; the audit table renders a friendly label off this. */
+  ts: string
+  source: AuditSource
+  category: AuditCategory
+  actor: string
+  /** Short human-facing event label (e.g. "Document classified as INV"). */
+  event: string
+  /** Object the event acted on (doc display name, ref, file, etc.). */
+  object: string
+  result: AuditResult
+  ip?: string
+  clientId?: string
+  verificationId?: string
+  /** SG DREAM document ID (matches `StoredDocument.id`). */
+  documentId?: string
+  /** DocuPipe document ID, when available. */
+  docupipeDocumentId?: string
+  /** Raw DocuPipe event type, when the row originated from a webhook. */
+  docupipeEventType?: string
+  /** Optional free-form note (extracted amount, error message). */
+  detail?: string
+}
+
 export type DreamStoreState = {
   /** verificationId → header metadata (clientId, ref). */
   verifications: Record<
@@ -126,6 +178,8 @@ export type DreamStoreState = {
   documentsByVerification: Record<string, Array<string> | undefined>
   /** "<verificationId>::<docType>" → highest seq handed out so far (1-based). */
   docSeqs: Record<string, number | undefined>
+  /** Append-only audit log. Newest events appended at the end of the array. */
+  auditEvents: Array<StoredAuditEvent>
   /** Monotonic revision; bumped on every successful write. */
   revision: number
   seeded: boolean
@@ -178,4 +232,20 @@ export type DreamStore = {
     verificationId: string,
     docType: string,
   ) => Promise<number>
+
+  /**
+   * Append-only audit log writer. Re-appending an existing `event.id` is a
+   * no-op so Svix/DocuPipe replay cannot duplicate audit rows.
+   */
+  appendAuditEvent: (event: StoredAuditEvent) => Promise<void>
+
+  /**
+   * Returns audit events newest-first. Optionally narrow to a single
+   * client/verification. `limit` is applied after sorting.
+   */
+  listAuditEvents: (input?: {
+    clientId?: string
+    verificationId?: string
+    limit?: number
+  }) => Promise<ReadonlyArray<StoredAuditEvent>>
 }

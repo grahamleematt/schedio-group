@@ -20,6 +20,7 @@ import type {
   DreamSnapshot,
   DreamStore,
   DreamStoreState,
+  StoredAuditEvent,
   StoredDocument,
   StoredVerification,
 } from './types'
@@ -33,6 +34,7 @@ function emptyState(): DreamStoreState {
     documents: {},
     documentsByVerification: {},
     docSeqs: {},
+    auditEvents: [],
     revision: 0,
     seeded: false,
   }
@@ -47,6 +49,7 @@ function normalize(state: Partial<DreamStoreState> | null): DreamStoreState {
     documents: state.documents ?? {},
     documentsByVerification: state.documentsByVerification ?? {},
     docSeqs: state.docSeqs ?? {},
+    auditEvents: state.auditEvents ?? [],
     revision: state.revision ?? 0,
     seeded: state.seeded ?? false,
   }
@@ -208,6 +211,36 @@ class KvStore implements DreamStore {
       assigned = next
     })
     return assigned
+  }
+
+  async appendAuditEvent(event: StoredAuditEvent): Promise<void> {
+    await this.withState((state) => {
+      if (state.auditEvents.some((existing) => existing.id === event.id)) {
+        return
+      }
+      state.auditEvents.push(event)
+    })
+  }
+
+  async listAuditEvents(input?: {
+    clientId?: string
+    verificationId?: string
+    limit?: number
+  }): Promise<ReadonlyArray<StoredAuditEvent>> {
+    await this.init()
+    const state = normalize(await kv.get<DreamStoreState>(STATE_KEY))
+    let events = state.auditEvents.slice()
+    if (input?.clientId) {
+      events = events.filter((e) => e.clientId === input.clientId)
+    }
+    if (input?.verificationId) {
+      events = events.filter((e) => e.verificationId === input.verificationId)
+    }
+    events.sort((a, b) => b.ts.localeCompare(a.ts))
+    if (input?.limit !== undefined) {
+      events = events.slice(0, input.limit)
+    }
+    return events
   }
 }
 

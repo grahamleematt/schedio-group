@@ -18,12 +18,16 @@ export function getStore(): DreamStore {
 }
 
 export type {
+  AuditCategory,
+  AuditResult,
+  AuditSource,
   CustodyState,
   DocumentStatus,
   DreamSnapshot,
   DreamStore,
   DreamStoreState,
   ExtractedFields,
+  StoredAuditEvent,
   StoredDocument,
   StoredVerification,
 } from './types'

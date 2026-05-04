@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="surface" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fbfbfd"/>
+      <stop offset=".44" stop-color="#edf3fb"/>
+      <stop offset="1" stop-color="#eef1f7"/>
+    </linearGradient>
+
+    <radialGradient id="blueField" cx=".18" cy=".18" r=".84">
+      <stop offset="0" stop-color="#003da6" stop-opacity=".18"/>
+      <stop offset=".46" stop-color="#003da6" stop-opacity=".07"/>
+      <stop offset="1" stop-color="#003da6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="greenField" cx=".86" cy=".78" r=".72">
+      <stop offset="0" stop-color="#216e4e" stop-opacity=".11"/>
+      <stop offset=".58" stop-color="#216e4e" stop-opacity=".035"/>
+      <stop offset="1" stop-color="#216e4e" stop-opacity="0"/>
+    </radialGradient>
+
+    <linearGradient id="rail" x1="110" y1="90" x2="1490" y2="910" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#003da6" stop-opacity=".28"/>
+      <stop offset=".5" stop-color="#052c78" stop-opacity=".16"/>
+      <stop offset="1" stop-color="#216e4e" stop-opacity=".18"/>
+    </linearGradient>
+    <linearGradient id="plane" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".68"/>
+      <stop offset=".7" stop-color="#ffffff" stop-opacity=".22"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity=".05"/>
+    </linearGradient>
+    <linearGradient id="quiet" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".16"/>
+      <stop offset=".5" stop-color="#ffffff" stop-opacity=".54"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity=".20"/>
+    </linearGradient>
+
+    <pattern id="ledgerGrid" width="72" height="72" patternUnits="userSpaceOnUse">
+      <path d="M72 0H0v72" fill="none" stroke="#052c78" stroke-opacity=".045" stroke-width="1"/>
+      <path d="M0 36h72M36 0v72" fill="none" stroke="#003da6" stroke-opacity=".024" stroke-width="1"/>
+    </pattern>
+
+    <radialGradient id="centerMask" cx=".5" cy=".5" r=".52">
+      <stop offset="0" stop-color="black"/>
+      <stop offset=".52" stop-color="#777"/>
+      <stop offset="1" stop-color="white"/>
+    </radialGradient>
+    <mask id="edgeDetail">
+      <rect width="1600" height="1000" fill="url(#centerMask)"/>
+    </mask>
+  </defs>
+
+  <rect width="1600" height="1000" fill="url(#surface)"/>
+  <rect width="1600" height="1000" fill="url(#blueField)"/>
+  <rect width="1600" height="1000" fill="url(#greenField)"/>
+  <rect width="1600" height="1000" fill="url(#ledgerGrid)"/>
+
+  <g mask="url(#edgeDetail)" fill="none" stroke="url(#rail)" stroke-linecap="round" vector-effect="non-scaling-stroke">
+    <path d="M-120 684C104 582 226 392 500 354c281-39 425 164 682 122 184-30 312-128 538-91" stroke-width="1.4" opacity=".58"/>
+    <path d="M-142 758C98 647 298 470 560 466c237-4 362 119 578 100 174-15 319-89 562-55" stroke-width="1.1" opacity=".42"/>
+    <path d="M-90 264C172 332 353 198 590 226c268 32 334 171 594 151 176-14 304-89 520-70" stroke-width="1" opacity=".32"/>
+    <path d="M153 982C395 826 478 664 690 640c252-29 372 118 610 82 134-20 223-80 397-58" stroke-width=".9" opacity=".24"/>
+  </g>
+
+  <g mask="url(#edgeDetail)" opacity=".82">
+    <path d="M1168 116h232c28 0 50 22 50 50v278c0 28-22 50-50 50h-232c-28 0-50-22-50-50V166c0-28 22-50 50-50Z" fill="url(#plane)" stroke="#003da6" stroke-opacity=".10"/>
+    <path d="M1188 184h178M1188 230h202M1188 276h142M1188 322h186" stroke="#052c78" stroke-opacity=".13" stroke-width="2" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+    <path d="M1266 389h122" stroke="#216e4e" stroke-opacity=".22" stroke-width="4" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+  </g>
+
+  <g mask="url(#edgeDetail)" opacity=".64">
+    <path d="M126 592h214c25 0 46 21 46 46v238c0 25-21 46-46 46H126c-25 0-46-21-46-46V638c0-25 21-46 46-46Z" fill="url(#plane)" stroke="#052c78" stroke-opacity=".09"/>
+    <path d="M110 666h170M110 708h205M110 750h132M110 792h188" stroke="#003da6" stroke-opacity=".11" stroke-width="2" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+  </g>
+
+  <g mask="url(#edgeDetail)" fill="none" stroke="#003da6" stroke-opacity=".09" vector-effect="non-scaling-stroke">
+    <path d="M286 126h360c46 0 72 23 72 61v84"/>
+    <path d="M1324 714h-232c-58 0-93 31-93 82v76"/>
+    <path d="M1028 122v105c0 35-28 63-63 63H837"/>
+  </g>
+
+  <g mask="url(#edgeDetail)" fill="#003da6" opacity=".10">
+    <circle cx="286" cy="126" r="3"/>
+    <circle cx="358" cy="126" r="3"/>
+    <circle cx="430" cy="126" r="3"/>
+    <circle cx="502" cy="126" r="3"/>
+    <circle cx="574" cy="126" r="3"/>
+    <circle cx="1324" cy="714" r="3"/>
+    <circle cx="1252" cy="714" r="3"/>
+    <circle cx="1180" cy="714" r="3"/>
+  </g>
+
+  <rect width="1600" height="1000" fill="url(#quiet)"/>
+</svg>

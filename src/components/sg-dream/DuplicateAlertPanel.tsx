@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { BellRing, FileWarning } from 'lucide-react'
+import { BellRing, FileSearch, FileWarning } from 'lucide-react'
 import { docTypeLabels } from '#/lib/sg-dream'
 import type { Document } from '#/lib/sg-dream'
 import { DuplicateFlagPill } from './DuplicateFlag'
@@ -16,6 +16,20 @@ export function DuplicateAlertPanel({
   verificationId,
 }: DuplicateAlertPanelProps) {
   if (flaggedDocs.length === 0) return null
+
+  const notifySubject = encodeURIComponent(
+    `Duplicate review needed for ${verificationId}`,
+  )
+  const notifyBody = encodeURIComponent(
+    flaggedDocs
+      .map(
+        (doc) =>
+          `${doc.originalName} (${doc.duplicateFlag}) matched ${
+            doc.matchedPreviousName ?? 'a prior filing'
+          }`,
+      )
+      .join('\n'),
+  )
 
   return (
     <section className="flag-alert-panel">
@@ -40,19 +54,19 @@ export function DuplicateAlertPanel({
               {flaggedDocs.length === 1 ? '' : 's'} detected in this submission
             </p>
             <p className="text-xs text-text-muted">
-              Each flagged document is listed below. Keep, remove, or escalate
-              to Schedio Group.
+              The field-based detector compares vendor, document number,
+              amount, and date against prior filings.
             </p>
           </div>
         </div>
-        <button
-          type="button"
+        <a
+          href={`mailto:?subject=${notifySubject}&body=${notifyBody}`}
           className="inline-flex h-9 items-center gap-2 rounded-full border bg-white px-4 text-sm font-semibold text-text-strong hover:bg-[color:var(--color-surface-muted)]"
           style={{ borderColor: 'var(--color-flag-panel-border)' }}
         >
           <BellRing className="size-4" />
           Notify Schedio
-        </button>
+        </a>
       </header>
 
       <ul
@@ -85,32 +99,24 @@ export function DuplicateAlertPanel({
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                className="inline-flex h-8 items-center rounded-full border bg-white px-3 text-xs font-semibold text-text-strong hover:bg-[color:var(--color-surface-muted)]"
-                style={{ borderColor: 'var(--color-border-strong)' }}
-              >
-                Keep It
-              </button>
-              <button
-                type="button"
-                className="inline-flex h-8 items-center rounded-full border bg-white px-3 text-xs font-semibold text-text-strong hover:bg-[color:var(--color-surface-muted)]"
-                style={{ borderColor: 'var(--color-border-strong)' }}
-              >
-                Remove It
-              </button>
+            <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+              <span className="pill pill-amber">
+                <span className="dot" />
+                Held for Schedio review
+              </span>
               <Link
-                to="/confirmation"
+                to="/library"
                 search={{
                   client: clientId,
                   verification: verificationId,
-                  compare: doc.id,
+                  libraryQuery: doc.originalName,
+                  libraryOpen: doc.docType,
+                  nameDisplay: 'both',
                 }}
-                className="inline-flex h-8 items-center rounded-full border bg-white px-3 text-xs font-semibold text-text-strong no-underline hover:bg-[color:var(--color-surface-muted)] unstyled-link"
-                style={{ borderColor: 'var(--color-border-strong)' }}
+                className="v2-btn ghost h-8 px-3 text-xs"
               >
-                View Previous
+                <FileSearch className="size-3.5" aria-hidden />
+                Open in library
               </Link>
             </div>
           </li>

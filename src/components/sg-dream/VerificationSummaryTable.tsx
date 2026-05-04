@@ -10,6 +10,9 @@ import type { Verification, Workflow } from '#/lib/sg-dream'
 type VerificationSummaryTableProps = {
   workflow: Workflow
   verifications: ReadonlyArray<Verification>
+  /** Per-verification live overrides (e.g. open-verification submitted total
+   * derived from the snapshot rather than the mock fixture). */
+  liveSubmitted?: Readonly<Record<string, number>>
 }
 
 const underReviewLabel = 'Under Review'
@@ -17,6 +20,7 @@ const underReviewLabel = 'Under Review'
 export function VerificationSummaryTable({
   workflow,
   verifications,
+  liveSubmitted,
 }: VerificationSummaryTableProps) {
   const config = workflowConfigs[workflow]
 
@@ -31,6 +35,9 @@ export function VerificationSummaryTable({
     workflow === 'district_dp'
       ? 'Verification summary'
       : 'Verified public costs summary'
+  const hasLiveSubmitted = Boolean(
+    liveSubmitted && Object.keys(liveSubmitted).length > 0,
+  )
 
   return (
     <section
@@ -46,14 +53,16 @@ export function VerificationSummaryTable({
             {config.label}
           </p>
           <h2 className="font-ops text-base font-semibold">{title}</h2>
+          <p className="m-0 mt-1 max-w-[40rem] text-xs leading-snug text-white/75">
+            {hasLiveSubmitted
+              ? 'Open verification totals read from the current upload snapshot; approved rows are seeded verification history.'
+              : 'Approved rows are seeded verification history until this verification has uploaded documents.'}
+          </p>
         </div>
-        <button
-          type="button"
-          className="inline-flex h-8 items-center gap-2 rounded-full bg-white/15 px-3 text-xs font-semibold hover:bg-white/25"
-        >
+        <span className="inline-flex h-8 items-center gap-2 rounded-full bg-white/15 px-3 text-xs font-semibold">
           <FileDown className="size-3.5" />
-          Export to PDF
-        </button>
+          PDF export after final review
+        </span>
       </header>
 
       <div className="data-table-frame">
@@ -82,6 +91,7 @@ export function VerificationSummaryTable({
             {ordered.map((v) => {
               const isOpen = v.status === 'open'
               const isUnderReview = v.status === 'under_review'
+              const submitted = liveSubmitted?.[v.id] ?? v.costsSubmitted
               const pct =
                 v.status === 'approved' && v.costsSubmitted > 0
                   ? (v.costsVerified / v.costsSubmitted) * 100
@@ -99,7 +109,7 @@ export function VerificationSummaryTable({
                     V{v.number} · {v.period}
                   </td>
                   <td className="px-5 py-3 font-mono text-text-strong">
-                    {formatCurrency(v.costsSubmitted)}
+                    {formatCurrency(submitted)}
                   </td>
                   <td className="px-5 py-3 font-mono text-text-strong">
                     {isUnderReview || isOpen

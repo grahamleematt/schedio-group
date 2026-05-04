@@ -33,14 +33,17 @@ export function DashboardActions({
           <UploadCloud className="size-4" />
           Upload more documents
         </Link>
-        <button type="button" className="wf-button-secondary">
+        <span className="wf-button-secondary cursor-default opacity-80">
           <FileDown className="size-4" />
-          Download draft report (awaiting PE stamp)
-        </button>
-        <button type="button" className="wf-button-secondary">
+          Draft report awaiting PE stamp
+        </span>
+        <a
+          href={`mailto:?subject=${encodeURIComponent('SG DREAM verification summary')}&body=${encodeURIComponent(`Please send me the latest summary for ${verificationId}.`)}`}
+          className="wf-button-secondary"
+        >
           <Mail className="size-4" />
           Email me this summary
-        </button>
+        </a>
       </div>
     </section>
   )

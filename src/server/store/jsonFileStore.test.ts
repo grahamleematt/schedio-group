@@ -4,7 +4,7 @@ import path from 'node:path'
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import type { DreamStore, StoredDocument } from './types'
+import type { DreamStore, StoredAuditEvent, StoredDocument } from './types'
 
 // The store hardcodes `.data/` against `process.cwd()` at module-load time, so
 // we must chdir into an isolated tmp dir BEFORE the first `import()` of
@@ -43,6 +43,7 @@ async function resetStore() {
     documents: {},
     documentsByVerification: {},
     docSeqs: {},
+    auditEvents: [],
     revision: 0,
     seeded: false,
   }
@@ -109,5 +110,33 @@ describe('JsonFileStore.patchDocument', () => {
     expect(merged!.status).toBe('classifying')
     expect(merged!.docupipeDocumentId).toBe('dp-doc-1')
     expect(merged!.docupipeJobId).toBe('dp-job-1')
+  })
+})
+
+describe('JsonFileStore.appendAuditEvent', () => {
+  it('does not append a duplicate row when the audit id already exists', async () => {
+    await resetStore()
+
+    const event: StoredAuditEvent = {
+      id: 'audit:docupipe:doc-1:standardization.processed.success:std-1',
+      ts: '2026-04-15T00:00:00.000Z',
+      source: 'docupipe',
+      category: 'documents',
+      actor: 'DocuPipe',
+      event: 'Field extraction complete',
+      object: 'invoice.pdf',
+      result: 'ok',
+      clientId: 'srcab',
+      verificationId: 'srcab-v3',
+      documentId: 'tmp-doc-1',
+      docupipeDocumentId: 'dp-doc-1',
+      docupipeEventType: 'standardization.processed.success',
+    }
+
+    await store.appendAuditEvent(event)
+    await store.appendAuditEvent({ ...event, ts: '2026-04-15T00:01:00.000Z' })
+
+    const events = await store.listAuditEvents()
+    expect(events.filter((row) => row.id === event.id)).toHaveLength(1)
   })
 })

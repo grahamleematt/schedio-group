@@ -179,10 +179,14 @@ export function DocumentLibrary({
                 >
                   {inType.map((doc) => {
                     const isFlagged = doc.duplicateFlag !== 'none'
+                    const displayedName =
+                      nameDisplay === 'standardized'
+                        ? doc.renamedName
+                        : doc.originalName
                     return (
                       <li
                         key={doc.id}
-                        className="flex flex-col gap-1 px-10 py-3 sm:flex-row sm:items-start sm:justify-between"
+                        className="flex flex-col gap-2 px-10 py-3"
                         style={
                           isFlagged
                             ? {
@@ -195,28 +199,40 @@ export function DocumentLibrary({
                         }
                       >
                         <div className="min-w-0 flex-1 space-y-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="truncate font-mono text-sm font-semibold text-text-strong">
-                              {nameDisplay === 'standardized'
-                                ? doc.renamedName
-                                : doc.originalName}
-                            </p>
+                          {nameDisplay === 'both' ? (
+                            <div className="grid gap-2 rounded-md border border-line-2 bg-white/80 p-3 sm:grid-cols-2">
+                              <div className="min-w-0">
+                                <div className="ops-label mb-1">
+                                  Original upload
+                                </div>
+                                <p className="m-0 break-all font-mono text-[12.5px] font-semibold leading-snug text-ink">
+                                  {doc.originalName}
+                                </p>
+                              </div>
+                              <div className="min-w-0">
+                                <div className="ops-label mb-1">
+                                  Standardized filing name
+                                </div>
+                                <p className="m-0 break-all font-mono text-[12.5px] font-semibold leading-snug text-ink">
+                                  {doc.renamedName}
+                                </p>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="m-0 break-all font-mono text-sm font-semibold text-text-strong">
+                                {displayedName}
+                              </p>
+                            </div>
+                          )}
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-text-muted">
+                            <span>{doc.vendorName}</span>
+                            <span aria-hidden>·</span>
+                            <span>{docTypeLabels[doc.docType]}</span>
                             {isFlagged && doc.duplicateFlag !== 'none' ? (
                               <DuplicateFlagPill flag={doc.duplicateFlag} />
                             ) : null}
                           </div>
-                          {nameDisplay === 'both' ? (
-                            <p className="truncate text-xs text-text-muted">
-                              {doc.vendorName} ·{' '}
-                              <span className="font-mono">
-                                {doc.renamedName}
-                              </span>
-                            </p>
-                          ) : (
-                            <p className="truncate text-xs text-text-muted">
-                              {doc.vendorName}
-                            </p>
-                          )}
                           {isFlagged && doc.matchedPreviousName ? (
                             <p className="text-xs text-text-muted">
                               Matches{' '}

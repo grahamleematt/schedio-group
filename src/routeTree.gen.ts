@@ -10,12 +10,17 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as VerificationsRouteImport } from './routes/verifications'
+import { Route as UsersRouteImport } from './routes/users'
 import { Route as UploadRouteImport } from './routes/upload'
 import { Route as ProcessingRouteImport } from './routes/processing'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as LibraryRouteImport } from './routes/library'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as ContractsRouteImport } from './routes/contracts'
 import { Route as ConfirmationRouteImport } from './routes/confirmation'
 import { Route as ClientsRouteImport } from './routes/clients'
+import { Route as BlockedRouteImport } from './routes/blocked'
+import { Route as AuditRouteImport } from './routes/audit'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiUploadsRouteImport } from './routes/api/uploads'
 import { Route as ApiDocupipeWebhookRouteImport } from './routes/api/docupipe/webhook'
@@ -23,6 +28,11 @@ import { Route as ApiDocupipeWebhookRouteImport } from './routes/api/docupipe/we
 const VerificationsRoute = VerificationsRouteImport.update({
   id: '/verifications',
   path: '/verifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UsersRoute = UsersRouteImport.update({
+  id: '/users',
+  path: '/users',
   getParentRoute: () => rootRouteImport,
 } as any)
 const UploadRoute = UploadRouteImport.update({
@@ -40,9 +50,19 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LibraryRoute = LibraryRouteImport.update({
+  id: '/library',
+  path: '/library',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContractsRoute = ContractsRouteImport.update({
+  id: '/contracts',
+  path: '/contracts',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ConfirmationRoute = ConfirmationRouteImport.update({
@@ -53,6 +73,16 @@ const ConfirmationRoute = ConfirmationRouteImport.update({
 const ClientsRoute = ClientsRouteImport.update({
   id: '/clients',
   path: '/clients',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BlockedRoute = BlockedRouteImport.update({
+  id: '/blocked',
+  path: '/blocked',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuditRoute = AuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -73,24 +103,34 @@ const ApiDocupipeWebhookRoute = ApiDocupipeWebhookRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/audit': typeof AuditRoute
+  '/blocked': typeof BlockedRoute
   '/clients': typeof ClientsRoute
   '/confirmation': typeof ConfirmationRoute
+  '/contracts': typeof ContractsRoute
   '/dashboard': typeof DashboardRoute
+  '/library': typeof LibraryRoute
   '/login': typeof LoginRoute
   '/processing': typeof ProcessingRoute
   '/upload': typeof UploadRoute
+  '/users': typeof UsersRoute
   '/verifications': typeof VerificationsRoute
   '/api/uploads': typeof ApiUploadsRoute
   '/api/docupipe/webhook': typeof ApiDocupipeWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/audit': typeof AuditRoute
+  '/blocked': typeof BlockedRoute
   '/clients': typeof ClientsRoute
   '/confirmation': typeof ConfirmationRoute
+  '/contracts': typeof ContractsRoute
   '/dashboard': typeof DashboardRoute
+  '/library': typeof LibraryRoute
   '/login': typeof LoginRoute
   '/processing': typeof ProcessingRoute
   '/upload': typeof UploadRoute
+  '/users': typeof UsersRoute
   '/verifications': typeof VerificationsRoute
   '/api/uploads': typeof ApiUploadsRoute
   '/api/docupipe/webhook': typeof ApiDocupipeWebhookRoute
@@ -98,12 +138,17 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/audit': typeof AuditRoute
+  '/blocked': typeof BlockedRoute
   '/clients': typeof ClientsRoute
   '/confirmation': typeof ConfirmationRoute
+  '/contracts': typeof ContractsRoute
   '/dashboard': typeof DashboardRoute
+  '/library': typeof LibraryRoute
   '/login': typeof LoginRoute
   '/processing': typeof ProcessingRoute
   '/upload': typeof UploadRoute
+  '/users': typeof UsersRoute
   '/verifications': typeof VerificationsRoute
   '/api/uploads': typeof ApiUploadsRoute
   '/api/docupipe/webhook': typeof ApiDocupipeWebhookRoute
@@ -112,36 +157,51 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/audit'
+    | '/blocked'
     | '/clients'
     | '/confirmation'
+    | '/contracts'
     | '/dashboard'
+    | '/library'
     | '/login'
     | '/processing'
     | '/upload'
+    | '/users'
     | '/verifications'
     | '/api/uploads'
     | '/api/docupipe/webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/audit'
+    | '/blocked'
     | '/clients'
     | '/confirmation'
+    | '/contracts'
     | '/dashboard'
+    | '/library'
     | '/login'
     | '/processing'
     | '/upload'
+    | '/users'
     | '/verifications'
     | '/api/uploads'
     | '/api/docupipe/webhook'
   id:
     | '__root__'
     | '/'
+    | '/audit'
+    | '/blocked'
     | '/clients'
     | '/confirmation'
+    | '/contracts'
     | '/dashboard'
+    | '/library'
     | '/login'
     | '/processing'
     | '/upload'
+    | '/users'
     | '/verifications'
     | '/api/uploads'
     | '/api/docupipe/webhook'
@@ -149,12 +209,17 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuditRoute: typeof AuditRoute
+  BlockedRoute: typeof BlockedRoute
   ClientsRoute: typeof ClientsRoute
   ConfirmationRoute: typeof ConfirmationRoute
+  ContractsRoute: typeof ContractsRoute
   DashboardRoute: typeof DashboardRoute
+  LibraryRoute: typeof LibraryRoute
   LoginRoute: typeof LoginRoute
   ProcessingRoute: typeof ProcessingRoute
   UploadRoute: typeof UploadRoute
+  UsersRoute: typeof UsersRoute
   VerificationsRoute: typeof VerificationsRoute
   ApiUploadsRoute: typeof ApiUploadsRoute
   ApiDocupipeWebhookRoute: typeof ApiDocupipeWebhookRoute
@@ -167,6 +232,13 @@ declare module '@tanstack/react-router' {
       path: '/verifications'
       fullPath: '/verifications'
       preLoaderRoute: typeof VerificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/users': {
+      id: '/users'
+      path: '/users'
+      fullPath: '/users'
+      preLoaderRoute: typeof UsersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/upload': {
@@ -190,11 +262,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/library': {
+      id: '/library'
+      path: '/library'
+      fullPath: '/library'
+      preLoaderRoute: typeof LibraryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dashboard': {
       id: '/dashboard'
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contracts': {
+      id: '/contracts'
+      path: '/contracts'
+      fullPath: '/contracts'
+      preLoaderRoute: typeof ContractsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/confirmation': {
@@ -209,6 +295,20 @@ declare module '@tanstack/react-router' {
       path: '/clients'
       fullPath: '/clients'
       preLoaderRoute: typeof ClientsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/blocked': {
+      id: '/blocked'
+      path: '/blocked'
+      fullPath: '/blocked'
+      preLoaderRoute: typeof BlockedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/audit': {
+      id: '/audit'
+      path: '/audit'
+      fullPath: '/audit'
+      preLoaderRoute: typeof AuditRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -237,12 +337,17 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuditRoute: AuditRoute,
+  BlockedRoute: BlockedRoute,
   ClientsRoute: ClientsRoute,
   ConfirmationRoute: ConfirmationRoute,
+  ContractsRoute: ContractsRoute,
   DashboardRoute: DashboardRoute,
+  LibraryRoute: LibraryRoute,
   LoginRoute: LoginRoute,
   ProcessingRoute: ProcessingRoute,
   UploadRoute: UploadRoute,
+  UsersRoute: UsersRoute,
   VerificationsRoute: VerificationsRoute,
   ApiUploadsRoute: ApiUploadsRoute,
   ApiDocupipeWebhookRoute: ApiDocupipeWebhookRoute,

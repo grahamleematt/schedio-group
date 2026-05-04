@@ -69,7 +69,7 @@ Stacked for District Direct Pay (Developer Reimbursement will use the single-tab
 
 ## Shared constraints
 
-- Static mocks only — no real integrations, no server functions, no API routes, no loaders.
+- **Live integrations:** DocuPipe (classify + standardize via the workflow webhook) and Egnyte (Originals → Classified custody) drive `/upload`, `/processing`, `/confirmation`, `/dashboard`, `/library`, `/verifications`, and the `/clients` entity picker against the real `getVerificationSnapshot` server fn. The open-verification cards on every entity now show **live** docs-in-queue and **live** costs-submitted (sum of extracted invoice amounts) for any entity with real activity (Downtown BID, etc.), falling back to the mock fixture only when no docs have been uploaded yet. **Mocked surfaces:** identity/session, work-authorization totals, vendor contract tree, prior-verification financial outcomes, users & access, and the audit log.
 - State is derived or lives in URL search params; no component-level `useEffect`.
 - Workflow is an attribute on the page root, not a theme switch. The same markup renders both workflows.
 - Filenames, reference numbers, and vendor codes all follow the PDF naming convention (`SG-[CLIENT]-V###-[DOCTYPE]-[VENDOR]-[YEAR]-[SEQ]`, `SGD-DP-V#-YEAR-####`).

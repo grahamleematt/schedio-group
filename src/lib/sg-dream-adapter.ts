@@ -6,7 +6,7 @@
  */
 
 import type { Document } from '#/lib/sg-dream'
-import type { StoredDocument } from '#/server/store'
+import type { DreamSnapshot, StoredDocument } from '#/server/store'
 
 function vendorCode(name: string | undefined): string {
   if (!name) return 'UNK'
@@ -40,6 +40,9 @@ export function storedToDisplay(doc: StoredDocument): Document {
     visualReviewUrl: doc.visualReviewUrl,
     fieldConfidence: doc.fieldConfidence,
     lowConfidence: doc.lowConfidence,
+    status: doc.status,
+    errorMessage: doc.errorMessage,
+    uploadedAt: doc.uploadedAt,
   }
 }
 
@@ -47,4 +50,51 @@ export function storedListToDisplay(
   docs: ReadonlyArray<StoredDocument>,
 ): ReadonlyArray<Document> {
   return docs.map(storedToDisplay)
+}
+
+export type LiveTotals = {
+  /** Number of docs the user actually has on the verification right now. */
+  docsCount: number
+  /** Sum of extracted invoice amounts for the verification. */
+  costsSubmitted: number
+  /** True when at least one live invoice doc with an extracted amount exists. */
+  hasLiveAmounts: boolean
+  /** True when at least one live doc exists, even if amounts haven't extracted yet. */
+  hasLiveDocs: boolean
+}
+
+/**
+ * Returns the verification totals to render in the UI. Prefers live snapshot
+ * data (real uploads through the DocuPipe pipeline) over the static mock
+ * fixtures so entities with real activity (e.g. Downtown BID) show their
+ * actual queue depth and submitted cost, not the seeded numbers.
+ */
+export function liveVerificationTotals(input: {
+  snapshot: DreamSnapshot | null | undefined
+  mockDocsCount: number
+  mockCostsSubmitted: number
+}): LiveTotals {
+  const docs = input.snapshot?.verification.documents ?? []
+  if (docs.length === 0) {
+    return {
+      docsCount: input.mockDocsCount,
+      costsSubmitted: input.mockCostsSubmitted,
+      hasLiveAmounts: false,
+      hasLiveDocs: false,
+    }
+  }
+  const invoiceDocs = docs.filter((d) => d.docType === 'INV')
+  const docsWithInvoiceAmounts = invoiceDocs.filter(
+    (d) => typeof d.extractedFields?.amount === 'number',
+  )
+  const sum = docsWithInvoiceAmounts.reduce(
+    (acc, d) => acc + (d.extractedFields?.amount ?? 0),
+    0,
+  )
+  return {
+    docsCount: docs.length,
+    costsSubmitted: sum,
+    hasLiveAmounts: docsWithInvoiceAmounts.length > 0,
+    hasLiveDocs: true,
+  }
 }
