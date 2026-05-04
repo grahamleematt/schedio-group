@@ -1,19 +1,30 @@
 /**
  * Single entry point for the DREAM store. Selects the right implementation
- * at first access based on `process.env.VERCEL`; every caller uses the same
- * instance for the life of the process.
+ * at first access. Vercel uses KV only when the integration env vars are
+ * present; otherwise the deployed mock falls back to ephemeral memory so a
+ * presentation build can still render seeded data without provisioning Redis.
  */
 
-import { isVercel } from '../env'
+import { isKvConfigured, isVercel } from '../env'
 import { createJsonFileStore } from './jsonFileStore'
 import { createKvStore } from './kvStore'
+import { createMemoryStore } from './memoryStore'
 import type { DreamStore } from './types'
 
 let cached: DreamStore | null = null
 
 export function getStore(): DreamStore {
   if (cached) return cached
-  cached = isVercel() ? createKvStore() : createJsonFileStore()
+  if (isKvConfigured()) {
+    cached = createKvStore()
+  } else if (isVercel()) {
+    console.warn(
+      '[dream store] KV env vars missing; using ephemeral memory store.',
+    )
+    cached = createMemoryStore()
+  } else {
+    cached = createJsonFileStore()
+  }
   return cached
 }
 

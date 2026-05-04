@@ -84,6 +84,12 @@ export function isEgnyteConfigured(): boolean {
   )
 }
 
+export function isKvConfigured(): boolean {
+  return Boolean(
+    readOptional('KV_REST_API_URL') && readOptional('KV_REST_API_TOKEN'),
+  )
+}
+
 export function isVercel(): boolean {
   return Boolean(process.env.VERCEL)
 }

@@ -193,7 +193,9 @@ Never ship any of these to the browser; only `src/server/**` reads them.
 - Single tenant — the store is keyed by `clientId` + `verificationId`, but
   there is no auth layer; anyone with the URL can submit.
 - Local JSON persistence (`.data/dream.json`) is wiped when `.data/` is
-  deleted; Vercel KV takes over in production but is not currently migrated.
+  deleted. Vercel KV takes over only when `KV_REST_API_URL` and
+  `KV_REST_API_TOKEN` are configured; otherwise deployed previews use an
+  ephemeral in-memory store so the seeded portal still renders.
 - Browser polling cadence is fixed at 2 s while in-flight; not adaptive.
   Acceptable for the testing demo, revisit if cost or latency change.
 - Webhook retries are handled by DocuPipe; we swallow unknown `documentId`s
