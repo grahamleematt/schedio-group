@@ -227,52 +227,56 @@ function VerificationsPage() {
             No previous verifications yet for this entity.
           </div>
         ) : (
-          <table className="v2-tbl">
-            <thead>
-              <tr>
-                <th>Reference</th>
-                <th>Period</th>
-                <th>Status</th>
-                <th className="num">Submitted</th>
-                <th className="num">Verified</th>
-              </tr>
-            </thead>
-            <tbody>
-              {previous.map((v) => {
-                const statusPill =
-                  v.status === 'approved'
-                    ? 'pill pill-green'
-                    : v.status === 'under_review'
-                      ? 'pill pill-amber'
-                      : 'pill pill-gray'
-                const previousRef = displayRef({
-                  snapshotRef: null,
-                  client,
-                  verification: v,
-                })
-                return (
-                  <tr key={v.id}>
-                    <td>
-                      <span className="mono">{previousRef}</span>
-                    </td>
-                    <td>{v.period}</td>
-                    <td>
-                      <span className={statusPill}>
-                        <span className="dot" />
-                        {getStatusLabel(v.status)}
-                      </span>
-                    </td>
-                    <td className="num">{formatCurrency(v.costsSubmitted)}</td>
-                    <td className="num">
-                      {v.status === 'approved'
-                        ? formatCurrency(v.costsVerified)
-                        : '—'}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+          <div className="v2-table-scroll">
+            <table className="v2-tbl">
+              <thead>
+                <tr>
+                  <th>Reference</th>
+                  <th>Period</th>
+                  <th>Status</th>
+                  <th className="num">Submitted</th>
+                  <th className="num">Verified</th>
+                </tr>
+              </thead>
+              <tbody>
+                {previous.map((v) => {
+                  const statusPill =
+                    v.status === 'approved'
+                      ? 'pill pill-green'
+                      : v.status === 'under_review'
+                        ? 'pill pill-amber'
+                        : 'pill pill-gray'
+                  const previousRef = displayRef({
+                    snapshotRef: null,
+                    client,
+                    verification: v,
+                  })
+                  return (
+                    <tr key={v.id}>
+                      <td>
+                        <span className="mono">{previousRef}</span>
+                      </td>
+                      <td>{v.period}</td>
+                      <td>
+                        <span className={statusPill}>
+                          <span className="dot" />
+                          {getStatusLabel(v.status)}
+                        </span>
+                      </td>
+                      <td className="num">
+                        {formatCurrency(v.costsSubmitted)}
+                      </td>
+                      <td className="num">
+                        {v.status === 'approved'
+                          ? formatCurrency(v.costsVerified)
+                          : '—'}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
     </AppShell>

@@ -185,68 +185,74 @@ function ContractsPage() {
           <h3>Vendors</h3>
           <span className="sub">Sorted by utilization (highest first)</span>
         </header>
-        <table className="v2-tbl">
-          <thead>
-            <tr>
-              <th>Vendor</th>
-              <th>Contract</th>
-              <th className="num">Authorized</th>
-              <th className="num">Spent</th>
-              <th className="num">Remaining</th>
-              <th style={{ width: '28%' }}>Utilization</th>
-            </tr>
-          </thead>
-          <tbody>
-            {ranked.map((v) => {
-              const pctRound = Math.round(v.pct)
-              const pctColor =
-                v.band === 'amend'
-                  ? 'var(--color-red-base)'
-                  : v.band === 'monitor'
-                    ? 'var(--color-amber-base)'
-                    : 'var(--color-green-base)'
-              return (
-                <tr key={v.id}>
-                  <td>
-                    <strong>{v.name}</strong>
-                    <div className="text-muted-1 mono mt-0.5 text-[11px]">
-                      {v.code}
-                      {v.contract ? ` · ${v.contract.refName}` : ''}
-                    </div>
-                  </td>
-                  <td className="mono">
-                    {v.contract?.refName ?? '—'}
-                    {v.contract ? (
-                      <div className="text-muted-1 text-[11px]">
-                        Executed {v.contract.executedOn}
+        <div className="v2-table-scroll">
+          <table className="v2-tbl">
+            <thead>
+              <tr>
+                <th>Vendor</th>
+                <th>Contract</th>
+                <th className="num">Authorized</th>
+                <th className="num">Spent</th>
+                <th className="num">Remaining</th>
+                <th style={{ width: '28%' }}>Utilization</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ranked.map((v) => {
+                const pctRound = Math.round(v.pct)
+                const pctColor =
+                  v.band === 'amend'
+                    ? 'var(--color-red-base)'
+                    : v.band === 'monitor'
+                      ? 'var(--color-amber-base)'
+                      : 'var(--color-green-base)'
+                return (
+                  <tr key={v.id}>
+                    <td>
+                      <strong>{v.name}</strong>
+                      <div className="text-muted-1 mono mt-0.5 text-[11px]">
+                        {v.code}
+                        {v.contract ? ` · ${v.contract.refName}` : ''}
                       </div>
-                    ) : null}
-                  </td>
-                  <td className="num mono">{formatCurrency(v.authorized)}</td>
-                  <td className="num mono">{formatCurrency(v.spent)}</td>
-                  <td className="num mono">{formatCurrency(v.remaining)}</td>
-                  <td>
-                    <div className="flex items-center justify-between gap-2">
-                      <span
-                        className="mono font-semibold"
-                        style={{ color: pctColor }}
-                      >
-                        {pctRound}%
-                      </span>
-                      <span className={bandPill(v.band)}>
-                        <span className="dot" />
-                        {bandLabel(v.band)}
-                      </span>
-                    </div>
-                    <div className={`ubar ${v.band}`}>
-                      <span style={{ width: `${pctRound}%` }} />
-                    </div>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+                    </td>
+                    <td className="mono">
+                      {v.contract?.refName ?? '—'}
+                      {v.contract ? (
+                        <div className="text-muted-1 text-[11px]">
+                          Executed {v.contract.executedOn}
+                        </div>
+                      ) : null}
+                    </td>
+                    <td className="num mono">
+                      {formatCurrency(v.authorized)}
+                    </td>
+                    <td className="num mono">{formatCurrency(v.spent)}</td>
+                    <td className="num mono">
+                      {formatCurrency(v.remaining)}
+                    </td>
+                    <td>
+                      <div className="flex items-center justify-between gap-2">
+                        <span
+                          className="mono font-semibold"
+                          style={{ color: pctColor }}
+                        >
+                          {pctRound}%
+                        </span>
+                        <span className={bandPill(v.band)}>
+                          <span className="dot" />
+                          {bandLabel(v.band)}
+                        </span>
+                      </div>
+                      <div className={`ubar ${v.band}`}>
+                        <span style={{ width: `${pctRound}%` }} />
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
       </section>
     </AppShell>
   )

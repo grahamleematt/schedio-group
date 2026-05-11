@@ -244,67 +244,69 @@ function AuditPage() {
       </header>
 
       <section className="v2-card">
-        <table className="v2-tbl">
-          <thead>
-            <tr>
-              <th>Time (MST)</th>
-              <th>Source</th>
-              <th>Actor</th>
-              <th>Event</th>
-              <th>Object</th>
-              <th>Result</th>
-              <th>IP</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((e) => {
-              const pill = sourcePill(e.source)
-              return (
-                <tr key={e.id}>
-                  <td className="mono">{e.timeLabel}</td>
-                  <td>
-                    <span className={pill.className}>
-                      <span className="dot" />
-                      {pill.label}
-                    </span>
-                  </td>
-                  <td>{e.actor}</td>
-                  <td>
-                    <div>{e.event}</div>
-                    {e.docupipeEventType ? (
-                      <div className="mono text-[11px] text-muted-1">
-                        {e.docupipeEventType}
-                      </div>
-                    ) : null}
-                    {e.detail ? (
-                      <div className="text-[11px] text-muted-1">
-                        {e.detail}
-                      </div>
-                    ) : null}
-                  </td>
-                  <td className="mono">{e.object}</td>
-                  <td>
-                    <span className={resultPillClass(e.result)}>
-                      <span className="dot" />
-                      {resultLabel(e.result)}
-                    </span>
-                  </td>
-                  <td className="mono text-muted-1">{e.ip ?? '—'}</td>
-                </tr>
-              )
-            })}
-            {filtered.length === 0 ? (
+        <div className="v2-table-scroll">
+          <table className="v2-tbl">
+            <thead>
               <tr>
-                <td
-                  colSpan={7}
-                  className="text-muted-1 text-center text-[12.5px]"
-                >
-                  No events match the selected filter.
-                </td>
+                <th>Time (MST)</th>
+                <th>Source</th>
+                <th>Actor</th>
+                <th>Event</th>
+                <th>Object</th>
+                <th>Result</th>
+                <th>IP</th>
               </tr>
-            ) : null}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filtered.map((e) => {
+                const pill = sourcePill(e.source)
+                return (
+                  <tr key={e.id}>
+                    <td className="mono">{e.timeLabel}</td>
+                    <td>
+                      <span className={pill.className}>
+                        <span className="dot" />
+                        {pill.label}
+                      </span>
+                    </td>
+                    <td>{e.actor}</td>
+                    <td>
+                      <div>{e.event}</div>
+                      {e.docupipeEventType ? (
+                        <div className="mono text-[11px] text-muted-1">
+                          {e.docupipeEventType}
+                        </div>
+                      ) : null}
+                      {e.detail ? (
+                        <div className="text-[11px] text-muted-1">
+                          {e.detail}
+                        </div>
+                      ) : null}
+                    </td>
+                    <td className="mono">{e.object}</td>
+                    <td>
+                      <span className={resultPillClass(e.result)}>
+                        <span className="dot" />
+                        {resultLabel(e.result)}
+                      </span>
+                    </td>
+                    <td className="mono text-muted-1">{e.ip ?? '—'}</td>
+                  </tr>
+                )
+              })}
+              {filtered.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={7}
+                    className="text-muted-1 text-center text-[12.5px]"
+                  >
+                    No events match the selected filter.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
       </section>
     </AppShell>
   )

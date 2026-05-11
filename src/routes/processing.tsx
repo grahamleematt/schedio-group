@@ -397,52 +397,54 @@ function ProcessingPage() {
             Original upload names stay visible for auditability.
           </span>
         </header>
-        <table className="v2-tbl">
-          <thead>
-            <tr>
-              <th>Original file</th>
-              <th>Document type</th>
-              <th>Processing status</th>
-              <th>Duplicate check</th>
-              <th>Filed status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {docs.map((doc) => {
-              const status = statusPill(doc.status)
-              const duplicate = duplicateCheckPill(doc)
-              const filed = filedStatusPill(doc.custodyState)
-              return (
-                <tr key={doc.id}>
-                  <td className="mono break-all text-[11.5px]">
-                    {doc.originalName}
-                  </td>
-                  <td>
-                    <span className="pill pill-ink">{doc.docType}</span>
-                  </td>
-                  <td>
-                    <span className={status.cls}>
-                      <span className="dot" />
-                      {status.label}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={duplicate.cls}>
-                      <span className="dot" />
-                      {duplicate.label}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={filed.cls}>
-                      <span className="dot" />
-                      {filed.label}
-                    </span>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+        <div className="v2-table-scroll">
+          <table className="v2-tbl">
+            <thead>
+              <tr>
+                <th>Original file</th>
+                <th>Document type</th>
+                <th>Processing status</th>
+                <th>Duplicate check</th>
+                <th>Filed status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {docs.map((doc) => {
+                const status = statusPill(doc.status)
+                const duplicate = duplicateCheckPill(doc)
+                const filed = filedStatusPill(doc.custodyState)
+                return (
+                  <tr key={doc.id}>
+                    <td className="mono break-all text-[11.5px]">
+                      {doc.originalName}
+                    </td>
+                    <td>
+                      <span className="pill pill-ink">{doc.docType}</span>
+                    </td>
+                    <td>
+                      <span className={status.cls}>
+                        <span className="dot" />
+                        {status.label}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={duplicate.cls}>
+                        <span className="dot" />
+                        {duplicate.label}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={filed.cls}>
+                        <span className="dot" />
+                        {filed.label}
+                      </span>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
       </section>
     </AppShell>
   )

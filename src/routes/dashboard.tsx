@@ -477,110 +477,112 @@ function ReimbursementDashboard() {
             Developer Reimbursement does not track per-vendor contracts
           </span>
         </header>
-        <table className="v2-tbl">
-          <thead>
-            <tr>
-              <th>Verification</th>
-              <th>Period</th>
-              <th className="num">Submitted</th>
-              <th className="num">Public eligible</th>
-              <th className="num">Verified</th>
-              <th className="num">% Eligible</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sorted.map((v) => {
-              const isOpen = v.id === activeVerification.id
-              const submitted = isOpen ? openSubmitted : v.costsSubmitted
-              const eligible = submitted * eligibleRatio
-              const pctEligible =
-                v.status === 'approved' && v.costsSubmitted > 0
-                  ? (v.costsVerified / v.costsSubmitted) * 100
-                  : null
-              const pill =
-                v.status === 'approved'
-                  ? 'pill pill-green'
-                  : v.status === 'under_review'
-                    ? 'pill pill-amber'
-                    : 'pill pill-brand'
-              const statusLabel =
-                v.status === 'approved'
-                  ? 'Approved'
-                  : v.status === 'under_review'
-                    ? 'Under Review'
-                    : 'Open'
-              return (
-                <tr
-                  key={v.id}
-                  style={
-                    isOpen ? { background: 'var(--wf-soft)' } : undefined
-                  }
+        <div className="v2-table-scroll">
+          <table className="v2-tbl">
+            <thead>
+              <tr>
+                <th>Verification</th>
+                <th>Period</th>
+                <th className="num">Submitted</th>
+                <th className="num">Public eligible</th>
+                <th className="num">Verified</th>
+                <th className="num">% Eligible</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((v) => {
+                const isOpen = v.id === activeVerification.id
+                const submitted = isOpen ? openSubmitted : v.costsSubmitted
+                const eligible = submitted * eligibleRatio
+                const pctEligible =
+                  v.status === 'approved' && v.costsSubmitted > 0
+                    ? (v.costsVerified / v.costsSubmitted) * 100
+                    : null
+                const pill =
+                  v.status === 'approved'
+                    ? 'pill pill-green'
+                    : v.status === 'under_review'
+                      ? 'pill pill-amber'
+                      : 'pill pill-brand'
+                const statusLabel =
+                  v.status === 'approved'
+                    ? 'Approved'
+                    : v.status === 'under_review'
+                      ? 'Under Review'
+                      : 'Open'
+                return (
+                  <tr
+                    key={v.id}
+                    style={
+                      isOpen ? { background: 'var(--wf-soft)' } : undefined
+                    }
+                  >
+                    <td className="mono">
+                      {isOpen ? <strong>V{v.number}</strong> : `V${v.number}`}
+                    </td>
+                    <td>{v.period}</td>
+                    <td className="num mono">{formatCurrency(submitted)}</td>
+                    <td className="num mono">{formatCurrency(eligible)}</td>
+                    <td className="num mono">
+                      {v.status === 'approved'
+                        ? formatCurrency(v.costsVerified)
+                        : 'Pending'}
+                    </td>
+                    <td className="num mono">
+                      {pctEligible !== null
+                        ? `${pctEligible.toFixed(1)}%`
+                        : '—'}
+                    </td>
+                    <td>
+                      <span className={pill}>
+                        <span className="dot" />
+                        {statusLabel}
+                      </span>
+                    </td>
+                  </tr>
+                )
+              })}
+              <tr style={{ background: 'var(--wf-base)' }}>
+                <td
+                  colSpan={2}
+                  style={{
+                    color: '#fff',
+                    borderBottom: 'none',
+                    fontWeight: 600,
+                  }}
                 >
-                  <td className="mono">
-                    {isOpen ? <strong>V{v.number}</strong> : `V${v.number}`}
-                  </td>
-                  <td>{v.period}</td>
-                  <td className="num mono">{formatCurrency(submitted)}</td>
-                  <td className="num mono">{formatCurrency(eligible)}</td>
-                  <td className="num mono">
-                    {v.status === 'approved'
-                      ? formatCurrency(v.costsVerified)
-                      : 'Pending'}
-                  </td>
-                  <td className="num mono">
-                    {pctEligible !== null
-                      ? `${pctEligible.toFixed(1)}%`
-                      : '—'}
-                  </td>
-                  <td>
-                    <span className={pill}>
-                      <span className="dot" />
-                      {statusLabel}
-                    </span>
-                  </td>
-                </tr>
-              )
-            })}
-            <tr style={{ background: 'var(--wf-base)' }}>
-              <td
-                colSpan={2}
-                style={{
-                  color: '#fff',
-                  borderBottom: 'none',
-                  fontWeight: 600,
-                }}
-              >
-                Cumulative · approved verifications
-              </td>
-              <td
-                className="num mono"
-                style={{ color: '#fff', borderBottom: 'none' }}
-              >
-                {formatCurrency(cumulativeApprovedSubmitted)}
-              </td>
-              <td
-                className="num mono"
-                style={{ color: '#fff', borderBottom: 'none' }}
-              >
-                {formatCurrency(cumulativeApprovedEligible)}
-              </td>
-              <td
-                className="num mono"
-                style={{ color: '#fff', borderBottom: 'none' }}
-              >
-                {formatCurrency(cumulativeApprovedVerified)}
-              </td>
-              <td
-                className="num mono"
-                style={{ color: '#fff', borderBottom: 'none' }}
-              >
-                {cumulativePct.toFixed(1)}%
-              </td>
-              <td style={{ borderBottom: 'none' }} />
-            </tr>
-          </tbody>
-        </table>
+                  Cumulative · approved verifications
+                </td>
+                <td
+                  className="num mono"
+                  style={{ color: '#fff', borderBottom: 'none' }}
+                >
+                  {formatCurrency(cumulativeApprovedSubmitted)}
+                </td>
+                <td
+                  className="num mono"
+                  style={{ color: '#fff', borderBottom: 'none' }}
+                >
+                  {formatCurrency(cumulativeApprovedEligible)}
+                </td>
+                <td
+                  className="num mono"
+                  style={{ color: '#fff', borderBottom: 'none' }}
+                >
+                  {formatCurrency(cumulativeApprovedVerified)}
+                </td>
+                <td
+                  className="num mono"
+                  style={{ color: '#fff', borderBottom: 'none' }}
+                >
+                  {cumulativePct.toFixed(1)}%
+                </td>
+                <td style={{ borderBottom: 'none' }} />
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section className="v2-card">
