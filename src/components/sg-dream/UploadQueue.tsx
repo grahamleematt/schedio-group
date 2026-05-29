@@ -1,6 +1,6 @@
 import { File, FileText, Loader2, UploadCloud } from 'lucide-react'
-import { useState  } from 'react'
-import type {DragEvent} from 'react';
+import { useState } from 'react'
+import type { DragEvent } from 'react'
 import { docTypeLabels, formatCurrencyPrecise } from '#/lib/sg-dream'
 import type { Document } from '#/lib/sg-dream'
 import { DuplicateFlagDetail, DuplicateFlagPill } from './DuplicateFlag'
@@ -44,9 +44,7 @@ export function UploadQueue({
       <div
         className="flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-6 py-10 text-center transition-colors"
         style={{
-          borderColor: isDragging
-            ? 'var(--wf-strong)'
-            : 'var(--wf-border)',
+          borderColor: isDragging ? 'var(--wf-strong)' : 'var(--wf-border)',
           background: isDragging ? 'var(--wf-soft)' : 'var(--wf-softer)',
         }}
         onDrop={onDrop}
@@ -74,8 +72,8 @@ export function UploadQueue({
               : 'Drag and drop documents here'}
           </p>
           <p className="text-sm text-text-muted">
-            PDF, TIFF, or JPG. Each file is streamed to DocuPipe for classify
-            + standardize.
+            PDF, TIFF, or JPG. Each file is streamed to DocuPipe for classify +
+            standardize.
           </p>
         </div>
         <button

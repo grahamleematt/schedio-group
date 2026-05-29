@@ -15,7 +15,7 @@ type AuditFilter = 'all' | AuditLogEntry['category']
 const filterValues: ReadonlyArray<{ id: AuditFilter; label: string }> = [
   { id: 'all', label: 'All events' },
   { id: 'documents', label: 'Documents' },
-  { id: 'verifications', label: 'Verifications' },
+  { id: 'verifications', label: 'Submissions' },
   { id: 'access', label: 'Access' },
   { id: 'auth', label: 'Auth' },
   { id: 'system', label: 'System' },
@@ -45,7 +45,7 @@ type AuditSearch = {
 
 export const Route = createFileRoute('/audit')({
   validateSearch: (s: Record<string, unknown>): AuditSearch => ({
-    client: typeof s.client === 'string' ? s.client : 'srcab',
+    client: typeof s.client === 'string' ? s.client : 'dawson-trails-md1',
     filter:
       typeof s.filter === 'string' && filterIds.has(s.filter as AuditFilter)
         ? (s.filter as AuditFilter)
@@ -54,10 +54,10 @@ export const Route = createFileRoute('/audit')({
   loader: ({ context, location }) => {
     const search = location.search as AuditSearch
     const requested =
-      typeof search.client === 'string' ? search.client : 'srcab'
+      typeof search.client === 'string' ? search.client : 'dawson-trails-md1'
     const known = clients.find((c) => c.id === requested)
     if (!known) {
-      throw redirect({ to: '/audit', search: { client: 'srcab' } })
+      throw redirect({ to: '/audit', search: { client: 'dawson-trails-md1' } })
     }
     const open = getOpenVerification(known.id)
     return Promise.all([
@@ -110,8 +110,9 @@ function sourcePill(source: AuditLogEntry['source']): {
 function isToday(iso: string): boolean {
   const ts = new Date(iso)
   if (Number.isNaN(ts.getTime())) return false
-  return AUDIT_DATE_FORMATTER.format(ts) ===
-    AUDIT_DATE_FORMATTER.format(new Date())
+  return (
+    AUDIT_DATE_FORMATTER.format(ts) === AUDIT_DATE_FORMATTER.format(new Date())
+  )
 }
 
 function AuditPage() {
@@ -129,7 +130,7 @@ function AuditPage() {
       : events.filter((e) => e.category === activeFilter)
 
   // "Today" metrics use only live events (which carry an ISO timestamp);
-  // mock fixtures fall back to their textual time label and are excluded
+  // events without an ISO timestamp fall back to their textual time label
   // from these counts.
   const liveEvents = events.filter((e) => e.source !== 'system')
   const todayEvents = liveEvents.filter((e) => isToday(e.ts))
@@ -216,9 +217,9 @@ function AuditPage() {
           <p className="v2-eyebrow">Administration</p>
           <h1 className="v2-h1">Audit log</h1>
           <p className="v2-lede">
-            Append-only ledger of every action taken on this entity —
-            including live DocuPipe + Egnyte pipeline events. Filter by
-            category or export with the cryptographic chain hash.
+            Append-only ledger of every action taken on this entity — including
+            live DocuPipe + Egnyte pipeline events. Filter by category or export
+            with the cryptographic chain hash.
           </p>
         </div>
         <div className="flex items-center gap-2">

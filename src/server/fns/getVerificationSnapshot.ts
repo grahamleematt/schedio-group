@@ -6,17 +6,20 @@
 import { createServerFn } from '@tanstack/react-start'
 
 import {
-  clients as mockClients,
-  verifications as mockVerifications,
+  clients as configuredClients,
+  verifications as configuredVerifications,
   formatRef,
 } from '#/lib/sg-dream'
 import { getStore } from '#/server/store'
 import type { DreamSnapshot } from '#/server/store'
+import { assertClientAccess } from '#/server/authz'
 
 function seedMetadata(verificationId: string) {
-  const verification = mockVerifications.find((v) => v.id === verificationId)
+  const verification = configuredVerifications.find(
+    (v) => v.id === verificationId,
+  )
   if (!verification) return null
-  const client = mockClients.find((c) => c.id === verification.clientId)
+  const client = configuredClients.find((c) => c.id === verification.clientId)
   if (!client) return null
   return {
     clientId: client.id,
@@ -35,6 +38,7 @@ export const getVerificationSnapshot = createServerFn({ method: 'GET' })
     const store = getStore()
     const metadata = seedMetadata(data.verificationId)
     if (metadata) {
+      await assertClientAccess(metadata.clientId)
       await store.ensureVerification({
         verificationId: data.verificationId,
         clientId: metadata.clientId,

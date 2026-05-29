@@ -1,7 +1,7 @@
 /**
- * Ephemeral DREAM store for deployed demos without Vercel KV credentials.
+ * Ephemeral DREAM store for deployed previews without Vercel KV credentials.
  *
- * This keeps the public mockup renderable when Redis is not provisioned. It is
+ * This keeps the review app renderable when Redis is not provisioned. It is
  * intentionally not durable: serverless instances can cold-start or scale out,
  * so real upload/webhook persistence still requires KV_REST_API_URL and
  * KV_REST_API_TOKEN.

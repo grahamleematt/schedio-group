@@ -1,5 +1,6 @@
 import { FileDown } from 'lucide-react'
 import {
+  displaySubmissionCycle,
   formatCurrency,
   formatPercent,
   getStatusLabel,
@@ -10,8 +11,8 @@ import type { Verification, Workflow } from '#/lib/sg-dream'
 type VerificationSummaryTableProps = {
   workflow: Workflow
   verifications: ReadonlyArray<Verification>
-  /** Per-verification live overrides (e.g. open-verification submitted total
-   * derived from the snapshot rather than the mock fixture). */
+  /** Per-submission live overrides (e.g. current draft submitted total
+   * derived from the snapshot rather than static configuration). */
   liveSubmitted?: Readonly<Record<string, number>>
 }
 
@@ -33,10 +34,10 @@ export function VerificationSummaryTable({
 
   const title =
     workflow === 'district_dp'
-      ? 'Verification summary'
+      ? 'Submission summary'
       : 'Verified public costs summary'
-  const hasLiveSubmitted = Boolean(
-    liveSubmitted && Object.keys(liveSubmitted).length > 0,
+  const hasAnySubmitted = ordered.some(
+    (v) => (liveSubmitted?.[v.id] ?? v.costsSubmitted) > 0,
   )
 
   return (
@@ -54,9 +55,9 @@ export function VerificationSummaryTable({
           </p>
           <h2 className="font-ops text-base font-semibold">{title}</h2>
           <p className="m-0 mt-1 max-w-[40rem] text-xs leading-snug text-white/75">
-            {hasLiveSubmitted
-              ? 'Open verification totals read from the current upload snapshot; approved rows are seeded verification history.'
-              : 'Approved rows are seeded verification history until this verification has uploaded documents.'}
+            {hasAnySubmitted
+              ? 'Draft submission totals read from the current upload snapshot.'
+              : 'No submission has started yet for this entity.'}
           </p>
         </div>
         <span className="inline-flex h-8 items-center gap-2 rounded-full bg-white/15 px-3 text-xs font-semibold">
@@ -72,7 +73,7 @@ export function VerificationSummaryTable({
               className="text-[0.72rem] font-semibold uppercase tracking-[0.08em] text-text-muted"
               style={{ background: 'var(--color-surface-muted)' }}
             >
-              <th className="px-5 py-3">Verification No.</th>
+              <th className="px-5 py-3">Submission</th>
               <th className="px-5 py-3">Total submitted</th>
               <th className="px-5 py-3">
                 {workflow === 'district_dp'
@@ -106,7 +107,9 @@ export function VerificationSummaryTable({
                   }}
                 >
                   <td className="px-5 py-3 font-mono font-semibold text-text-strong">
-                    V{v.number} · {v.period}
+                    {isOpen
+                      ? `Draft submission · ${displaySubmissionCycle(v)}`
+                      : `Closed submission ${v.number} · ${displaySubmissionCycle(v)}`}
                   </td>
                   <td className="px-5 py-3 font-mono text-text-strong">
                     {formatCurrency(submitted)}
@@ -128,7 +131,7 @@ export function VerificationSummaryTable({
                       </span>
                     ) : (
                       <span className="status-pill-open">
-                        {getStatusLabel(v.status)}
+                        {isOpen ? 'Draft' : getStatusLabel(v.status)}
                       </span>
                     )}
                   </td>

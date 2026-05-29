@@ -356,7 +356,7 @@ export async function getWorkflow(): Promise<WorkflowDefinition | null> {
 // DocuPipe workspace from `src/server/docupipe-spec.ts`. The runtime webhook
 // + upload paths never call these — they only consume cached reads via
 // `getClassMap()` / `getWorkflow()` above. Keeping the writers in the same
-// module gives us one fetch wrapper, one error type, and one place to mock
+// module gives us one fetch wrapper, one error type, and one place to stub
 // in tests.
 // ============================================================================
 

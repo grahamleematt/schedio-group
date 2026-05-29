@@ -9,12 +9,17 @@ import {
 } from 'lucide-react'
 
 type LoginSearch = {
-  error?: 'bad_creds'
+  error?: 'bad_creds' | 'auth_failed' | 'workos_missing'
 }
 
 export const Route = createFileRoute('/login')({
   validateSearch: (s: Record<string, unknown>): LoginSearch => ({
-    error: s.error === 'bad_creds' ? 'bad_creds' : undefined,
+    error:
+      s.error === 'bad_creds' ||
+      s.error === 'auth_failed' ||
+      s.error === 'workos_missing'
+        ? s.error
+        : undefined,
   }),
   head: () => ({ meta: [{ title: 'Sign in | SG DREAM' }] }),
   component: LoginPage,
@@ -22,7 +27,13 @@ export const Route = createFileRoute('/login')({
 
 function LoginPage() {
   const { error } = Route.useSearch()
-  const hasError = error === 'bad_creds'
+  const hasError = Boolean(error)
+  const errorCopy =
+    error === 'workos_missing'
+      ? 'WorkOS is not configured in this environment yet. Add the WorkOS env vars, then restart the server.'
+      : error === 'auth_failed'
+        ? 'WorkOS could not complete this sign-in. Try again or confirm the callback URL in the WorkOS dashboard.'
+        : 'We couldn’t verify those credentials. Check your email or request a password reset.'
 
   return (
     <main className="stage login-stage" data-workflow="district_dp">
@@ -50,8 +61,7 @@ function LoginPage() {
             style={{ color: 'var(--color-red-base)' }}
             role="alert"
           >
-            We couldn&rsquo;t verify those credentials. Check your email or
-            request a password reset.
+            {errorCopy}
           </div>
         ) : null}
 
@@ -69,7 +79,7 @@ function LoginPage() {
                 name="email"
                 type="email"
                 autoComplete="email"
-                defaultValue="amy.lee@districts.example"
+                defaultValue="tim.mccarley@schedio.example"
               />
             </span>
           </label>
@@ -117,14 +127,13 @@ function LoginPage() {
             </Link>
           </div>
 
-          <Link
-            to="/clients"
-            search={{ selected: undefined }}
+          <a
+            href="/api/auth/sign-in?returnPathname=/clients"
             className="v2-btn primary mt-2 w-full justify-center"
           >
-            Continue
+            Continue with WorkOS
             <ArrowRight className="size-4" aria-hidden />
-          </Link>
+          </a>
 
           <div className="login-trust">
             <ShieldCheck className="size-3.5" aria-hidden />

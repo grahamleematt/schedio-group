@@ -5,7 +5,6 @@ import { DocumentLibrary } from '#/components/sg-dream/DocumentLibrary'
 import type { NameDisplay } from '#/components/sg-dream/DocumentLibrary'
 import {
   clients,
-  displayRef,
   docTypeOrder,
   getClientById,
   getOpenVerification,
@@ -32,9 +31,11 @@ const nameDisplayValues = new Set<NameDisplay>([
 
 export const Route = createFileRoute('/library')({
   validateSearch: (s: Record<string, unknown>): LibrarySearch => ({
-    client: typeof s.client === 'string' ? s.client : 'srcab',
+    client: typeof s.client === 'string' ? s.client : 'dawson-trails-md1',
     verification:
-      typeof s.verification === 'string' ? s.verification : 'srcab-v4',
+      typeof s.verification === 'string'
+        ? s.verification
+        : 'dawson-trails-md1-v1',
     libraryQuery:
       typeof s.libraryQuery === 'string' && s.libraryQuery.length > 0
         ? s.libraryQuery
@@ -53,13 +54,13 @@ export const Route = createFileRoute('/library')({
   loader: ({ context, location }) => {
     const search = location.search as LibrarySearch
     const requestedClient =
-      typeof search.client === 'string' ? search.client : 'srcab'
+      typeof search.client === 'string' ? search.client : 'dawson-trails-md1'
     const knownClient = clients.find((c) => c.id === requestedClient)
     if (!knownClient) {
-      const open = getOpenVerification('srcab')
+      const open = getOpenVerification('dawson-trails-md1')
       throw redirect({
         to: '/library',
-        search: { client: 'srcab', verification: open.id },
+        search: { client: 'dawson-trails-md1', verification: open.id },
       })
     }
     const clientId = knownClient.id
@@ -100,11 +101,10 @@ function LibraryPage() {
   )
   const snapshot = snapshotQuery.data
   const docs = storedListToDisplay(snapshot?.verification.documents ?? [])
-  const ref = displayRef({
-    snapshotRef: snapshot?.verification.ref,
-    client,
-    verification,
-  })
+  const referenceLabel =
+    docs.length > 0 && snapshot?.verification.ref
+      ? snapshot.verification.ref
+      : 'Pending'
 
   const queryValue = libraryQuery ?? ''
   const nameDisplayValue: NameDisplay = nameDisplay ?? 'both'
@@ -130,7 +130,7 @@ function LibraryPage() {
               : undefined
             : libraryQuery,
         libraryOpen:
-          next.open !== undefined ? next.open ?? undefined : libraryOpen,
+          next.open !== undefined ? (next.open ?? undefined) : libraryOpen,
         nameDisplay:
           next.nameDisplay !== undefined ? next.nameDisplay : nameDisplay,
       },
@@ -167,8 +167,8 @@ function LibraryPage() {
             </span>
           </div>
           <div className="kv">
-            <span className="k">Reference</span>
-            <span className="v mono">{ref}</span>
+            <span className="k">Reference status</span>
+            <span className="v mono">{referenceLabel}</span>
           </div>
         </div>
       </section>
@@ -179,13 +179,13 @@ function LibraryPage() {
         </header>
         <div className="v2-card-body text-ink-2 space-y-2 text-[12.5px]">
           <p className="m-0">
-            Originals are preserved indefinitely under the per-verification
-            Egnyte folder. Standardized renames mirror the originals; both
-            paths are auditable from the document detail panel.
+            Originals are preserved indefinitely in Egnyte. Standardized renames
+            mirror the originals; both paths are auditable from the document
+            detail panel.
           </p>
           <p className="text-muted-1 m-0">
-            Removing a document from the library marks it as discarded but
-            does not delete the underlying Egnyte file.
+            Removing a document from the library marks it as discarded but does
+            not delete the underlying Egnyte file.
           </p>
         </div>
       </section>
@@ -202,9 +202,9 @@ function LibraryPage() {
         <p className="v2-eyebrow">Document library</p>
         <h1 className="v2-h1">All filed documents · {client.name}</h1>
         <p className="v2-lede">
-          Grouped by document type, scoped to V{verification.number} ·{' '}
-          {verification.period}. Toggle between original and standardized
-          filenames to match how Schedio Group stores each artifact.
+          Grouped by document type for the current submission. Toggle between
+          original and standardized filenames to match how Schedio Group stores
+          each artifact.
         </p>
       </header>
 

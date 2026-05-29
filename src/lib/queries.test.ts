@@ -7,8 +7,8 @@ import type { DreamSnapshot, StoredDocument } from '#/server/store'
 
 const baseDoc: StoredDocument = {
   id: 'doc-1',
-  clientId: 'srcab',
-  verificationId: 'srcab-v3',
+  clientId: 'dawson-trails-md1',
+  verificationId: 'dawson-trails-md1-v1',
   originalName: 'whatever.pdf',
   displayName: 'whatever.pdf',
   docType: 'INV',
@@ -23,9 +23,9 @@ function snapshotWith(
 ): DreamSnapshot {
   return {
     verification: {
-      id: 'srcab-v3',
-      clientId: 'srcab',
-      ref: 'SGD-DP-V3-2026-0028',
+      id: 'dawson-trails-md1-v1',
+      clientId: 'dawson-trails-md1',
+      ref: 'SGD-DP-V1-2026-0001',
       documents: statuses.map((status, i) => ({
         ...baseDoc,
         id: `doc-${i}`,
@@ -37,13 +37,15 @@ function snapshotWith(
 }
 
 function snapshotWithDocs(
-  docs: ReadonlyArray<Partial<StoredDocument> & { id: string; docType: DocType }>,
+  docs: ReadonlyArray<
+    Partial<StoredDocument> & { id: string; docType: DocType }
+  >,
 ): DreamSnapshot {
   return {
     verification: {
-      id: 'srcab-v3',
-      clientId: 'srcab',
-      ref: 'SGD-DP-V3-2026-0028',
+      id: 'dawson-trails-md1-v1',
+      clientId: 'dawson-trails-md1',
+      ref: 'SGD-DP-V1-2026-0001',
       documents: docs.map((doc) => ({
         ...baseDoc,
         ...doc,
@@ -82,15 +84,15 @@ describe('isVerificationInFlight', () => {
 })
 
 describe('liveVerificationTotals', () => {
-  it('falls back to mock totals only before live documents exist', () => {
+  it('returns a true empty state before live documents exist', () => {
     const totals = liveVerificationTotals({
       snapshot: snapshotWithDocs([]),
-      mockDocsCount: 11,
-      mockCostsSubmitted: 322_940.11,
+      fallbackDocsCount: 11,
+      fallbackCostsSubmitted: 322_940.11,
     })
 
-    expect(totals.docsCount).toBe(11)
-    expect(totals.costsSubmitted).toBe(322_940.11)
+    expect(totals.docsCount).toBe(0)
+    expect(totals.costsSubmitted).toBe(0)
     expect(totals.hasLiveDocs).toBe(false)
   })
 
@@ -113,8 +115,8 @@ describe('liveVerificationTotals', () => {
           extractedFields: { amount: 75.5 },
         },
       ]),
-      mockDocsCount: 11,
-      mockCostsSubmitted: 322_940.11,
+      fallbackDocsCount: 11,
+      fallbackCostsSubmitted: 322_940.11,
     })
 
     expect(totals.docsCount).toBe(3)
@@ -123,7 +125,7 @@ describe('liveVerificationTotals', () => {
     expect(totals.hasLiveDocs).toBe(true)
   })
 
-  it('keeps a live zero instead of falling back to mock dollars', () => {
+  it('keeps a live zero instead of falling back to configured dollars', () => {
     const totals = liveVerificationTotals({
       snapshot: snapshotWithDocs([
         {
@@ -136,8 +138,8 @@ describe('liveVerificationTotals', () => {
           extractedFields: { amount: 1_000 },
         },
       ]),
-      mockDocsCount: 11,
-      mockCostsSubmitted: 322_940.11,
+      fallbackDocsCount: 11,
+      fallbackCostsSubmitted: 322_940.11,
     })
 
     expect(totals.docsCount).toBe(2)

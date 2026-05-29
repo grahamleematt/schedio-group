@@ -131,11 +131,9 @@ changes between sessions.
 ## 6. Smoke test
 
 1. `yarn dev` + `ngrok http 3000` in two terminals.
-2. Navigate `/login → /clients → /verifications → /upload` (Sterling Ranch CAB,
-   verification V4).
-3. Drop two PDFs: one that matches a seeded prior filing (e.g. the repo seed
-   for `Rusin_Invoice_March2026.pdf` → `SGD-DP-V3-2026-0028`) and one fresh
-   invoice.
+2. Navigate `/login → /clients → /verifications → /upload` for either Dawson
+   entity.
+3. Drop two PDFs: one known Dawson support document and one fresh invoice.
 4. Watch `/processing` transition through per-doc statuses driven by the
    webhook → store → react-query polling loop. No page reloads.
 5. `/confirmation` should show the duplicate alert with real extracted fields;
@@ -146,7 +144,7 @@ changes between sessions.
 There is no SSE or held-open connection. The flow is:
 
 ```
-DocuPipe → Svix-signed webhook → server store (KV/JSON)
+DocuPipe → Svix-signed webhook → server store (Postgres in staging/prod)
                                        ↑
 browser ──── react-query refetchInterval (2 s while in-flight) ────────────┘
 ```
@@ -175,7 +173,7 @@ Never ship any of these to the browser; only `src/server/**` reads them.
 
 - **Testing a handler change without uploading a real PDF.** In the DocuPipe
   webhook portal, open the endpoint and use the **Testing** tab to send a
-  simulated event. The mock payload uses a placeholder `documentId` our store
+  simulated event. The sample payload uses a placeholder `documentId` our store
   won't know; the webhook handler silently `200`s and logs nothing — that's
   expected idempotency (`findDocumentByDocupipeId` returns `null`, we exit
   cleanly). For end-to-end verification, use a real upload.
@@ -190,12 +188,12 @@ Never ship any of these to the browser; only `src/server/**` reads them.
 
 ## 9. Known limits for this stage
 
-- Single tenant — the store is keyed by `clientId` + `verificationId`, but
-  there is no auth layer; anyone with the URL can submit.
+- WorkOS is enforced on the server for snapshot reads, uploads, and Egnyte
+  imports when WorkOS env vars are configured. Local development falls back
+  to Tim's Dawson-only account.
 - Local JSON persistence (`.data/dream.json`) is wiped when `.data/` is
-  deleted. Vercel KV takes over only when `KV_REST_API_URL` and
-  `KV_REST_API_TOKEN` are configured; otherwise deployed previews use an
-  ephemeral in-memory store so the seeded portal still renders.
+  deleted. AWS/Postgres takes over when `DATABASE_URL` is configured; Vercel
+  KV remains an older fallback.
 - Browser polling cadence is fixed at 2 s while in-flight; not adaptive.
   Acceptable for the testing demo, revisit if cost or latency change.
 - Webhook retries are handled by DocuPipe; we swallow unknown `documentId`s

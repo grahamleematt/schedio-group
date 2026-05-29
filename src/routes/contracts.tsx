@@ -20,15 +20,18 @@ type ContractsSearch = {
 
 export const Route = createFileRoute('/contracts')({
   validateSearch: (s: Record<string, unknown>): ContractsSearch => ({
-    client: typeof s.client === 'string' ? s.client : 'srcab',
+    client: typeof s.client === 'string' ? s.client : 'dawson-trails-md1',
   }),
   loader: ({ context, location }) => {
     const search = location.search as ContractsSearch
     const requested =
-      typeof search.client === 'string' ? search.client : 'srcab'
+      typeof search.client === 'string' ? search.client : 'dawson-trails-md1'
     const known = clients.find((c) => c.id === requested)
     if (!known) {
-      throw redirect({ to: '/contracts', search: { client: 'srcab' } })
+      throw redirect({
+        to: '/contracts',
+        search: { client: 'dawson-trails-md1' },
+      })
     }
     const open = getOpenVerification(known.id)
     return context.queryClient.ensureQueryData(
@@ -80,8 +83,8 @@ function ContractsPage() {
         <BandRow label="Monitor" range="70–89%" band="monitor" sample={75} />
         <BandRow label="Amend" range="≥ 90%" band="amend" sample={95} />
         <p className="text-muted-1 mt-3 m-0 text-[12px]">
-          Bands are derived from spent ÷ authorized across every approved
-          verification, plus open-verification estimates.
+          Bands are derived from spent ÷ authorized across approved submissions,
+          plus current draft estimates.
         </p>
       </div>
     </section>
@@ -97,9 +100,8 @@ function ContractsPage() {
         <p className="v2-eyebrow">Entity workspace</p>
         <h1 className="v2-h1">Contract tracking · {client.name}</h1>
         <p className="v2-lede">
-          Per-vendor contract authorizations, spend, and amendment risk.
-          Numbers reflect every approved verification through V
-          {Math.max(open.number - 1, 1)}, plus open V{open.number} estimates.
+          Per-vendor contract authorizations, spend, and amendment risk. Numbers
+          reflect every approved submission plus current draft estimates.
         </p>
       </header>
 
@@ -147,13 +149,13 @@ function ContractsPage() {
           </div>
           <div>
             <div className="font-semibold">
-              {amendVendors[0].name} is at {Math.round(amendVendors[0].pct)}%
-              of authorized — request a contract amendment now
+              {amendVendors[0].name} is at {Math.round(amendVendors[0].pct)}% of
+              authorized — request a contract amendment now
             </div>
             <div className="text-[11.5px] opacity-85">
               At current spend velocity, the contract caps within the next
-              verification window. Amendment processing takes 10–14 business
-              days through the district board.
+              submission window. Amendment processing takes 10–14 business days
+              through the district board.
             </div>
           </div>
           <div className="ml-auto flex flex-wrap gap-2">
@@ -223,13 +225,9 @@ function ContractsPage() {
                         </div>
                       ) : null}
                     </td>
-                    <td className="num mono">
-                      {formatCurrency(v.authorized)}
-                    </td>
+                    <td className="num mono">{formatCurrency(v.authorized)}</td>
                     <td className="num mono">{formatCurrency(v.spent)}</td>
-                    <td className="num mono">
-                      {formatCurrency(v.remaining)}
-                    </td>
+                    <td className="num mono">{formatCurrency(v.remaining)}</td>
                     <td>
                       <div className="flex items-center justify-between gap-2">
                         <span
@@ -272,10 +270,7 @@ function BandRow({
   return (
     <div className="kv">
       <span className="k flex items-center gap-2">
-        <span
-          className={`ubar ${band} inline-block`}
-          style={{ width: '60px' }}
-        >
+        <span className={`ubar ${band} inline-block`} style={{ width: '60px' }}>
           <span style={{ width: `${sample}%` }} />
         </span>
         {label}

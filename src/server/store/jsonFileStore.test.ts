@@ -52,8 +52,8 @@ async function resetStore() {
 
 const baseDoc: StoredDocument = {
   id: 'tmp-doc-1',
-  clientId: 'srcab',
-  verificationId: 'srcab-v3',
+  clientId: 'dawson-trails-md1',
+  verificationId: 'dawson-trails-md1-v1',
   originalName: 'invoice.pdf',
   displayName: 'invoice.pdf',
   docType: 'INV',
@@ -67,10 +67,22 @@ describe('JsonFileStore.nextDocSeqForVerification', () => {
   it('hands out monotonic, per-(verification, doc type) sequence numbers', async () => {
     await resetStore()
 
-    const a1 = await store.nextDocSeqForVerification('srcab-v3', 'INV')
-    const a2 = await store.nextDocSeqForVerification('srcab-v3', 'INV')
-    const b1 = await store.nextDocSeqForVerification('srcab-v3', 'CTR')
-    const c1 = await store.nextDocSeqForVerification('srcab-v4', 'INV')
+    const a1 = await store.nextDocSeqForVerification(
+      'dawson-trails-md1-v1',
+      'INV',
+    )
+    const a2 = await store.nextDocSeqForVerification(
+      'dawson-trails-md1-v1',
+      'INV',
+    )
+    const b1 = await store.nextDocSeqForVerification(
+      'dawson-trails-md1-v1',
+      'CTR',
+    )
+    const c1 = await store.nextDocSeqForVerification(
+      'dawson-trails-md1-developer-v1',
+      'INV',
+    )
 
     expect(a1).toBe(1)
     expect(a2).toBe(2)
@@ -91,9 +103,9 @@ describe('JsonFileStore.patchDocument', () => {
   it('merges fields without clobbering with undefined', async () => {
     await resetStore()
     await store.ensureVerification({
-      verificationId: 'srcab-v3',
-      clientId: 'srcab',
-      ref: 'SGD-DP-V3-2026-0028',
+      verificationId: 'dawson-trails-md1-v1',
+      clientId: 'dawson-trails-md1',
+      ref: 'SGD-DP-V1-2026-0001',
     })
     await store.upsertDocument({
       ...baseDoc,
@@ -126,8 +138,8 @@ describe('JsonFileStore.appendAuditEvent', () => {
       event: 'Field extraction complete',
       object: 'invoice.pdf',
       result: 'ok',
-      clientId: 'srcab',
-      verificationId: 'srcab-v3',
+      clientId: 'dawson-trails-md1',
+      verificationId: 'dawson-trails-md1-v1',
       documentId: 'tmp-doc-1',
       docupipeDocumentId: 'dp-doc-1',
       docupipeEventType: 'standardization.processed.success',

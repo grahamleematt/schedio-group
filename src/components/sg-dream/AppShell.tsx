@@ -3,7 +3,7 @@
  * sticky topbar. Sets `data-workflow` on the root so workflow tokens flip
  * automatically on Developer Reimbursement entities.
  *
- * Reads the active entity from the router-bound mock session so individual
+ * Reads the active entity from the router-bound account context so individual
  * routes don't have to re-derive `client` / `verification` for the chrome.
  *
  * Layout (matches v2):
@@ -23,7 +23,7 @@ import { Topbar } from '#/components/sg-dream/Topbar'
 import type { Crumb } from '#/components/sg-dream/Topbar'
 import { useActiveEntity, deriveSidebarCounts } from '#/lib/session'
 import { verificationSnapshotQuery } from '#/lib/queries'
-import { displayRef, workflowConfigs } from '#/lib/sg-dream'
+import { workflowConfigs } from '#/lib/sg-dream'
 
 type AppShellProps = {
   active: ActiveSection
@@ -58,18 +58,18 @@ export function AppShell({
     recentAuditEvents,
   })
 
-  const ref = displayRef({
-    snapshotRef: snapshot?.verification.ref,
-    client,
-    verification: activeVerification,
-  })
+  const docCount = snapshot?.verification.documents.length ?? 0
+  const submissionLabel =
+    docCount > 0
+      ? `Draft submission · ${docCount} document${docCount === 1 ? '' : 's'}`
+      : 'No active submission'
 
   const fullCrumbs: ReadonlyArray<Crumb> = hideEntity
     ? crumbs
     : [
         { label: client.name },
         ...crumbs,
-        { label: `V${activeVerification.number} · ${ref}`, emphasis: true },
+        { label: submissionLabel, emphasis: true },
       ]
 
   return (

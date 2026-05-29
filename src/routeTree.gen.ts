@@ -15,6 +15,8 @@ import { Route as UploadRouteImport } from './routes/upload'
 import { Route as ProcessingRouteImport } from './routes/processing'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LibraryRouteImport } from './routes/library'
+import { Route as IntelligenceRouteImport } from './routes/intelligence'
+import { Route as DeterminationsRouteImport } from './routes/determinations'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ContractsRouteImport } from './routes/contracts'
 import { Route as ConfirmationRouteImport } from './routes/confirmation'
@@ -22,8 +24,19 @@ import { Route as ClientsRouteImport } from './routes/clients'
 import { Route as BlockedRouteImport } from './routes/blocked'
 import { Route as AuditRouteImport } from './routes/audit'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as IntelligenceRelationshipsRouteImport } from './routes/intelligence_.relationships'
 import { Route as ApiUploadsRouteImport } from './routes/api/uploads'
+import { Route as ApiDeterminationsRouteImport } from './routes/api/determinations'
+import { Route as ApiDeterminationDocumentsRouteImport } from './routes/api/determination-documents'
+import { Route as ApiIntelligenceLearningsRouteImport } from './routes/api/intelligence/learnings'
+import { Route as ApiIntelligenceImportsRouteImport } from './routes/api/intelligence/imports'
+import { Route as ApiIntelligenceFindingsRouteImport } from './routes/api/intelligence/findings'
+import { Route as ApiIntelligenceDocumentsRouteImport } from './routes/api/intelligence/documents'
+import { Route as ApiEgnyteImportsRouteImport } from './routes/api/egnyte/imports'
 import { Route as ApiDocupipeWebhookRouteImport } from './routes/api/docupipe/webhook'
+import { Route as ApiAuthSignOutRouteImport } from './routes/api/auth/sign-out'
+import { Route as ApiAuthSignInRouteImport } from './routes/api/auth/sign-in'
+import { Route as ApiAuthCallbackRouteImport } from './routes/api/auth/callback'
 
 const VerificationsRoute = VerificationsRouteImport.update({
   id: '/verifications',
@@ -53,6 +66,16 @@ const LoginRoute = LoginRouteImport.update({
 const LibraryRoute = LibraryRouteImport.update({
   id: '/library',
   path: '/library',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IntelligenceRoute = IntelligenceRouteImport.update({
+  id: '/intelligence',
+  path: '/intelligence',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DeterminationsRoute = DeterminationsRouteImport.update({
+  id: '/determinations',
+  path: '/determinations',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -90,14 +113,73 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const IntelligenceRelationshipsRoute =
+  IntelligenceRelationshipsRouteImport.update({
+    id: '/intelligence_/relationships',
+    path: '/intelligence/relationships',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiUploadsRoute = ApiUploadsRouteImport.update({
   id: '/api/uploads',
   path: '/api/uploads',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDeterminationsRoute = ApiDeterminationsRouteImport.update({
+  id: '/api/determinations',
+  path: '/api/determinations',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDeterminationDocumentsRoute =
+  ApiDeterminationDocumentsRouteImport.update({
+    id: '/api/determination-documents',
+    path: '/api/determination-documents',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiIntelligenceLearningsRoute =
+  ApiIntelligenceLearningsRouteImport.update({
+    id: '/api/intelligence/learnings',
+    path: '/api/intelligence/learnings',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiIntelligenceImportsRoute = ApiIntelligenceImportsRouteImport.update({
+  id: '/api/intelligence/imports',
+  path: '/api/intelligence/imports',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiIntelligenceFindingsRoute = ApiIntelligenceFindingsRouteImport.update({
+  id: '/api/intelligence/findings',
+  path: '/api/intelligence/findings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiIntelligenceDocumentsRoute =
+  ApiIntelligenceDocumentsRouteImport.update({
+    id: '/api/intelligence/documents',
+    path: '/api/intelligence/documents',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiEgnyteImportsRoute = ApiEgnyteImportsRouteImport.update({
+  id: '/api/egnyte/imports',
+  path: '/api/egnyte/imports',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiDocupipeWebhookRoute = ApiDocupipeWebhookRouteImport.update({
   id: '/api/docupipe/webhook',
   path: '/api/docupipe/webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthSignOutRoute = ApiAuthSignOutRouteImport.update({
+  id: '/api/auth/sign-out',
+  path: '/api/auth/sign-out',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthSignInRoute = ApiAuthSignInRouteImport.update({
+  id: '/api/auth/sign-in',
+  path: '/api/auth/sign-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthCallbackRoute = ApiAuthCallbackRouteImport.update({
+  id: '/api/auth/callback',
+  path: '/api/auth/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -109,14 +191,27 @@ export interface FileRoutesByFullPath {
   '/confirmation': typeof ConfirmationRoute
   '/contracts': typeof ContractsRoute
   '/dashboard': typeof DashboardRoute
+  '/determinations': typeof DeterminationsRoute
+  '/intelligence': typeof IntelligenceRoute
   '/library': typeof LibraryRoute
   '/login': typeof LoginRoute
   '/processing': typeof ProcessingRoute
   '/upload': typeof UploadRoute
   '/users': typeof UsersRoute
   '/verifications': typeof VerificationsRoute
+  '/api/determination-documents': typeof ApiDeterminationDocumentsRoute
+  '/api/determinations': typeof ApiDeterminationsRoute
   '/api/uploads': typeof ApiUploadsRoute
+  '/intelligence/relationships': typeof IntelligenceRelationshipsRoute
+  '/api/auth/callback': typeof ApiAuthCallbackRoute
+  '/api/auth/sign-in': typeof ApiAuthSignInRoute
+  '/api/auth/sign-out': typeof ApiAuthSignOutRoute
   '/api/docupipe/webhook': typeof ApiDocupipeWebhookRoute
+  '/api/egnyte/imports': typeof ApiEgnyteImportsRoute
+  '/api/intelligence/documents': typeof ApiIntelligenceDocumentsRoute
+  '/api/intelligence/findings': typeof ApiIntelligenceFindingsRoute
+  '/api/intelligence/imports': typeof ApiIntelligenceImportsRoute
+  '/api/intelligence/learnings': typeof ApiIntelligenceLearningsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -126,14 +221,27 @@ export interface FileRoutesByTo {
   '/confirmation': typeof ConfirmationRoute
   '/contracts': typeof ContractsRoute
   '/dashboard': typeof DashboardRoute
+  '/determinations': typeof DeterminationsRoute
+  '/intelligence': typeof IntelligenceRoute
   '/library': typeof LibraryRoute
   '/login': typeof LoginRoute
   '/processing': typeof ProcessingRoute
   '/upload': typeof UploadRoute
   '/users': typeof UsersRoute
   '/verifications': typeof VerificationsRoute
+  '/api/determination-documents': typeof ApiDeterminationDocumentsRoute
+  '/api/determinations': typeof ApiDeterminationsRoute
   '/api/uploads': typeof ApiUploadsRoute
+  '/intelligence/relationships': typeof IntelligenceRelationshipsRoute
+  '/api/auth/callback': typeof ApiAuthCallbackRoute
+  '/api/auth/sign-in': typeof ApiAuthSignInRoute
+  '/api/auth/sign-out': typeof ApiAuthSignOutRoute
   '/api/docupipe/webhook': typeof ApiDocupipeWebhookRoute
+  '/api/egnyte/imports': typeof ApiEgnyteImportsRoute
+  '/api/intelligence/documents': typeof ApiIntelligenceDocumentsRoute
+  '/api/intelligence/findings': typeof ApiIntelligenceFindingsRoute
+  '/api/intelligence/imports': typeof ApiIntelligenceImportsRoute
+  '/api/intelligence/learnings': typeof ApiIntelligenceLearningsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -144,14 +252,27 @@ export interface FileRoutesById {
   '/confirmation': typeof ConfirmationRoute
   '/contracts': typeof ContractsRoute
   '/dashboard': typeof DashboardRoute
+  '/determinations': typeof DeterminationsRoute
+  '/intelligence': typeof IntelligenceRoute
   '/library': typeof LibraryRoute
   '/login': typeof LoginRoute
   '/processing': typeof ProcessingRoute
   '/upload': typeof UploadRoute
   '/users': typeof UsersRoute
   '/verifications': typeof VerificationsRoute
+  '/api/determination-documents': typeof ApiDeterminationDocumentsRoute
+  '/api/determinations': typeof ApiDeterminationsRoute
   '/api/uploads': typeof ApiUploadsRoute
+  '/intelligence_/relationships': typeof IntelligenceRelationshipsRoute
+  '/api/auth/callback': typeof ApiAuthCallbackRoute
+  '/api/auth/sign-in': typeof ApiAuthSignInRoute
+  '/api/auth/sign-out': typeof ApiAuthSignOutRoute
   '/api/docupipe/webhook': typeof ApiDocupipeWebhookRoute
+  '/api/egnyte/imports': typeof ApiEgnyteImportsRoute
+  '/api/intelligence/documents': typeof ApiIntelligenceDocumentsRoute
+  '/api/intelligence/findings': typeof ApiIntelligenceFindingsRoute
+  '/api/intelligence/imports': typeof ApiIntelligenceImportsRoute
+  '/api/intelligence/learnings': typeof ApiIntelligenceLearningsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -163,14 +284,27 @@ export interface FileRouteTypes {
     | '/confirmation'
     | '/contracts'
     | '/dashboard'
+    | '/determinations'
+    | '/intelligence'
     | '/library'
     | '/login'
     | '/processing'
     | '/upload'
     | '/users'
     | '/verifications'
+    | '/api/determination-documents'
+    | '/api/determinations'
     | '/api/uploads'
+    | '/intelligence/relationships'
+    | '/api/auth/callback'
+    | '/api/auth/sign-in'
+    | '/api/auth/sign-out'
     | '/api/docupipe/webhook'
+    | '/api/egnyte/imports'
+    | '/api/intelligence/documents'
+    | '/api/intelligence/findings'
+    | '/api/intelligence/imports'
+    | '/api/intelligence/learnings'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -180,14 +314,27 @@ export interface FileRouteTypes {
     | '/confirmation'
     | '/contracts'
     | '/dashboard'
+    | '/determinations'
+    | '/intelligence'
     | '/library'
     | '/login'
     | '/processing'
     | '/upload'
     | '/users'
     | '/verifications'
+    | '/api/determination-documents'
+    | '/api/determinations'
     | '/api/uploads'
+    | '/intelligence/relationships'
+    | '/api/auth/callback'
+    | '/api/auth/sign-in'
+    | '/api/auth/sign-out'
     | '/api/docupipe/webhook'
+    | '/api/egnyte/imports'
+    | '/api/intelligence/documents'
+    | '/api/intelligence/findings'
+    | '/api/intelligence/imports'
+    | '/api/intelligence/learnings'
   id:
     | '__root__'
     | '/'
@@ -197,14 +344,27 @@ export interface FileRouteTypes {
     | '/confirmation'
     | '/contracts'
     | '/dashboard'
+    | '/determinations'
+    | '/intelligence'
     | '/library'
     | '/login'
     | '/processing'
     | '/upload'
     | '/users'
     | '/verifications'
+    | '/api/determination-documents'
+    | '/api/determinations'
     | '/api/uploads'
+    | '/intelligence_/relationships'
+    | '/api/auth/callback'
+    | '/api/auth/sign-in'
+    | '/api/auth/sign-out'
     | '/api/docupipe/webhook'
+    | '/api/egnyte/imports'
+    | '/api/intelligence/documents'
+    | '/api/intelligence/findings'
+    | '/api/intelligence/imports'
+    | '/api/intelligence/learnings'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -215,14 +375,27 @@ export interface RootRouteChildren {
   ConfirmationRoute: typeof ConfirmationRoute
   ContractsRoute: typeof ContractsRoute
   DashboardRoute: typeof DashboardRoute
+  DeterminationsRoute: typeof DeterminationsRoute
+  IntelligenceRoute: typeof IntelligenceRoute
   LibraryRoute: typeof LibraryRoute
   LoginRoute: typeof LoginRoute
   ProcessingRoute: typeof ProcessingRoute
   UploadRoute: typeof UploadRoute
   UsersRoute: typeof UsersRoute
   VerificationsRoute: typeof VerificationsRoute
+  ApiDeterminationDocumentsRoute: typeof ApiDeterminationDocumentsRoute
+  ApiDeterminationsRoute: typeof ApiDeterminationsRoute
   ApiUploadsRoute: typeof ApiUploadsRoute
+  IntelligenceRelationshipsRoute: typeof IntelligenceRelationshipsRoute
+  ApiAuthCallbackRoute: typeof ApiAuthCallbackRoute
+  ApiAuthSignInRoute: typeof ApiAuthSignInRoute
+  ApiAuthSignOutRoute: typeof ApiAuthSignOutRoute
   ApiDocupipeWebhookRoute: typeof ApiDocupipeWebhookRoute
+  ApiEgnyteImportsRoute: typeof ApiEgnyteImportsRoute
+  ApiIntelligenceDocumentsRoute: typeof ApiIntelligenceDocumentsRoute
+  ApiIntelligenceFindingsRoute: typeof ApiIntelligenceFindingsRoute
+  ApiIntelligenceImportsRoute: typeof ApiIntelligenceImportsRoute
+  ApiIntelligenceLearningsRoute: typeof ApiIntelligenceLearningsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -267,6 +440,20 @@ declare module '@tanstack/react-router' {
       path: '/library'
       fullPath: '/library'
       preLoaderRoute: typeof LibraryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/intelligence': {
+      id: '/intelligence'
+      path: '/intelligence'
+      fullPath: '/intelligence'
+      preLoaderRoute: typeof IntelligenceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/determinations': {
+      id: '/determinations'
+      path: '/determinations'
+      fullPath: '/determinations'
+      preLoaderRoute: typeof DeterminationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -318,6 +505,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/intelligence_/relationships': {
+      id: '/intelligence_/relationships'
+      path: '/intelligence/relationships'
+      fullPath: '/intelligence/relationships'
+      preLoaderRoute: typeof IntelligenceRelationshipsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/uploads': {
       id: '/api/uploads'
       path: '/api/uploads'
@@ -325,11 +519,81 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiUploadsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/determinations': {
+      id: '/api/determinations'
+      path: '/api/determinations'
+      fullPath: '/api/determinations'
+      preLoaderRoute: typeof ApiDeterminationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/determination-documents': {
+      id: '/api/determination-documents'
+      path: '/api/determination-documents'
+      fullPath: '/api/determination-documents'
+      preLoaderRoute: typeof ApiDeterminationDocumentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/intelligence/learnings': {
+      id: '/api/intelligence/learnings'
+      path: '/api/intelligence/learnings'
+      fullPath: '/api/intelligence/learnings'
+      preLoaderRoute: typeof ApiIntelligenceLearningsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/intelligence/imports': {
+      id: '/api/intelligence/imports'
+      path: '/api/intelligence/imports'
+      fullPath: '/api/intelligence/imports'
+      preLoaderRoute: typeof ApiIntelligenceImportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/intelligence/findings': {
+      id: '/api/intelligence/findings'
+      path: '/api/intelligence/findings'
+      fullPath: '/api/intelligence/findings'
+      preLoaderRoute: typeof ApiIntelligenceFindingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/intelligence/documents': {
+      id: '/api/intelligence/documents'
+      path: '/api/intelligence/documents'
+      fullPath: '/api/intelligence/documents'
+      preLoaderRoute: typeof ApiIntelligenceDocumentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/egnyte/imports': {
+      id: '/api/egnyte/imports'
+      path: '/api/egnyte/imports'
+      fullPath: '/api/egnyte/imports'
+      preLoaderRoute: typeof ApiEgnyteImportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/docupipe/webhook': {
       id: '/api/docupipe/webhook'
       path: '/api/docupipe/webhook'
       fullPath: '/api/docupipe/webhook'
       preLoaderRoute: typeof ApiDocupipeWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/sign-out': {
+      id: '/api/auth/sign-out'
+      path: '/api/auth/sign-out'
+      fullPath: '/api/auth/sign-out'
+      preLoaderRoute: typeof ApiAuthSignOutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/sign-in': {
+      id: '/api/auth/sign-in'
+      path: '/api/auth/sign-in'
+      fullPath: '/api/auth/sign-in'
+      preLoaderRoute: typeof ApiAuthSignInRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/callback': {
+      id: '/api/auth/callback'
+      path: '/api/auth/callback'
+      fullPath: '/api/auth/callback'
+      preLoaderRoute: typeof ApiAuthCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -343,24 +607,38 @@ const rootRouteChildren: RootRouteChildren = {
   ConfirmationRoute: ConfirmationRoute,
   ContractsRoute: ContractsRoute,
   DashboardRoute: DashboardRoute,
+  DeterminationsRoute: DeterminationsRoute,
+  IntelligenceRoute: IntelligenceRoute,
   LibraryRoute: LibraryRoute,
   LoginRoute: LoginRoute,
   ProcessingRoute: ProcessingRoute,
   UploadRoute: UploadRoute,
   UsersRoute: UsersRoute,
   VerificationsRoute: VerificationsRoute,
+  ApiDeterminationDocumentsRoute: ApiDeterminationDocumentsRoute,
+  ApiDeterminationsRoute: ApiDeterminationsRoute,
   ApiUploadsRoute: ApiUploadsRoute,
+  IntelligenceRelationshipsRoute: IntelligenceRelationshipsRoute,
+  ApiAuthCallbackRoute: ApiAuthCallbackRoute,
+  ApiAuthSignInRoute: ApiAuthSignInRoute,
+  ApiAuthSignOutRoute: ApiAuthSignOutRoute,
   ApiDocupipeWebhookRoute: ApiDocupipeWebhookRoute,
+  ApiEgnyteImportsRoute: ApiEgnyteImportsRoute,
+  ApiIntelligenceDocumentsRoute: ApiIntelligenceDocumentsRoute,
+  ApiIntelligenceFindingsRoute: ApiIntelligenceFindingsRoute,
+  ApiIntelligenceImportsRoute: ApiIntelligenceImportsRoute,
+  ApiIntelligenceLearningsRoute: ApiIntelligenceLearningsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
 
 import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
+import type { startInstance } from './start.ts'
 declare module '@tanstack/react-start' {
   interface Register {
     ssr: true
     router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
   }
 }

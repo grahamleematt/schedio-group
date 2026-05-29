@@ -1,15 +1,14 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
 import { AppShell } from '#/components/sg-dream/AppShell'
 import {
   accessRoleLabels,
-  activeUsers,
   clients,
   getClientById,
   getOpenVerification,
   pendingUsers,
 } from '#/lib/sg-dream'
-import { verificationSnapshotQuery } from '#/lib/queries'
+import { userDirectoryQuery, verificationSnapshotQuery } from '#/lib/queries'
 
 type UsersSearch = {
   client: string
@@ -17,20 +16,21 @@ type UsersSearch = {
 
 export const Route = createFileRoute('/users')({
   validateSearch: (s: Record<string, unknown>): UsersSearch => ({
-    client: typeof s.client === 'string' ? s.client : 'srcab',
+    client: typeof s.client === 'string' ? s.client : 'dawson-trails-md1',
   }),
   loader: ({ context, location }) => {
     const search = location.search as UsersSearch
     const requested =
-      typeof search.client === 'string' ? search.client : 'srcab'
+      typeof search.client === 'string' ? search.client : 'dawson-trails-md1'
     const known = clients.find((c) => c.id === requested)
     if (!known) {
-      throw redirect({ to: '/users', search: { client: 'srcab' } })
+      throw redirect({ to: '/users', search: { client: 'dawson-trails-md1' } })
     }
     const open = getOpenVerification(known.id)
-    return context.queryClient.ensureQueryData(
-      verificationSnapshotQuery(open.id),
-    )
+    return Promise.all([
+      context.queryClient.ensureQueryData(verificationSnapshotQuery(open.id)),
+      context.queryClient.ensureQueryData(userDirectoryQuery()),
+    ])
   },
   head: () => ({ meta: [{ title: 'Users & access | SG DREAM' }] }),
   component: UsersPage,
@@ -41,6 +41,11 @@ function UsersPage() {
   const client = getClientById(clientId)
   const open = getOpenVerification(client.id)
   useQuery(verificationSnapshotQuery(open.id))
+
+  // The active-users table is the real WorkOS organization roster (membership,
+  // MFA enrollment, last sign-in) joined with each user's Postgres entity
+  // access.
+  const activeUsers = useSuspenseQuery(userDirectoryQuery()).data
 
   const rail = (
     <section className="v2-card">
@@ -85,8 +90,8 @@ function UsersPage() {
           <p className="v2-eyebrow">Administration</p>
           <h1 className="v2-h1">Users &amp; access</h1>
           <p className="v2-lede">
-            Entity Owners approve every access request. Pending requests
-            expire in 72 hours. Every action is logged in the audit trail.
+            Entity Owners approve every access request. Pending requests expire
+            in 72 hours. Every action is logged in the audit trail.
           </p>
         </div>
         <span className="chip">Access changes handled by SG Admin</span>
@@ -96,8 +101,7 @@ function UsersPage() {
         className="v2-card mb-3"
         style={{
           borderColor: 'var(--color-amber-bd)',
-          background:
-            'linear-gradient(180deg, var(--color-amber-bg), #fff)',
+          background: 'linear-gradient(180deg, var(--color-amber-bg), #fff)',
         }}
       >
         <header
@@ -110,10 +114,7 @@ function UsersPage() {
           <h3 style={{ color: 'var(--color-amber-base)' }}>
             Pending approval · {pendingUsers.length}
           </h3>
-          <span
-            className="sub"
-            style={{ color: 'var(--color-amber-base)' }}
-          >
+          <span className="sub" style={{ color: 'var(--color-amber-base)' }}>
             72-hour window
           </span>
         </header>
@@ -190,7 +191,8 @@ function UsersPage() {
         <header className="v2-card-head">
           <h3>Active users</h3>
           <span className="sub">
-            {activeUsers.length} users · {client.name}
+            {activeUsers.length} {activeUsers.length === 1 ? 'user' : 'users'} ·
+            organization roster
           </span>
         </header>
         <div className="v2-table-scroll">
@@ -284,14 +286,16 @@ function UsersPage() {
         style={{ background: 'var(--color-brand-tint-2, #EAF1FA)' }}
       >
         <div className="v2-card-body">
-          <p className="ops-label m-0" style={{ color: 'var(--color-brand-blue)' }}>
+          <p
+            className="ops-label m-0"
+            style={{ color: 'var(--color-brand-blue)' }}
+          >
             Competitor isolation
           </p>
           <p className="text-ink-2 m-0 mt-1 text-[12.5px] leading-relaxed">
-            Users cannot be linked to two competing entities. SG Admin
-            enforces this during invite. Amy can own all three Direct Pay
-            districts because they are non-competing quasi-governmental
-            entities.
+            Your WorkOS account is limited to the entities attached to your
+            review package. Additional entity access is granted by SG Admin
+            before it appears in this portal.
           </p>
         </div>
       </section>

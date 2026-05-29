@@ -12,11 +12,11 @@ import { createFileRoute } from '@tanstack/react-router'
 import { Webhook } from 'svix'
 
 import {
-  clients as mockClients,
+  clients as configuredClients,
   renamed,
-  verifications as mockVerifications,
+  verifications as configuredVerifications,
 } from '#/lib/sg-dream'
-import { getEnv, getEgnyteEnv, isEgnyteConfigured } from '#/server/env'
+import { getDocupipeWebhookSecret, isEgnyteConfigured } from '#/server/env'
 import {
   computeLowConfidence,
   getClassMap,
@@ -33,6 +33,7 @@ import {
 } from '#/server/egnyte'
 import { getStore } from '#/server/store'
 import { detectDuplicate } from '#/server/duplicateDetector'
+import { classifiedFolderFromIncomingPath } from '#/server/intake/context'
 import type { DocType } from '#/lib/sg-dream'
 import type {
   AuditCategory,
@@ -280,8 +281,8 @@ async function promoteInEgnyte(input: {
     return { custodyState: 'classified' }
   }
 
-  const client = mockClients.find((c) => c.id === stored.clientId)
-  const verification = mockVerifications.find(
+  const client = configuredClients.find((c) => c.id === stored.clientId)
+  const verification = configuredVerifications.find(
     (v) => v.id === stored.verificationId,
   )
   if (!client || !verification) {
@@ -309,15 +310,10 @@ async function promoteInEgnyte(input: {
   }
 
   try {
-    const env = getEgnyteEnv()
-    const root = env.EGNYTE_ROOT_PATH.replace(/\/$/, '')
-    // Upload convention: <root>/<clientCode>/<verificationRef>/Incoming/<name>.
-    // Derive the verification folder from the known pieces so a reorganized
-    // root never confuses the split.
-    const incomingSegments = stored.egnyteIncomingPath.split('/')
-    const verificationRef = incomingSegments[incomingSegments.length - 3] ?? ''
-    const base = `${root}/${client.code}/${verificationRef}`
-    const classifiedDir = `${base}/Classified/${docType}`
+    const classifiedDir = classifiedFolderFromIncomingPath({
+      incomingPath: stored.egnyteIncomingPath,
+      docType,
+    })
 
     const store = getStore()
     const seq = await store.nextDocSeqForVerification(
@@ -606,8 +602,7 @@ async function emitAuditEvents(input: {
   const rows: Array<StoredAuditEvent> = []
   if (description) {
     const category: AuditCategory =
-      event.eventType.endsWith('.error') &&
-      next.status === 'error'
+      event.eventType.endsWith('.error') && next.status === 'error'
         ? 'documents'
         : 'documents'
     rows.push({
@@ -904,14 +899,14 @@ export const Route = createFileRoute('/api/docupipe/webhook')({
     handlers: {
       POST: async ({ request }) => {
         const body = await request.text()
-        const env = getEnv()
+        const webhookSecret = getDocupipeWebhookSecret()
         const headers: Record<string, string> = {}
         request.headers.forEach((value, key) => {
           headers[key] = value
         })
         let verified: unknown
         try {
-          const wh = new Webhook(env.DOCUPIPE_WEBHOOK_SECRET)
+          const wh = new Webhook(webhookSecret)
           verified = wh.verify(body, headers)
         } catch {
           return new Response('invalid signature', { status: 401 })

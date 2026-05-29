@@ -27,9 +27,9 @@ export function VerificationPill({
       }
     >
       <span className="font-mono text-[0.72rem] uppercase tracking-[0.08em] opacity-70">
-        Verification
+        Submission
       </span>
-      <span>No. {number}</span>
+      <span>Draft {number}</span>
       {period ? (
         <span className="text-[0.72rem] font-normal opacity-80">
           • {period}

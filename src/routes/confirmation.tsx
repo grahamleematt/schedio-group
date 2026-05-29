@@ -6,6 +6,7 @@ import { DuplicateAlertPanel } from '#/components/sg-dream/DuplicateAlertPanel'
 import {
   clients,
   displayRef,
+  displaySubmissionCycle,
   formatCurrency,
   getClientById,
   getOpenVerification,
@@ -24,9 +25,11 @@ type ConfirmationSearch = {
 
 export const Route = createFileRoute('/confirmation')({
   validateSearch: (s: Record<string, unknown>): ConfirmationSearch => ({
-    client: typeof s.client === 'string' ? s.client : 'srcab',
+    client: typeof s.client === 'string' ? s.client : 'dawson-trails-md1',
     verification:
-      typeof s.verification === 'string' ? s.verification : 'srcab-v4',
+      typeof s.verification === 'string'
+        ? s.verification
+        : 'dawson-trails-md1-v1',
     compare:
       typeof s.compare === 'string' && s.compare.length > 0
         ? s.compare
@@ -35,13 +38,13 @@ export const Route = createFileRoute('/confirmation')({
   loader: ({ context, location }) => {
     const search = location.search as ConfirmationSearch
     const requestedClient =
-      typeof search.client === 'string' ? search.client : 'srcab'
+      typeof search.client === 'string' ? search.client : 'dawson-trails-md1'
     const knownClient = clients.find((c) => c.id === requestedClient)
     if (!knownClient) {
-      const open = getOpenVerification('srcab')
+      const open = getOpenVerification('dawson-trails-md1')
       throw redirect({
         to: '/confirmation',
-        search: { client: 'srcab', verification: open.id },
+        search: { client: 'dawson-trails-md1', verification: open.id },
       })
     }
     const clientId = knownClient.id
@@ -172,6 +175,7 @@ function ConfirmationPage() {
     verification,
   })
   const config = workflowConfigs[client.workflow]
+  const reviewCycle = displaySubmissionCycle(verification)
 
   const classifiedFolder = (() => {
     const classified = docs.find((d) => d.egnyteClassifiedPath)
@@ -255,19 +259,15 @@ function ConfirmationPage() {
   )
 
   return (
-    <AppShell
-      active="submit"
-      crumbs={[{ label: 'Submitted' }]}
-      rail={rail}
-    >
+    <AppShell active="submit" crumbs={[{ label: 'Submitted' }]} rail={rail}>
       <header className="mb-3">
         <p className="v2-eyebrow">
           Touch Point 3 · {reviewNeeded ? 'Review needed' : 'Submitted'}
         </p>
         <h1 className="v2-h1">
           {reviewNeeded
-            ? `V${verification.number} needs duplicate review`
-            : `V${verification.number} is in Schedio's review queue`}
+            ? 'Submission needs duplicate review'
+            : "Submission is in Schedio's review queue"}
         </h1>
         <p className="v2-lede">
           {reviewNeeded
@@ -290,7 +290,8 @@ function ConfirmationPage() {
               {config.label}
             </span>
             <span className="chip mono">
-              V{verification.number} · {verification.period}
+              {reviewNeeded ? 'Review held' : 'Reference issued'} ·{' '}
+              {reviewCycle}
             </span>
           </div>
         </div>
@@ -351,8 +352,8 @@ function ConfirmationPage() {
               </p>
               <p className="m-0 text-[12.5px]">
                 The field detector found exact or likely matches using vendor,
-                document number, amount, and date. Review the items below
-                before treating this package as submitted.
+                document number, amount, and date. Review the items below before
+                treating this package as submitted.
               </p>
             </div>
           </div>
@@ -376,12 +377,7 @@ function ConfirmationPage() {
             search={
               reviewNeeded
                 ? { client: client.id, verification: verification.id }
-                : {
-                    client: client.id,
-                    verification: verification.id,
-                    libraryQuery: undefined,
-                    libraryOpen: undefined,
-                  }
+                : { client: client.id, verification: verification.id }
             }
             className="v2-btn primary"
           >
@@ -422,8 +418,8 @@ function ConfirmationPage() {
               <span className="n">Within 5 days</span>
               <h5>Schedio verifies</h5>
               <p>
-                SG reviews invoices against contracts and posts verified
-                amounts to your dashboard.
+                SG reviews invoices against contracts and posts verified amounts
+                to your dashboard.
               </p>
             </li>
             <li className="step">

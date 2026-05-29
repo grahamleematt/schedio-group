@@ -1,16 +1,14 @@
 /**
  * Read audit events for a single client. Live events flow in from the
  * DocuPipe webhook (see `emitAuditEvents` in
- * `src/routes/api/docupipe/webhook.ts`). The mock auth + access events
- * from `src/lib/sg-dream.ts` are appended as historical fixtures so the
- * /audit screen reads as a populated ledger even when the user hasn't
- * exercised the full pipeline yet.
+ * `src/routes/api/docupipe/webhook.ts`). Configuration-level auth/access
+ * events can also be appended when present.
  */
 
 import { createServerFn } from '@tanstack/react-start'
 
-import { auditEvents as mockAuditEvents } from '#/lib/sg-dream'
-import type { AuditEvent as MockAuditEvent } from '#/lib/sg-dream'
+import { auditEvents as configuredAuditEvents } from '#/lib/sg-dream'
+import type { AuditEvent } from '#/lib/sg-dream'
 import { getStore } from '#/server/store'
 import type { StoredAuditEvent } from '#/server/store'
 
@@ -44,7 +42,8 @@ const TIME_FORMATTER = new Intl.DateTimeFormat('en-US', {
 function formatTimeLabel(iso: string): string {
   try {
     const parts = TIME_FORMATTER.formatToParts(new Date(iso))
-    const get = (type: string) => parts.find((p) => p.type === type)?.value ?? ''
+    const get = (type: string) =>
+      parts.find((p) => p.type === type)?.value ?? ''
     return `${get('month')} ${get('day')} · ${get('hour')}:${get('minute')}`
   } catch {
     return iso
@@ -71,11 +70,10 @@ function adaptStored(row: StoredAuditEvent): AuditLogEntry {
 }
 
 /**
- * Adapt the legacy mock fixtures into the same row shape so the table
- * doesn't have to branch. We keep them clearly labelled as `system` source
- * so anyone tracing a row in the UI knows it predates the live store.
+ * Adapt configured events into the same row shape so the table doesn't have
+ * to branch.
  */
-function adaptMock(row: MockAuditEvent): AuditLogEntry {
+function adaptConfigured(row: AuditEvent): AuditLogEntry {
   return {
     id: row.id,
     ts: row.id,
@@ -100,13 +98,13 @@ export const getAuditLog = createServerFn({ method: 'GET' })
       clientId: data.clientId,
       limit: data.limit ?? 200,
     })
-    const mock: ReadonlyArray<AuditLogEntry> = mockAuditEvents
+    const configured: ReadonlyArray<AuditLogEntry> = configuredAuditEvents
       .filter(
         (e) =>
           (e.category === 'auth' || e.category === 'access') &&
           (!data.clientId || e.clientId === data.clientId),
       )
-      .map(adaptMock)
+      .map(adaptConfigured)
     const adaptedLive = live.map(adaptStored)
-    return [...adaptedLive, ...mock]
+    return [...adaptedLive, ...configured]
   })

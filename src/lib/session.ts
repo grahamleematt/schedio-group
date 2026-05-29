@@ -1,16 +1,16 @@
 /**
- * Mock session layer for the SG DREAM client portal.
+ * Local account context for the SG DREAM client portal.
  *
- * No real auth — `mockUser` is hard-wired to all entities. The active entity
- * is sourced from the `?client=` search param (kept consistent with the
- * existing route URLs) with a fallback to `clients[0]`. The picker on
- * `/clients` is the only place that "switches" by linking forward.
+ * WorkOS owns identity. Until the live WorkOS user lookup is wired into every
+ * route, the local fallback is Tim scoped to his Dawson entities. The active
+ * entity is sourced from `?client=` with a fallback to `clients[0]`.
  *
  * Exposes:
  *   - useActiveEntity()  — current `Client` + open verification, scoped to URL
  *   - useSidebarCounts() — live nav badge counts for AppShell sidebar
  */
 
+import { useSuspenseQuery } from '@tanstack/react-query'
 import { useRouterState } from '@tanstack/react-router'
 import {
   clients,
@@ -18,11 +18,22 @@ import {
   getOpenVerification,
   getVendorsByClient,
   getVerificationById,
-  getVerificationsByClient,
-  mockUser,
+  currentUser,
 } from '#/lib/sg-dream'
 import type { Client, User, Verification } from '#/lib/sg-dream'
+import { sessionUserQuery } from '#/lib/queries'
 import type { DreamSnapshot } from '#/server/store'
+
+/**
+ * The authenticated portal user, resolved server-side from WorkOS + Postgres
+ * entity access (warmed by the root loader). Falls back to the seeded user
+ * only when the local auth bypass leaves the session empty in development;
+ * authenticated routes always resolve a real row.
+ */
+export function useSessionUser(): User {
+  const { data } = useSuspenseQuery(sessionUserQuery())
+  return data ?? currentUser
+}
 
 type ActiveEntity = {
   client: Client
@@ -51,6 +62,7 @@ export function useActiveEntity(): ActiveEntity {
     },
   })
 
+  const user = useSessionUser()
   const client = getClientById(clientId)
   const openVerification = getOpenVerification(client.id)
   const requested = verificationId
@@ -60,7 +72,7 @@ export function useActiveEntity(): ActiveEntity {
 
   return {
     client,
-    user: mockUser,
+    user,
     openVerification,
     activeVerification,
   }
@@ -97,17 +109,17 @@ export function deriveSidebarCounts(input: {
       d.status === 'standardizing',
   ).length
 
-  const verificationsCount = getVerificationsByClient(client.id).length
   const vendorsCount = getVendorsByClient(client.id).length
 
   return {
-    verifications: verificationsCount > 0 ? verificationsCount : undefined,
+    verifications: undefined,
     submit: inFlight > 0 ? inFlight : undefined,
     library: docs.length > 0 ? docs.length : undefined,
     contracts: vendorsCount > 0 ? vendorsCount : undefined,
-    users: input.pendingUsers && input.pendingUsers > 0
-      ? input.pendingUsers
-      : undefined,
+    users:
+      input.pendingUsers && input.pendingUsers > 0
+        ? input.pendingUsers
+        : undefined,
     audit:
       input.recentAuditEvents && input.recentAuditEvents > 0
         ? input.recentAuditEvents

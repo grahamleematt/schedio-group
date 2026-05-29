@@ -14,8 +14,8 @@ function prior(
   const now = new Date().toISOString()
   return {
     id: overrides.id ?? 'prior-1',
-    clientId: 'srcab',
-    verificationId: overrides.verificationId ?? 'srcab-v3',
+    clientId: 'dawson-trails-md1',
+    verificationId: overrides.verificationId ?? 'dawson-trails-md1-v1',
     originalName: overrides.originalName ?? 'prior.pdf',
     displayName: overrides.originalName ?? 'prior.pdf',
     docType: overrides.docType ?? 'INV',
@@ -33,7 +33,7 @@ function prior(
   }
 }
 
-const refs = { 'srcab-v3': 'SGD-DP-V3-2026-0028' }
+const refs = { 'dawson-trails-md1-v1': 'SGD-DP-V1-2026-0001' }
 
 describe('detectDuplicate', () => {
   it('flags exact match on vendor + docNumber + amount', () => {
@@ -57,7 +57,7 @@ describe('detectDuplicate', () => {
     })
     expect(result.flag).toBe('exact')
     expect(result.matchedPreviousName).toBe('Rusin_Invoice_March2026.pdf')
-    expect(result.matchedVerificationRef).toBe('SGD-DP-V3-2026-0028')
+    expect(result.matchedVerificationRef).toBe('SGD-DP-V1-2026-0001')
   })
 
   it('flags likely match on same vendor + amount within 7 days, different doc number', () => {

@@ -10,7 +10,9 @@ type BlockedSearch = {
 export const Route = createFileRoute('/blocked')({
   validateSearch: (s: Record<string, unknown>): BlockedSearch => ({
     entity:
-      typeof s.entity === 'string' && s.entity.length > 0 ? s.entity : undefined,
+      typeof s.entity === 'string' && s.entity.length > 0
+        ? s.entity
+        : undefined,
     conflict:
       typeof s.conflict === 'string' && s.conflict.length > 0
         ? s.conflict
@@ -26,7 +28,7 @@ export const Route = createFileRoute('/blocked')({
 
 function BlockedPage() {
   const search = Route.useSearch()
-  const conflictingEntity = search.entity ?? 'Highlands Creek Authority'
+  const conflictingEntity = search.entity ?? 'Dawson Trails MD One - District'
   const conflictingParty = search.conflict ?? 'Apex Construction (vendor)'
   const requestRef = search.request ?? 'REQ-2026-0114'
 
@@ -46,8 +48,8 @@ function BlockedPage() {
           Your account is associated with{' '}
           <strong className="text-ink">Apex Construction</strong>, which has
           active work in this entity. To preserve impartiality, Schedio cannot
-          grant access here. If you believe this is an error, your Entity
-          Owner must request an exception.
+          grant access here. If you believe this is an error, your Entity Owner
+          must request an exception.
         </p>
 
         <section className="v2-card mb-4 text-left">
@@ -72,11 +74,7 @@ function BlockedPage() {
         </section>
 
         <div className="flex justify-center gap-2">
-          <Link
-            to="/login"
-            search={{ error: undefined }}
-            className="v2-btn"
-          >
+          <Link to="/login" search={{ error: undefined }} className="v2-btn">
             Sign out
           </Link>
           <a

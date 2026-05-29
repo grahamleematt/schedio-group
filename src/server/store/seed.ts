@@ -1,19 +1,16 @@
 /**
- * Seeds the DREAM store from the existing mock data in `src/lib/sg-dream.ts`
- * so duplicate detection has real prior-filing history on first boot.
- *
- * We intentionally pull from the mock arrays rather than fabricating new
- * data — this keeps the browser-side mock library and the server-side
- * history identical for non-DDP workflows + for not-yet-uploaded docs.
+ * Seeds the DREAM store from the configured intake data in
+ * `src/lib/sg-dream.ts`. The Tim review starts empty; prior filing history is
+ * added only after real uploads or imports land.
  */
 
 import {
   clients,
-  documents as mockDocuments,
+  documents as configuredDocuments,
   formatRef,
   verifications,
 } from '#/lib/sg-dream'
-import type { Document as MockDocument, Verification } from '#/lib/sg-dream'
+import type { Document, Verification } from '#/lib/sg-dream'
 
 import type { DreamStoreState, ExtractedFields, StoredDocument } from './types'
 
@@ -28,64 +25,56 @@ function verificationRef(v: Verification): string {
 }
 
 function storedFrom(
-  mock: MockDocument,
+  document: Document,
   overrides: Partial<StoredDocument> = {},
 ): StoredDocument {
-  const client = clients.find((c) => c.id === verificationClientId(mock))
+  const client = clients.find((c) => c.id === verificationClientId(document))
   const now = new Date().toISOString()
   const extracted: ExtractedFields = {
-    vendorName: mock.vendorName,
-    documentNumber: inferDocumentNumber(mock),
-    amount: mock.amount > 0 ? mock.amount : undefined,
-    currency: mock.amount > 0 ? 'USD' : undefined,
+    vendorName: document.vendorName,
+    documentNumber: inferDocumentNumber(document),
+    amount: document.amount > 0 ? document.amount : undefined,
+    currency: document.amount > 0 ? 'USD' : undefined,
   }
   return {
-    id: mock.id,
-    clientId: client?.id ?? 'srcab',
-    verificationId: mock.verificationId,
-    originalName: mock.originalName,
-    displayName: mock.originalName,
+    id: document.id,
+    clientId: client?.id ?? 'dawson-trails-md1',
+    verificationId: document.verificationId,
+    originalName: document.originalName,
+    displayName: document.originalName,
     docupipeDocumentId: undefined,
     docupipeStandardizationId: undefined,
-    renamedName: mock.renamedName,
-    docType: mock.docType,
+    renamedName: document.renamedName,
+    docType: document.docType,
     status: 'completed',
     uploadedAt: now,
     updatedAt: now,
     extractedFields: extracted,
-    duplicateFlag: mock.duplicateFlag,
-    matchedPreviousName: mock.matchedPreviousName,
-    matchedVerificationRef: mock.matchedVerificationRef,
+    duplicateFlag: document.duplicateFlag,
+    matchedPreviousName: document.matchedPreviousName,
+    matchedVerificationRef: document.matchedVerificationRef,
     custodyState: 'classified',
     ...overrides,
   }
 }
 
-function verificationClientId(mock: MockDocument): string {
+function verificationClientId(document: Document): string {
   return (
-    verifications.find((v) => v.id === mock.verificationId)?.clientId ?? 'srcab'
+    verifications.find((v) => v.id === document.verificationId)?.clientId ??
+    'dawson-trails-md1'
   )
 }
 
-/**
- * Try to guess a document number from the mock filename. Good enough for
- * seed data — the real detector runs on DocuPipe-extracted fields.
- */
-function inferDocumentNumber(mock: MockDocument): string | undefined {
-  const m = mock.originalName.match(/(INV-\d{4}-\d+|WO\s?\d+|CO\s?\d+|CO-\d+)/i)
+function inferDocumentNumber(document: Document): string | undefined {
+  const m = document.originalName.match(
+    /(INV-\d{4}-\d+|WO\s?\d+|CO\s?\d+|CO-\d+)/i,
+  )
   return m?.[0]
 }
 
-/**
- * Build StoredDocument rows for the prior approved/under-review verifications
- * so the duplicate detector has something to compare against. We only have
- * live mock docs for srcab-v4 (the current verification); for prior
- * verifications we fabricate matching rows for the documents v4 references
- * via `matchedVerificationRef`, so duplicate flags light up on the first run.
- */
 function buildPriorFilingDocs(): Array<StoredDocument> {
   const prior: Array<StoredDocument> = []
-  for (const d of mockDocuments) {
+  for (const d of configuredDocuments) {
     if (!d.matchedVerificationRef || !d.matchedPreviousName) continue
     const priorVerification = verifications.find(
       (v) => verificationRef(v) === d.matchedVerificationRef,
@@ -136,7 +125,7 @@ export function buildSeedState(): DreamStoreState {
     state.documentsByVerification[v.id] = []
   }
 
-  const liveRows = mockDocuments.map((d) => storedFrom(d))
+  const liveRows = configuredDocuments.map((d) => storedFrom(d))
   const priorRows = buildPriorFilingDocs()
 
   for (const row of [...priorRows, ...liveRows]) {

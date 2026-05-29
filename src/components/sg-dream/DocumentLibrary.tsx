@@ -70,7 +70,7 @@ export function DocumentLibrary({
         <div>
           <p className="ops-label m-0">Document library</p>
           <h2 className="font-ops text-base font-semibold text-text-strong">
-            All filed documents for this verification
+            All filed documents for this submission
           </h2>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -96,9 +96,7 @@ export function DocumentLibrary({
                       : 'text-text-muted hover:text-text-strong',
                   )}
                   style={
-                    isActive
-                      ? { background: 'var(--wf-base)' }
-                      : undefined
+                    isActive ? { background: 'var(--wf-base)' } : undefined
                   }
                 >
                   {opt.label}
@@ -126,7 +124,7 @@ export function DocumentLibrary({
         {presentTypes.length === 0 ? (
           <p className="px-5 py-8 text-center text-sm text-text-muted">
             {normalizedQuery.length === 0
-              ? 'No documents uploaded for this verification yet.'
+              ? 'No documents uploaded for this submission yet.'
               : `No documents match "${normalizedQuery}".`}
           </p>
         ) : null}

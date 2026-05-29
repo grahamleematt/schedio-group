@@ -67,7 +67,7 @@ export function DuplicateFlagDetail({
           ) : null}
           {matchedVerificationRef ? (
             <p className="font-mono text-[0.72rem] opacity-80">
-              Verification {matchedVerificationRef}
+              Prior submission {matchedVerificationRef}
             </p>
           ) : null}
         </div>

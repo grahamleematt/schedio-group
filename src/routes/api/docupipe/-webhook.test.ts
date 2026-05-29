@@ -43,7 +43,9 @@ describe('statusFromEvent', () => {
     // complete with no extracted data. The standardization handler is
     // authoritative and writes status='completed' explicitly when it
     // successfully fetches + persists the standardization payload.
-    expect(statusFromEvent('standardization.processed.success', row())).toBeNull()
+    expect(
+      statusFromEvent('standardization.processed.success', row()),
+    ).toBeNull()
   })
 
   it('returns "completed" on workflow.processed.success when standardization data exists', () => {

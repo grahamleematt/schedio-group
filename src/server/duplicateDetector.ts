@@ -32,7 +32,10 @@ function normalizeVendor(v?: string): string {
 }
 
 function normalizeDocNumber(n?: string): string {
-  return (n ?? '').trim().toLowerCase().replace(/[\s_-]/g, '')
+  return (n ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]/g, '')
 }
 
 function normalizeAmount(a?: number): number | null {

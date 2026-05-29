@@ -34,9 +34,7 @@ export function DocumentInventoryTiles({
     <section className="space-y-3">
       <header className="flex items-center justify-between">
         <h2 className="ops-label m-0">Document inventory</h2>
-        <p className="text-xs text-text-muted">
-          Active categories color in · zero-count categories stay gray.
-        </p>
+        <p className="text-xs text-text-muted">Counts by document category.</p>
       </header>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {summaries.map((s) => {

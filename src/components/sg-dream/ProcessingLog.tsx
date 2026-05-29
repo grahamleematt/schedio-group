@@ -3,7 +3,13 @@ import type { CSSProperties } from 'react'
 import { cn } from '#/lib/utils'
 import type { StoredDocument } from '#/server/store'
 
-type StepId = 'receive' | 'rename' | 'classify' | 'extract' | 'dupes' | 'package'
+type StepId =
+  | 'receive'
+  | 'rename'
+  | 'classify'
+  | 'extract'
+  | 'dupes'
+  | 'package'
 type StepState = 'pending' | 'active' | 'complete' | 'alert' | 'error'
 
 type ProcessingStep = {
@@ -59,14 +65,21 @@ function deriveStepState(
 
   switch (stepId) {
     case 'receive':
-      return allAtLeast(['queued', 'classifying', 'standardizing', 'completed', 'error'])
+      return allAtLeast([
+        'queued',
+        'classifying',
+        'standardizing',
+        'completed',
+        'error',
+      ])
         ? 'complete'
         : 'active'
     case 'rename':
       return allCompleted ? 'complete' : 'active'
     case 'classify':
       if (allAtLeast(['standardizing', 'completed'])) return 'complete'
-      if (anyAtLeast(['classifying', 'standardizing', 'completed'])) return 'active'
+      if (anyAtLeast(['classifying', 'standardizing', 'completed']))
+        return 'active'
       return 'pending'
     case 'extract':
       if (allCompleted) return 'complete'

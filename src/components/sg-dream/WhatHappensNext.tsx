@@ -3,6 +3,7 @@ import type { Workflow } from '#/lib/sg-dream'
 
 type WhatHappensNextProps = {
   workflow: Workflow
+  hasSubmission?: boolean
 }
 
 type Step = {
@@ -32,7 +33,7 @@ const byWorkflow: Record<Workflow, ReadonlyArray<Step>> = {
       label: 'Direct payment released',
       eta: '5–7 business days after approval',
       detail:
-        'Once all items clear, Schedio Group releases payment directly to vendors and marks the verification closed.',
+        'Once all items clear, Schedio Group releases payment directly to vendors and marks the submission closed.',
       tone: 'upcoming',
     },
   ],
@@ -45,7 +46,7 @@ const byWorkflow: Record<Workflow, ReadonlyArray<Step>> = {
       tone: 'complete',
     },
     {
-      label: 'Public cost verification',
+      label: 'Public cost review',
       eta: '3–7 business days',
       detail:
         'Schedio Group verifies costs against contracts and task orders and issues an Engineer\u2019s Report.',
@@ -61,8 +62,35 @@ const byWorkflow: Record<Workflow, ReadonlyArray<Step>> = {
   ],
 }
 
-export function WhatHappensNext({ workflow }: WhatHappensNextProps) {
-  const steps = byWorkflow[workflow]
+const starterSteps: ReadonlyArray<Step> = [
+  {
+    label: 'Start submission',
+    eta: 'Next step',
+    detail:
+      'Upload files or import from Egnyte to create the draft submission package.',
+    tone: 'current',
+  },
+  {
+    label: 'Document checks',
+    eta: 'After upload',
+    detail:
+      'DocuPipe classifies documents, extracts cost fields, and checks for duplicate filings.',
+    tone: 'upcoming',
+  },
+  {
+    label: 'Schedio review',
+    eta: 'After acceptance',
+    detail:
+      'Schedio assigns the public reference, reviews the package, and posts verified amounts.',
+    tone: 'upcoming',
+  },
+]
+
+export function WhatHappensNext({
+  workflow,
+  hasSubmission = true,
+}: WhatHappensNextProps) {
+  const steps = hasSubmission ? byWorkflow[workflow] : starterSteps
 
   return (
     <section

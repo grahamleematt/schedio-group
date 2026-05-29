@@ -18,7 +18,7 @@ export function DuplicateAlertPanel({
   if (flaggedDocs.length === 0) return null
 
   const notifySubject = encodeURIComponent(
-    `Duplicate review needed for ${verificationId}`,
+    'Duplicate review needed for submission',
   )
   const notifyBody = encodeURIComponent(
     flaggedDocs
@@ -54,8 +54,8 @@ export function DuplicateAlertPanel({
               {flaggedDocs.length === 1 ? '' : 's'} detected in this submission
             </p>
             <p className="text-xs text-text-muted">
-              The field-based detector compares vendor, document number,
-              amount, and date against prior filings.
+              The field-based detector compares vendor, document number, amount,
+              and date against prior filings.
             </p>
           </div>
         </div>
@@ -94,7 +94,7 @@ export function DuplicateAlertPanel({
                 </span>{' '}
                 in{' '}
                 <span className="font-mono">
-                  {doc.matchedVerificationRef ?? 'previous verification'}
+                  {doc.matchedVerificationRef ?? 'previous submission'}
                 </span>
               </p>
             </div>

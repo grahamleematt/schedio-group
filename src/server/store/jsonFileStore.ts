@@ -124,7 +124,10 @@ class JsonFileStore implements DreamStore {
     await this.init()
     const existing = this.state.documents[id]
     if (!existing) return null
-    const merged: StoredDocument = { ...existing, updatedAt: new Date().toISOString() }
+    const merged: StoredDocument = {
+      ...existing,
+      updatedAt: new Date().toISOString(),
+    }
     for (const [k, v] of Object.entries(patch) as Array<
       [keyof StoredDocument, unknown]
     >) {

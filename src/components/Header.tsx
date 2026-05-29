@@ -1,7 +1,8 @@
 import { Link, useRouterState } from '@tanstack/react-router'
 import { ChevronsUpDown, LogOut, ShieldCheck } from 'lucide-react'
-import { clients, mockUser, workflowConfigs } from '#/lib/sg-dream'
+import { clients, workflowConfigs } from '#/lib/sg-dream'
 import type { Workflow } from '#/lib/sg-dream'
+import { useSessionUser } from '#/lib/session'
 
 /**
  * SG DREAM header. Two modes:
@@ -46,8 +47,6 @@ export default function Header() {
                 ? {
                     client: client.id,
                     verification: undefined,
-                    libraryQuery: undefined,
-                    libraryOpen: undefined,
                   }
                 : undefined
             }
@@ -75,7 +74,10 @@ export default function Header() {
         {isUnauthed ? (
           <UnauthedRightSide />
         ) : client ? (
-          <AuthedRightSide workflow={client.workflow} clientName={client.name} />
+          <AuthedRightSide
+            workflow={client.workflow}
+            clientName={client.name}
+          />
         ) : null}
       </nav>
     </header>
@@ -86,7 +88,9 @@ function UnauthedRightSide() {
   return (
     <div className="flex items-center gap-2 text-xs text-text-muted">
       <ShieldCheck className="size-4 text-text-accent" />
-      <span>Invitation-based access · Schedio Group administers every entity.</span>
+      <span>
+        Invitation-based access · Schedio Group administers every entity.
+      </span>
     </div>
   )
 }
@@ -99,6 +103,7 @@ function AuthedRightSide({
   clientName: string
 }) {
   const config = workflowConfigs[workflow]
+  const user = useSessionUser()
   return (
     <div className="flex flex-wrap items-center gap-3">
       <span className="workflow-pill">
@@ -134,25 +139,20 @@ function AuthedRightSide({
         />
       </Link>
       <span
-        title={`${mockUser.name} · Entity Owner`}
-        aria-label={`${mockUser.name}, Entity Owner`}
+        title={`${user.name} · Entity Owner`}
+        aria-label={`${user.name}, Entity Owner`}
         className="inline-flex size-10 items-center justify-center rounded-full font-ops text-sm font-semibold"
         style={{
           background: 'var(--wf-soft)',
           color: 'var(--wf-strong)',
         }}
       >
-        {mockUser.initials}
+        {user.initials}
       </span>
-      <Link
-        to="/login"
-        search={{ error: undefined }}
-        className="nav-pill"
-      >
+      <a href="/api/auth/sign-out" className="nav-pill">
         <LogOut className="size-4" />
         Sign out
-      </Link>
+      </a>
     </div>
   )
 }
-

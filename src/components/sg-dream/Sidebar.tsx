@@ -2,8 +2,7 @@
  * SG DREAM AppShell sidebar. 248px sticky-left column with:
  *   - Schedio logo + product label
  *   - Active-entity picker button (links to /clients)
- *   - Workspace nav (Dashboard, Verifications, Submit, Library, Contracts)
- *   - Administration nav (Users & access, Audit log)
+ *   - Workspace nav (Dashboard, Submissions, Submit, Library)
  *   - User footer (initials, name, role)
  *
  * Active state and live count badges are driven by props so the AppShell
@@ -14,14 +13,10 @@ import { Link } from '@tanstack/react-router'
 import {
   ChevronsUpDown,
   ClipboardList,
-  FileSpreadsheet,
   FileStack,
-  History,
   LayoutDashboard,
   LogOut,
-  ShieldCheck,
   UploadCloud,
-  Users,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { Client, User, Verification, Workflow } from '#/lib/sg-dream'
@@ -34,6 +29,7 @@ type ActiveSection =
   | 'submit'
   | 'library'
   | 'contracts'
+  | 'intelligence'
   | 'users'
   | 'audit'
 
@@ -80,10 +76,9 @@ export function Sidebar({
     },
     {
       id: 'verifications',
-      label: 'Verifications',
+      label: 'Submissions',
       icon: ClipboardList,
       to: '/verifications',
-      count: counts.verifications,
     },
     {
       id: 'submit',
@@ -100,30 +95,6 @@ export function Sidebar({
       to: '/library',
       count: counts.library,
       preserveVerification: true,
-    },
-    {
-      id: 'contracts',
-      label: 'Contract tracking',
-      icon: FileSpreadsheet,
-      to: '/contracts',
-      count: counts.contracts,
-    },
-  ]
-
-  const admin: ReadonlyArray<NavItem> = [
-    {
-      id: 'users',
-      label: 'Users & access',
-      icon: Users,
-      to: '/users',
-      count: counts.users,
-    },
-    {
-      id: 'audit',
-      label: 'Audit log',
-      icon: History,
-      to: '/audit',
-      count: counts.audit,
     },
   ]
 
@@ -155,10 +126,7 @@ export function Sidebar({
             <span className="ename block truncate">{client.name}</span>
             <span className="ewf">{config.shortLabel}</span>
           </span>
-          <ChevronsUpDown
-            className="size-4 text-muted-2"
-            aria-hidden
-          />
+          <ChevronsUpDown className="size-4 text-muted-2" aria-hidden />
         </Link>
       </div>
 
@@ -168,13 +136,6 @@ export function Sidebar({
         active={active}
         baseSearch={baseSearch}
       />
-      <NavSection
-        title="Administration"
-        items={admin}
-        active={active}
-        baseSearch={baseSearch}
-      />
-
       <div className="nav-foot">
         <div className="avatar" aria-hidden>
           {user.initials}
@@ -183,15 +144,14 @@ export function Sidebar({
           <div className="nm truncate">{user.name}</div>
           <div className="rl">Entity Owner</div>
         </div>
-        <Link
-          to="/login"
-          search={{ error: undefined }}
+        <a
+          href="/api/auth/sign-out"
           className="icon-btn"
           aria-label="Sign out"
           title="Sign out"
         >
           <LogOut className="size-4" />
-        </Link>
+        </a>
       </div>
     </aside>
   )
@@ -223,17 +183,7 @@ function NavSection({
           <>
             <Icon aria-hidden />
             <span className="truncate">{item.label}</span>
-            {item.id === 'audit' ? (
-              <ShieldCheck
-                aria-hidden
-                className="ml-auto size-3.5 text-muted-2"
-              />
-            ) : null}
-            {count ? (
-              <span className={item.id === 'audit' ? '' : 'count'}>
-                {count}
-              </span>
-            ) : null}
+            {count ? <span className="count">{count}</span> : null}
           </>
         )
         return (

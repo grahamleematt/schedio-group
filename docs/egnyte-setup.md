@@ -25,9 +25,10 @@ lifecycle that lands in a later phase.
    - **Grant types**: enable **Authorization Code** AND **Refresh Token**.
      The app uses the long-lived refresh token to mint short-lived access
      tokens at runtime — no interactive login once the token is in place.
-   - **Redirect URI**: `http://localhost:3000/_oauth/egnyte-callback` for the
-     one-time redirect; the app itself does not expose this endpoint in
-     production, it's only used during step 3.
+   - **Redirect URI**: `https://localhost/callback` (Egnyte requires **HTTPS**;
+     `http://localhost` is rejected with `INVALID_CALLBACK`). This is only for
+     the one-time token mint in step 3 — no app server needs to listen on that
+     URL; copy the `code` from the browser address bar after redirect.
    - **Permissions**: `Egnyte.filesystem` (required) and `Egnyte.permissions`
      (only if you need to move files into a folder where the app user is not
      a direct member).
@@ -42,18 +43,28 @@ Pick (or create) the folder that SG DREAM should own:
 /Shared/Clients
 ```
 
-This becomes `EGNYTE_ROOT_PATH`. Inside, the integration creates exactly this
-layout per client per verification:
+This becomes `EGNYTE_ROOT_PATH` only for clients that do not have an explicit
+root. Tim's Dawson review uses the explicit roots in
+[`src/lib/sg-dream.ts`](../src/lib/sg-dream.ts):
 
 ```
-/Shared/Clients/<clientCode>/<verificationRef>/Incoming/<originalFileName>
-/Shared/Clients/<clientCode>/<verificationRef>/Classified/<DocType>/<renamedName>
+/Shared/Clients/Dawson Trails MD One/District
+/Shared/Clients/Dawson Trails MD One/Developer
 ```
 
-- `clientCode` — the 3-char `Client.code` already defined in
-  [`src/lib/sg-dream.ts`](../src/lib/sg-dream.ts) (`SRC`, `HCA`, `DBI`).
-- `verificationRef` — the standard `SGD-DP-V<n>-<year>-<seq>` / `SGD-DR-...`
-  string built by `formatRef()`.
+Inside each client root, the integration creates one draft intake layout before
+Schedio assigns the public submission reference:
+
+```
+<clientRoot>/Intake/Draft/Incoming/<originalFileName>
+<clientRoot>/Intake/Draft/Classified/<DocType>/<renamedName>
+```
+
+- `clientRoot` — the client-specific `Client.egnyteRootPath`; falls back to
+  `EGNYTE_ROOT_PATH/<clientCode>` only when no explicit root exists.
+- The internal `verificationRef` is still stored as metadata for traceability,
+  but the customer-facing folder stays a draft intake until Schedio accepts the
+  submission.
 - `renamedName` — the SG DREAM filename convention built by `renamed()`:
   `SG-<clientCode>-V<NNN>-<DocType>-<Vendor4>-<year>-<NNN>.pdf`.
 
@@ -67,17 +78,35 @@ screen once. After that, the returned refresh token is long-lived (at least
 30 days, typically much longer — we refresh the access token before it
 expires, which rolls the refresh window too).
 
-From a terminal on your dev machine, run:
+**Before running:** in Egnyte **API Keys**, set **Redirect URI** to exactly
+`https://localhost/callback` (or another `https://` URL you put in
+`EGNYTE_REDIRECT_URI` in `.env.local`). Save the key, then mint.
+
+From the repo root (reads `EGNYTE_DOMAIN`, `EGNYTE_CLIENT_ID`, and
+`EGNYTE_CLIENT_SECRET` from `.env.local`; optional `EGNYTE_REDIRECT_URI`,
+default `https://localhost/callback`):
 
 ```bash
-open "https://<YOUR_DOMAIN>.egnyte.com/puboauth/token?client_id=<CLIENT_ID>&redirect_uri=http://localhost:3000/_oauth/egnyte-callback&scope=Egnyte.filesystem%20Egnyte.permissions&response_type=code&state=sg-dream"
+yarn egnyte:mint-refresh-token
 ```
 
-Sign in (if asked), approve the scopes. Egnyte redirects to
-`http://localhost:3000/_oauth/egnyte-callback?code=<AUTH_CODE>`; copy the
-`code` query value.
+The script opens the approval URL in your browser, then prompts for the
+`code` from the redirect. Sign in (if asked), approve the scopes. Egnyte
+redirects to
+`https://localhost/callback?code=<AUTH_CODE>`; the page may not load — copy
+the `code` query value from the address bar and paste it at the prompt.
 
-Exchange it for a refresh token with a single curl:
+To skip the prompt if you already have the code:
+
+```bash
+yarn egnyte:mint-refresh-token --code=<AUTH_CODE>
+```
+
+Manual alternative (same flow without the script):
+
+```bash
+open "https://<YOUR_DOMAIN>.egnyte.com/puboauth/token?client_id=<CLIENT_ID>&redirect_uri=https://localhost/callback&scope=Egnyte.filesystem%20Egnyte.permissions&response_type=code&state=sg-dream"
+```
 
 ```bash
 curl -s -X POST \
@@ -85,7 +114,7 @@ curl -s -X POST \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "client_id=<CLIENT_ID>" \
   -d "client_secret=<CLIENT_SECRET>" \
-  -d "redirect_uri=http://localhost:3000/_oauth/egnyte-callback" \
+  -d "redirect_uri=https://localhost/callback" \
   -d "code=<AUTH_CODE>" \
   -d "grant_type=authorization_code"
 ```
@@ -117,9 +146,10 @@ EGNYTE_REFRESH_TOKEN=...
 EGNYTE_ROOT_PATH=/Shared/Clients
 ```
 
-Missing values throw at first request via `src/server/env.ts`; the submit
-path gracefully degrades to DocuPipe-only when `isEgnyteConfigured()` is
-false so CI and demo environments without Egnyte still work.
+Missing values throw only when an Egnyte action is attempted. Direct upload
+can still run DocuPipe without Egnyte in local/CI, but the **Import from
+Egnyte** button returns `503 Egnyte is not configured` until these values are
+present.
 
 ## 5. Smoke test
 
@@ -128,24 +158,44 @@ false so CI and demo environments without Egnyte still work.
 2. Upload a PDF through `/upload`. Check Egnyte:
 
    ```
-   /Shared/Clients/SRC/SGD-DP-V4-2026-0012/Incoming/<original>.pdf
+   /Shared/Clients/Dawson Trails MD One/District/Intake/Draft/Incoming/<original>.pdf
    ```
 
    appears within a few hundred milliseconds.
 
-3. Wait for DocuPipe's `standardization.processing.success` webhook to fire.
+3. To test the customer-facing import path, place PDF/TIFF/JPG files directly
+   into the same `Incoming` folder, then click **Import from Egnyte** on
+   `/upload`. The app lists that folder server-side, downloads supported
+   files, creates queued document rows in Postgres, and sends each file to
+   DocuPipe.
+
+4. Wait for DocuPipe's `standardization.processing.success` webhook to fire.
    The file should move to:
 
    ```
-   /Shared/Clients/SRC/SGD-DP-V4-2026-0012/Classified/INV/SG-SRC-V004-INV-RSIN-2026-012.pdf
+   /Shared/Clients/Dawson Trails MD One/District/Intake/Draft/Classified/INV/SG-DT1-V001-INV-RSIN-2026-001.pdf
    ```
 
-4. Open the `/confirmation` page; the "Filed to Egnyte" chip should point to
+5. Open the `/confirmation` page; the "Filed to Egnyte" chip should point to
    the `Classified/` folder, and the "Filed in Egnyte" link on each row of
    the document library deep-links into the file in Egnyte's Web UI.
 
 ## 6. Troubleshooting
 
+- **`No valid app info found for api key`.** Egnyte does not recognize
+  `EGNYTE_CLIENT_ID` on `https://<EGNYTE_DOMAIN>.egnyte.com`. The value in
+  `.env.local` does not match a saved OAuth app on **that** domain. Open
+  **Settings → Configuration → API Keys** on `schediogroup.egnyte.com` (or your
+  tenant), copy **Client ID** and **Client Secret** again from the SG DREAM row,
+  and save the key after setting redirect URI to `https://localhost/callback`.
+  Do not reuse an old key from email or a different Egnyte tenant. If you
+  registered at [developers.egnyte.com](https://developers.egnyte.com) instead,
+  the app must list your domain and be approved before OAuth works. Run
+  `yarn egnyte:mint-refresh-token` — it preflights this before opening the
+  browser.
+- **`INVALID_CALLBACK` / redirect must be https.** Use
+  `https://localhost/callback` in both Egnyte API key settings and
+  `EGNYTE_REDIRECT_URI` (optional; that is the script default).
 - **`403 Forbidden` on `/pubapi/v1/fs-content/...`.** The user account
   behind the OAuth app does not have write access to `EGNYTE_ROOT_PATH`.
   Share the folder explicitly with that user at the `Full` permission level,
@@ -160,6 +210,9 @@ false so CI and demo environments without Egnyte still work.
   been rotated or revoked (this happens if a second client redeems the
   same refresh token). Re-run step 3 to mint a new refresh token and paste
   it back into `.env.local`.
+- **Import says the folder is missing.** Create the verification `Incoming`
+  folder shown in the upload page rail, or upload one file through the app
+  first so SG DREAM creates it.
 - **Custody lag warning.** DocuPipe sometimes completes extraction before
   the Egnyte upload finishes on large PDFs. We write the DocuPipe document
   ID first and retry the Egnyte upload in the webhook on a best-effort
@@ -170,8 +223,9 @@ false so CI and demo environments without Egnyte still work.
 - **`Relied` / `Locked` custody states** — these transition when an engineer
   approves the extracted fields or a verification is finalized; gated
   behind the engineer-approval lifecycle in a later phase.
-- **Egnyte folder permissions per client** — everything currently goes under
-  a single root. Multi-tenant permission segmentation is a Phase 2 concern.
+- **Egnyte webhooks/events** — Tim's first test is deliberately user-triggered:
+  files sync only when he clicks **Import from Egnyte**. Webhooks/events can
+  later power drift warnings such as "this folder changed since last import."
 - **Visual Review artifacts in Egnyte** — DocuPipe hosts the overlay image;
   we embed the URL on `/confirmation`. Copying the image into Egnyte for
   cold archival is a later optimization.

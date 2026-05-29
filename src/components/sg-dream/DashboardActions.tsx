@@ -38,7 +38,7 @@ export function DashboardActions({
           Draft report awaiting PE stamp
         </span>
         <a
-          href={`mailto:?subject=${encodeURIComponent('SG DREAM verification summary')}&body=${encodeURIComponent(`Please send me the latest summary for ${verificationId}.`)}`}
+          href={`mailto:?subject=${encodeURIComponent('SG DREAM submission summary')}&body=${encodeURIComponent(`Please send me the latest submission summary for this entity.`)}`}
           className="wf-button-secondary"
         >
           <Mail className="size-4" />

@@ -1,13 +1,24 @@
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
-import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
-import { ArrowRight, FileText, Loader2, UploadCloud } from 'lucide-react'
+import {
+  useMutation,
+  useQueryClient,
+  useSuspenseQuery,
+} from '@tanstack/react-query'
+import {
+  ArrowRight,
+  FileText,
+  FolderOpen,
+  Loader2,
+  RefreshCw,
+  UploadCloud,
+} from 'lucide-react'
 import { useRef, useState } from 'react'
 import type { DragEvent } from 'react'
 import { AppShell } from '#/components/sg-dream/AppShell'
 import {
   clients,
-  displayRef,
   docTypeLabels,
+  displaySubmissionCycle,
   formatCurrencyPrecise,
   getClientById,
   getOpenVerification,
@@ -25,6 +36,15 @@ type UploadSearch = {
   state?: UploadState
 }
 
+type EgnyteImportResponse = {
+  jobId: string
+  sourcePath: string
+  imported: Array<unknown>
+  skipped: Array<unknown>
+  failed: Array<{ error: string }>
+  unsupportedCount: number
+}
+
 const stateValues = new Set<UploadState>(['normal', 'empty', 'error'])
 
 export function snapshotUploadFiles(files: FileList | null): File[] {
@@ -34,9 +54,11 @@ export function snapshotUploadFiles(files: FileList | null): File[] {
 
 export const Route = createFileRoute('/upload')({
   validateSearch: (s: Record<string, unknown>): UploadSearch => ({
-    client: typeof s.client === 'string' ? s.client : 'srcab',
+    client: typeof s.client === 'string' ? s.client : 'dawson-trails-md1',
     verification:
-      typeof s.verification === 'string' ? s.verification : 'srcab-v4',
+      typeof s.verification === 'string'
+        ? s.verification
+        : 'dawson-trails-md1-v1',
     state:
       typeof s.state === 'string' && stateValues.has(s.state as UploadState)
         ? (s.state as UploadState)
@@ -45,13 +67,13 @@ export const Route = createFileRoute('/upload')({
   loader: ({ context, location }) => {
     const search = location.search as UploadSearch
     const requestedClient =
-      typeof search.client === 'string' ? search.client : 'srcab'
+      typeof search.client === 'string' ? search.client : 'dawson-trails-md1'
     const knownClient = clients.find((c) => c.id === requestedClient)
     if (!knownClient) {
-      const open = getOpenVerification('srcab')
+      const open = getOpenVerification('dawson-trails-md1')
       throw redirect({
         to: '/upload',
-        search: { client: 'srcab', verification: open.id },
+        search: { client: 'dawson-trails-md1', verification: open.id },
       })
     }
     const clientId = knownClient.id
@@ -89,19 +111,25 @@ function UploadPage() {
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
+  const [importMessage, setImportMessage] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
 
   const snapshot = snapshotQuery.data
-  const ref = displayRef({
-    snapshotRef: snapshot?.verification.ref,
-    client,
-    verification,
-  })
+  const clientRootPath = (
+    client.egnyteRootPath ?? `/Shared/Clients/${client.code}`
+  ).replace(/\/$/, '')
+  const egnyteIncomingFolder = `${clientRootPath}/Intake/Draft/Incoming`
   const storedDocs = snapshot?.verification.documents ?? []
   const displayDocs = storedListToDisplay(storedDocs)
-  const flaggedDocs = displayDocs.filter(
-    (d) => d.duplicateFlag !== 'none',
-  )
+  const hasDraftSubmission = displayDocs.length > 0
+  const reviewCycle = displaySubmissionCycle(verification)
+  const submissionStateLabel = hasDraftSubmission
+    ? 'Draft submission'
+    : 'Not started'
+  const referenceStateLabel = hasDraftSubmission
+    ? 'Assigned after Schedio review'
+    : 'Pending first upload'
+  const flaggedDocs = displayDocs.filter((d) => d.duplicateFlag !== 'none')
   const exactCount = flaggedDocs.filter(
     (d) => d.duplicateFlag === 'exact',
   ).length
@@ -145,6 +173,46 @@ function UploadPage() {
     },
   })
 
+  const importMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch('/api/egnyte/imports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId: client.id,
+          verificationId: verification.id,
+          sourcePath: egnyteIncomingFolder,
+        }),
+      })
+      if (!res.ok) {
+        let message = `Egnyte import failed (${res.status})`
+        try {
+          const data = (await res.json()) as { error?: string }
+          if (data.error) message = data.error
+        } catch {
+          // non-JSON response; keep default message
+        }
+        throw new Error(message)
+      }
+      return (await res.json()) as EgnyteImportResponse
+    },
+    onSuccess: (data) => {
+      setUploadError(null)
+      setImportMessage(
+        `${data.imported.length} imported · ${data.skipped.length} skipped · ${data.failed.length} failed`,
+      )
+      void queryClient.invalidateQueries({
+        queryKey: ['verification', verificationId],
+      })
+    },
+    onError: (err) => {
+      setImportMessage(null)
+      setUploadError(
+        err instanceof Error ? err.message : 'Egnyte import failed',
+      )
+    },
+  })
+
   const onFilesChosen = (files: FileList | null) => {
     const chosenFiles = snapshotUploadFiles(files)
     if (chosenFiles.length === 0) return
@@ -170,20 +238,20 @@ function UploadPage() {
         </header>
         <div className="v2-card-body">
           <div className="kv">
-            <span className="k">Verification</span>
-            <span className="v">V{verification.number}</span>
+            <span className="k">Submission</span>
+            <span className="v">{submissionStateLabel}</span>
           </div>
           <div className="kv">
-            <span className="k">Period</span>
-            <span className="v">{verification.period}</span>
+            <span className="k">Review period</span>
+            <span className="v">{reviewCycle}</span>
           </div>
           <div className="kv">
             <span className="k">Cutoff</span>
             <span className="v">{verification.cutoffDate}</span>
           </div>
           <div className="kv">
-            <span className="k">Reference</span>
-            <span className="v mono">{ref}</span>
+            <span className="k">Reference status</span>
+            <span className="v">{referenceStateLabel}</span>
           </div>
           <div className="kv">
             <span className="k">Files in queue</span>
@@ -212,9 +280,37 @@ function UploadPage() {
             results appear on this page and on the processing screen.
           </p>
           <p className="m-0 text-muted-1">
-            Schedio Group assigns a final reference number when this
-            verification is submitted.
+            Schedio Group assigns a final reference number when this submission
+            is accepted.
           </p>
+        </div>
+      </section>
+
+      <section className="v2-card">
+        <header className="v2-card-head">
+          <h3>Egnyte intake</h3>
+        </header>
+        <div className="v2-card-body space-y-3 text-[12.5px] text-ink-2">
+          <p className="m-0">
+            Files placed in this folder can be pulled into the same DocuPipe
+            queue without uploading them again.
+          </p>
+          <div className="rounded-md border border-line bg-paper-soft p-2 font-mono text-[11px] leading-snug text-muted-1">
+            {egnyteIncomingFolder}
+          </div>
+          <button
+            type="button"
+            className="v2-btn w-full justify-center"
+            onClick={() => importMutation.mutate()}
+            disabled={importMutation.isPending}
+          >
+            {importMutation.isPending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <FolderOpen className="size-4" />
+            )}
+            Import from Egnyte
+          </button>
         </div>
       </section>
     </>
@@ -223,34 +319,51 @@ function UploadPage() {
   return (
     <AppShell
       active="submit"
-      crumbs={[
-        { label: 'Submit Documents' },
-      ]}
+      crumbs={[{ label: 'Submit Documents' }]}
       rail={rail}
     >
       <header className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="v2-eyebrow">Step 3 · Upload &amp; duplicate detection</p>
-          <h1 className="v2-h1">Submit to V{verification.number}</h1>
+          <p className="v2-eyebrow">
+            Step 3 · Upload &amp; duplicate detection
+          </p>
+          <h1 className="v2-h1">
+            {hasDraftSubmission
+              ? 'Continue draft submission'
+              : 'Start submission'}
+          </h1>
           <p className="v2-lede">
             Drop files into the queue. DocuPipe classifies each file, extracts
-            vendor + cost details, and compares the submission against every
-            prior filing for {client.name}.
+            vendor + cost details, and compares the draft against every prior
+            filing for {client.name}.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className="v2-btn"
+            onClick={() => importMutation.mutate()}
+            disabled={importMutation.isPending}
+          >
+            {importMutation.isPending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <RefreshCw className="size-4" />
+            )}
+            Import from Egnyte
+          </button>
           {displayDocs.length > 0 ? (
             <Link
               to="/processing"
               search={{ client: client.id, verification: verification.id }}
               className="v2-btn primary"
             >
-              Analyze &amp; submit to V{verification.number}
+              Analyze submission
               <ArrowRight className="size-4" />
             </Link>
           ) : (
             <button type="button" className="v2-btn primary" disabled>
-              Analyze &amp; submit to V{verification.number}
+              Analyze submission
               <ArrowRight className="size-4" />
             </button>
           )}
@@ -279,6 +392,16 @@ function UploadPage() {
         </div>
       ) : null}
 
+      {importMessage && !renderError ? (
+        <div className="errbar green mb-3" role="status">
+          <span className="icn">✓</span>
+          <div className="min-w-0">
+            <p className="m-0 font-semibold">Egnyte import complete</p>
+            <p className="m-0 text-[12.5px]">{importMessage}</p>
+          </div>
+        </div>
+      ) : null}
+
       {flaggedDocs.length > 0 ? (
         <div className="errbar amber mb-3" role="status">
           <span className="icn">!</span>
@@ -289,7 +412,7 @@ function UploadPage() {
             </p>
             <p className="m-0 text-[12.5px]">
               {exactCount} exact · {likelyCount} likely. Review each row before
-              submitting to V{verification.number}.
+              sending this draft to Schedio.
             </p>
           </div>
           <span className="pill pill-amber">
@@ -326,7 +449,7 @@ function UploadPage() {
               : 'Drag and drop documents here'}
           </p>
           <p className="m-0 text-[12.5px] text-muted-1">
-            PDF, TIFF, or JPG. Duplicate checks run after upload.
+            PDF, TIFF, JPG, or import this submission's Egnyte intake folder.
           </p>
           <button
             type="button"
@@ -359,14 +482,12 @@ function UploadPage() {
             <h3>No files yet</h3>
           </header>
           <div className="v2-card-body text-[13px] text-ink-2">
-            <p className="m-0 mb-2">
-              When you drop files here, DocuPipe will:
-            </p>
+            <p className="m-0 mb-2">When you drop files here, DocuPipe will:</p>
             <ol className="m-0 ml-5 list-decimal space-y-1 text-muted-1">
-              <li>Classify each file (CTR / TO / CO / PA / INV / POP / LSP).</li>
               <li>
-                Extract vendor + cost details from the document body.
+                Classify each file (CTR / TO / CO / PA / INV / POP / LSP).
               </li>
+              <li>Extract vendor + cost details from the document body.</li>
               <li>
                 Compare every file to prior filings for {client.name} and flag
                 exact or likely duplicates.
@@ -406,6 +527,8 @@ function UploadRow({ doc }: { doc: Document }) {
   const typeAndVendor = [docTypeLabels[doc.docType], doc.vendorName]
     .filter(Boolean)
     .join(' · ')
+  const sourceLabel =
+    doc.sourceKind === 'egnyte_import' ? 'Imported from Egnyte' : 'Uploaded'
 
   return (
     <div className="queue-row">
@@ -413,6 +536,7 @@ function UploadRow({ doc }: { doc: Document }) {
       <div className="qmeta min-w-0">
         <p className="qtitle truncate">{displayName}</p>
         <div className="qdetail">
+          <span>{sourceLabel}</span>
           {hasStandardizedName ? (
             <span className="truncate">Original: {doc.originalName}</span>
           ) : null}
@@ -423,11 +547,7 @@ function UploadRow({ doc }: { doc: Document }) {
             </span>
           ) : null}
         </div>
-        {doc.errorMessage ? (
-          <p className="qerror">
-            {doc.errorMessage}
-          </p>
-        ) : null}
+        {doc.errorMessage ? <p className="qerror">{doc.errorMessage}</p> : null}
       </div>
       <span className="queue-amount mono">
         {doc.amount > 0 ? formatCurrencyPrecise(doc.amount) : '—'}

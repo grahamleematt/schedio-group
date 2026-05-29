@@ -1,13 +1,9 @@
 /**
- * SG DREAM — Typed mock data seed.
+ * SG DREAM — customer intake configuration.
  *
- * Source of truth for the client-facing green flow (District Direct Pay).
- * Vendor hierarchy (contract → task orders by phase → change orders) is
- * seeded from real Sterling Ranch CAB reference data in the Downloads
- * examples folder so the mockup reads authentic to Tim.
- *
- * Shape mirrors the Phase 1 design handoff so shared screens can theme
- * themselves by workflow without branching logic at render time.
+ * The customer-facing app is intentionally Dawson-only for Tim's first real
+ * test. Uploaded files and pipeline state come from the server store; this
+ * module only supplies stable entity, workflow, and naming configuration.
  */
 
 export type Workflow = 'district_dp' | 'developer_reimb'
@@ -78,62 +74,45 @@ export const docTypeOrder: ReadonlyArray<DocType> = [
 
 export type Client = {
   id: string
-  code: string // 3-char client code for naming convention (SRC, HCA, DBI)
+  code: string // 3-char client code for naming convention
   name: string
   workflow: Workflow
+  egnyteRootPath?: string
   entityOwnerName: string
   region: string
   status: 'active' | 'pending_approval'
 }
 
+export const DEFAULT_CLIENT_ID = 'dawson-trails-md1'
+export const DEFAULT_VERIFICATION_ID = 'dawson-trails-md1-v1'
+export const CUSTOMER_INTAKE_CLIENT_IDS = [
+  'dawson-trails-md1',
+  'dawson-trails-md1-developer',
+] as const
+
 export const clients: ReadonlyArray<Client> = [
   {
-    id: 'srcab',
-    code: 'SRC',
-    name: 'Sterling Ranch CAB',
+    id: 'dawson-trails-md1',
+    code: 'DT1',
+    name: 'Dawson Trails MD One - District',
     workflow: 'district_dp',
-    entityOwnerName: 'Amy Lee',
-    region: 'Douglas County, CO',
+    egnyteRootPath: '/Shared/Clients/Dawson Trails MD One/District',
+    entityOwnerName: 'Tim',
+    region: 'Castle Rock, CO',
     status: 'active',
   },
   {
-    id: 'hca',
-    code: 'HCA',
-    name: 'Highlands Creek Authority',
-    workflow: 'district_dp',
-    entityOwnerName: 'Amy Lee',
-    region: 'Arapahoe County, CO',
-    status: 'active',
-  },
-  {
-    id: 'dbi',
-    code: 'DBI',
-    name: 'Downtown BID',
-    workflow: 'district_dp',
-    entityOwnerName: 'Amy Lee',
-    region: 'City & County of Denver, CO',
-    status: 'active',
-  },
-  // Promoted from ghostDeveloperEntities so the entity picker can switch
-  // into a Developer Reimbursement (DR) workspace and demo the alternate
-  // dashboard layout. Phase C8.
-  {
-    id: 'oakwood-homes',
-    code: 'OAK',
-    name: 'Oakwood Homes',
+    id: 'dawson-trails-md1-developer',
+    code: 'DTD',
+    name: 'Dawson Trails MD One - Developer',
     workflow: 'developer_reimb',
-    entityOwnerName: 'Amy Lee',
-    region: 'Denver Metro, CO',
+    egnyteRootPath: '/Shared/Clients/Dawson Trails MD One/Developer',
+    entityOwnerName: 'Tim',
+    region: 'Castle Rock, CO',
     status: 'active',
   },
 ]
 
-/**
- * Phase 2 placeholders so the `/clients` screen hints at the eventual
- * mixed-workflow shape Tim described in the meeting (blue developer
- * entities sitting alongside green district entities). These are
- * never selectable in the green-flow mockup.
- */
 type GhostEntity = {
   id: string
   code: string
@@ -142,15 +121,7 @@ type GhostEntity = {
   region: string
 }
 
-export const ghostDeveloperEntities: ReadonlyArray<GhostEntity> = [
-  {
-    id: 'lennar-colorado',
-    code: 'LEN',
-    name: 'Lennar Colorado',
-    workflow: 'developer_reimb',
-    region: 'Front Range, CO',
-  },
-]
+export const ghostDeveloperEntities: ReadonlyArray<GhostEntity> = []
 
 export type User = {
   id: string
@@ -161,13 +132,13 @@ export type User = {
   permittedClientIds: ReadonlyArray<string>
 }
 
-export const mockUser: User = {
-  id: 'amy-lee',
-  initials: 'AL',
-  name: 'Amy Lee',
-  email: 'amy.lee@districts.example',
+export const currentUser: User = {
+  id: 'tim-mccarley',
+  initials: 'TM',
+  name: 'Tim McCarley',
+  email: 'tim.mccarley@schedio.example',
   role: 'entity_owner',
-  permittedClientIds: ['srcab', 'hca', 'dbi', 'oakwood-homes'],
+  permittedClientIds: CUSTOMER_INTAKE_CLIENT_IDS,
 }
 
 type VerificationStatus = 'open' | 'under_review' | 'approved'
@@ -188,221 +159,50 @@ export type Verification = {
   seq: number // last-used doc sequence used for ref generation
 }
 
-export const verifications: ReadonlyArray<Verification> = [
-  // Sterling Ranch CAB — the primary demo anchor.
-  // V4 is open with a near-term cutoff so the countdown pill shows
-  // the amber "few days left" state for Tim's scheduling narrative.
+const verificationSeeds: ReadonlyArray<Verification> = [
   {
-    id: 'srcab-v1',
-    clientId: 'srcab',
+    id: 'dawson-trails-md1-v1',
+    clientId: 'dawson-trails-md1',
     number: 1,
     year: 2026,
-    period: 'January 2026',
-    cutoffDate: 'Feb 10, 2026',
-    cutoffDateISO: '2026-02-10',
-    status: 'approved',
-    docsCount: 21,
-    costsSubmitted: 1_284_580.42,
-    costsVerified: 1_268_900.0,
-    workAuthValue: 2_750_000,
-    seq: 21,
-  },
-  {
-    id: 'srcab-v2',
-    clientId: 'srcab',
-    number: 2,
-    year: 2026,
-    period: 'February 2026',
-    cutoffDate: 'Mar 10, 2026',
-    cutoffDateISO: '2026-03-10',
-    status: 'approved',
-    docsCount: 26,
-    costsSubmitted: 1_512_240.17,
-    costsVerified: 1_498_600.0,
-    workAuthValue: 2_750_000,
-    seq: 26,
-  },
-  {
-    id: 'srcab-v3',
-    clientId: 'srcab',
-    number: 3,
-    year: 2026,
-    period: 'March 2026',
-    cutoffDate: 'Apr 10, 2026',
-    cutoffDateISO: '2026-04-10',
-    status: 'under_review',
-    docsCount: 28,
-    costsSubmitted: 1_196_820.95,
-    costsVerified: 0,
-    workAuthValue: 2_750_000,
-    seq: 28,
-  },
-  {
-    id: 'srcab-v4',
-    clientId: 'srcab',
-    number: 4,
-    year: 2026,
-    period: 'April 2026',
-    cutoffDate: 'Apr 19, 2026',
-    cutoffDateISO: '2026-04-19',
+    period: 'Verification No. 01',
+    cutoffDate: 'May 04, 2026',
+    cutoffDateISO: '2026-05-04',
     status: 'open',
-    docsCount: 11,
-    costsSubmitted: 322_940.11,
+    docsCount: 0,
+    costsSubmitted: 0,
     costsVerified: 0,
-    workAuthValue: 2_750_000,
-    seq: 11,
+    workAuthValue: 0,
+    seq: 1,
   },
-
-  // Highlands Creek Authority — secondary entity, comfy cutoff (healthy).
   {
-    id: 'hca-v1',
-    clientId: 'hca',
+    id: 'dawson-trails-md1-developer-v1',
+    clientId: 'dawson-trails-md1-developer',
     number: 1,
     year: 2026,
-    period: 'November 2025',
-    cutoffDate: 'Dec 10, 2025',
-    cutoffDateISO: '2025-12-10',
-    status: 'approved',
-    docsCount: 18,
-    costsSubmitted: 482_140.22,
-    costsVerified: 471_850.0,
-    workAuthValue: 1_250_000,
-    seq: 18,
-  },
-  {
-    id: 'hca-v2',
-    clientId: 'hca',
-    number: 2,
-    year: 2026,
-    period: 'December 2025',
-    cutoffDate: 'Jan 12, 2026',
-    cutoffDateISO: '2026-01-12',
-    status: 'approved',
-    docsCount: 22,
-    costsSubmitted: 617_412.88,
-    costsVerified: 612_200.0,
-    workAuthValue: 1_250_000,
-    seq: 22,
-  },
-  {
-    id: 'hca-v3',
-    clientId: 'hca',
-    number: 3,
-    year: 2026,
-    period: 'February 2026',
-    cutoffDate: 'Mar 10, 2026',
-    cutoffDateISO: '2026-03-10',
-    status: 'under_review',
-    docsCount: 24,
-    costsSubmitted: 538_902.1,
-    costsVerified: 0,
-    workAuthValue: 1_250_000,
-    seq: 24,
-  },
-  {
-    id: 'hca-v4',
-    clientId: 'hca',
-    number: 4,
-    year: 2026,
-    period: 'March 2026',
-    cutoffDate: 'May 8, 2026',
-    cutoffDateISO: '2026-05-08',
+    period: 'Developer Reimbursement No. 01',
+    cutoffDate: 'May 04, 2026',
+    cutoffDateISO: '2026-05-04',
     status: 'open',
-    docsCount: 11,
-    costsSubmitted: 284_560.5,
+    docsCount: 0,
+    costsSubmitted: 0,
     costsVerified: 0,
-    workAuthValue: 1_250_000,
-    seq: 11,
-  },
-
-  // Downtown BID — smallest portfolio, a cutoff that's effectively
-  // "tomorrow" so the countdown demos the red/critical state.
-  {
-    id: 'dbi-v1',
-    clientId: 'dbi',
-    number: 1,
-    year: 2026,
-    period: 'Q4 2025',
-    cutoffDate: 'Jan 20, 2026',
-    cutoffDateISO: '2026-01-20',
-    status: 'approved',
-    docsCount: 7,
-    costsSubmitted: 88_650.0,
-    costsVerified: 86_400.0,
-    workAuthValue: 280_000,
-    seq: 7,
-  },
-  {
-    id: 'dbi-v2',
-    clientId: 'dbi',
-    number: 2,
-    year: 2026,
-    period: 'Q1 2026',
-    cutoffDate: 'Apr 17, 2026',
-    cutoffDateISO: '2026-04-17',
-    status: 'open',
-    docsCount: 4,
-    costsSubmitted: 42_180.33,
-    costsVerified: 0,
-    workAuthValue: 280_000,
-    seq: 4,
-  },
-
-  // Oakwood Homes — Developer Reimbursement workspace demo (Phase C8).
-  // The DR flow tracks reimbursable public-eligible costs against a
-  // district cap rather than per-period pay applications.
-  {
-    id: 'oak-v1',
-    clientId: 'oakwood-homes',
-    number: 1,
-    year: 2025,
-    period: 'H1 2025',
-    cutoffDate: 'Aug 15, 2025',
-    cutoffDateISO: '2025-08-15',
-    status: 'approved',
-    docsCount: 16,
-    costsSubmitted: 612_400.0,
-    costsVerified: 588_220.0,
-    workAuthValue: 2_400_000,
-    seq: 16,
-  },
-  {
-    id: 'oak-v2',
-    clientId: 'oakwood-homes',
-    number: 2,
-    year: 2025,
-    period: 'H2 2025',
-    cutoffDate: 'Feb 15, 2026',
-    cutoffDateISO: '2026-02-15',
-    status: 'approved',
-    docsCount: 22,
-    costsSubmitted: 894_120.0,
-    costsVerified: 851_980.0,
-    workAuthValue: 2_400_000,
-    seq: 22,
-  },
-  {
-    id: 'oak-v3',
-    clientId: 'oakwood-homes',
-    number: 3,
-    year: 2026,
-    period: 'H1 2026',
-    cutoffDate: 'May 30, 2026',
-    cutoffDateISO: '2026-05-30',
-    status: 'open',
-    docsCount: 9,
-    costsSubmitted: 318_640.0,
-    costsVerified: 0,
-    workAuthValue: 2_400_000,
-    seq: 9,
+    workAuthValue: 0,
+    seq: 1,
   },
 ]
+
+export const verifications: ReadonlyArray<Verification> =
+  verificationSeeds.filter((verification) =>
+    currentUser.permittedClientIds.includes(verification.clientId),
+  )
 
 export type DuplicateFlag = 'none' | 'exact' | 'likely'
 
 export type Document = {
   id: string
   verificationId: string
+  sourceKind?: 'upload' | 'egnyte_import'
   docType: DocType
   vendor: string // 4-char vendor code
   vendorName: string
@@ -413,44 +213,25 @@ export type Document = {
   duplicateFlag: DuplicateFlag
   matchedPreviousName?: string
   matchedVerificationRef?: string
-  /**
-   * Optional custody + trust metadata, surfaced by the server when available
-   * and absent in the pure-mock rows below. Kept optional so every existing
-   * component stays working without extra guards.
-   */
+  /** Optional custody + trust metadata, surfaced by the server when available. */
   egnyteWebUrl?: string
   egnyteClassifiedPath?: string
-  custodyState?:
-    | 'incoming'
-    | 'processing'
-    | 'classified'
-    | 'relied'
-    | 'locked'
+  egnyteSourcePath?: string
+  egnyteIncomingPath?: string
+  egnyteEntryId?: string
+  egnyteGroupId?: string
+  custodyState?: 'incoming' | 'processing' | 'classified' | 'relied' | 'locked'
   visualReviewUrl?: string
   fieldConfidence?: Record<string, number>
   lowConfidence?: boolean
-  /**
-   * Lifecycle status mirrored from the server `StoredDocument`. Optional so
-   * the in-repo mock seed rows below stay valid; the adapter populates it
-   * for live rows.
-   */
-  status?:
-    | 'queued'
-    | 'classifying'
-    | 'standardizing'
-    | 'completed'
-    | 'error'
+  /** Lifecycle status mirrored from the server `StoredDocument`. */
+  status?: 'queued' | 'classifying' | 'standardizing' | 'completed' | 'error'
   /** First failure message when `status === 'error'`. */
   errorMessage?: string
   /** ISO timestamp of when the upload landed on the server. */
   uploadedAt?: string
 }
 
-/**
- * Default year used by the seed mock documents (Sterling Ranch CAB V4 was
- * filed in 2026). The webhook always passes the verification's actual year
- * so this default never escapes seed data.
- */
 const DEFAULT_RENAMED_YEAR = 2026
 
 /**
@@ -458,9 +239,8 @@ const DEFAULT_RENAMED_YEAR = 2026
  * Exported so the server-side webhook can rename the file identically
  * before promoting it from Egnyte Incoming/ to Classified/.
  *
- * @param year — verification year. Defaults to {@link DEFAULT_RENAMED_YEAR}
- *   so the in-repo mock seeds remain a single-arg call; the webhook should
- *   always pass `verification.year` explicitly.
+ * @param year — verification year. The webhook should always pass
+ *   `verification.year` explicitly.
  */
 export function renamed(
   clientCode: string,
@@ -476,160 +256,11 @@ export function renamed(
   return `SG-${clientCode}-${v}-${docType}-${vendor}-${year}-${s}.${ext}`
 }
 
-/**
- * Sterling Ranch CAB V4 (April 2026) — the primary demo submission.
- * Real vendor codes synthesized to the 4-char SG DREAM spec:
- *   AGWE = AGW (Geotechnical), AZTC = Aztec (Utility Locating),
- *   ATWL = Atwell, AQTC = Aquatic, RSIN = Rusin.
- *
- * 2 exact dupes + 1 likely dupe → 3 flagged, matches the original
- * narrative so every duplicate touch point still fires.
- */
-export const documents: ReadonlyArray<Document> = [
-  {
-    id: 'srcab-v4-d1',
-    verificationId: 'srcab-v4',
-    docType: 'CTR',
-    vendor: 'AGWE',
-    vendorName: 'AGW Engineering',
-    originalName:
-      'VC_SRCAB_AGW_MSA for Geotechnical Services_(Fully Executed).pdf',
-    renamedName: renamed('SRC', 4, 'CTR', 'AGWE', 1),
-    amount: 0,
-    seq: 1,
-    duplicateFlag: 'none',
-  },
-  {
-    id: 'srcab-v4-d2',
-    verificationId: 'srcab-v4',
-    docType: 'TO',
-    vendor: 'AGWE',
-    vendorName: 'AGW Engineering',
-    originalName: 'VT_Sterling Ranch CAB_AGW_F5 WO 01_$17,600.00.pdf',
-    renamedName: renamed('SRC', 4, 'TO', 'AGWE', 1),
-    amount: 17_600.0,
-    seq: 1,
-    duplicateFlag: 'none',
-  },
-  {
-    id: 'srcab-v4-d3',
-    verificationId: 'srcab-v4',
-    docType: 'TO',
-    vendor: 'AZTC',
-    vendorName: 'Aztec Utility Locating',
-    originalName: 'VT_SRCAB_Aztec_FG WO14_$15,000.00.pdf',
-    renamedName: renamed('SRC', 4, 'TO', 'AZTC', 2),
-    amount: 15_000.0,
-    seq: 2,
-    duplicateFlag: 'none',
-  },
-  {
-    id: 'srcab-v4-d4',
-    verificationId: 'srcab-v4',
-    docType: 'TO',
-    vendor: 'AZTC',
-    vendorName: 'Aztec Utility Locating',
-    originalName: 'VT_SRCAB_Aztec_FG WO16_$7,560.00.pdf',
-    renamedName: renamed('SRC', 4, 'TO', 'AZTC', 3),
-    amount: 7_560.0,
-    seq: 3,
-    duplicateFlag: 'none',
-  },
-  {
-    id: 'srcab-v4-d5',
-    verificationId: 'srcab-v4',
-    docType: 'PA',
-    vendor: 'AZTC',
-    vendorName: 'Aztec Utility Locating',
-    originalName: 'PayApp_Aztec_April2026_final.pdf',
-    renamedName: renamed('SRC', 4, 'PA', 'AZTC', 1),
-    amount: 46_500.0,
-    seq: 1,
-    duplicateFlag: 'none',
-  },
-  {
-    id: 'srcab-v4-d6',
-    verificationId: 'srcab-v4',
-    docType: 'INV',
-    vendor: 'AZTC',
-    vendorName: 'Aztec Utility Locating',
-    originalName: 'Aztec_Invoice_INV-2026-0077.pdf',
-    renamedName: renamed('SRC', 4, 'INV', 'AZTC', 1),
-    amount: 24_118.6,
-    seq: 1,
-    duplicateFlag: 'likely',
-    matchedPreviousName: 'Aztec_Invoice_INV-2026-0077_v2.pdf',
-    matchedVerificationRef: 'SGD-DP-V3-2026-0028',
-  },
-  {
-    id: 'srcab-v4-d7',
-    verificationId: 'srcab-v4',
-    docType: 'CO',
-    vendor: 'RSIN',
-    vendorName: 'Rusin Drafting',
-    originalName: 'VO_Rusin_CO2_$3,880.01.pdf',
-    renamedName: renamed('SRC', 4, 'CO', 'RSIN', 1),
-    amount: 3_880.01,
-    seq: 1,
-    duplicateFlag: 'none',
-  },
-  {
-    id: 'srcab-v4-d8',
-    verificationId: 'srcab-v4',
-    docType: 'INV',
-    vendor: 'RSIN',
-    vendorName: 'Rusin Drafting',
-    originalName: 'Rusin_Invoice_March2026.pdf',
-    renamedName: renamed('SRC', 4, 'INV', 'RSIN', 2),
-    amount: 18_240.0,
-    seq: 2,
-    duplicateFlag: 'exact',
-    matchedPreviousName: 'Rusin_Invoice_March2026.pdf',
-    matchedVerificationRef: 'SGD-DP-V3-2026-0028',
-  },
-  {
-    id: 'srcab-v4-d9',
-    verificationId: 'srcab-v4',
-    docType: 'POP',
-    vendor: 'AGWE',
-    vendorName: 'AGW Engineering',
-    originalName: 'BankWire_Confirmation_AGW_PayApp_April.pdf',
-    renamedName: renamed('SRC', 4, 'POP', 'AGWE', 1),
-    amount: 118_450.0,
-    seq: 1,
-    duplicateFlag: 'none',
-  },
-  {
-    id: 'srcab-v4-d10',
-    verificationId: 'srcab-v4',
-    docType: 'LSP',
-    vendor: 'ATWL',
-    vendorName: 'Atwell LLC',
-    originalName: 'SterlingRanch_Plat_F2_Townhome.pdf',
-    renamedName: renamed('SRC', 4, 'LSP', 'ATWL', 1),
-    amount: 0,
-    seq: 1,
-    duplicateFlag: 'exact',
-    matchedPreviousName: 'SterlingRanch_Plat_F2_Townhome.pdf',
-    matchedVerificationRef: 'SGD-DP-V2-2026-0026',
-  },
-  {
-    id: 'srcab-v4-d11',
-    verificationId: 'srcab-v4',
-    docType: 'INV',
-    vendor: 'AQTC',
-    vendorName: 'Aquatic Consultants',
-    originalName: 'Aquatic_Invoice_WO1_April.pdf',
-    renamedName: renamed('SRC', 4, 'INV', 'AQTC', 3),
-    amount: 7_320.5,
-    seq: 3,
-    duplicateFlag: 'none',
-  },
-]
+export const documents: ReadonlyArray<Document> = []
 
 export type TaskOrder = {
   id: string
-  phase: string // Sterling Ranch subdivision filings: 'F2', 'F3', 'F3B', 'F4A', 'F5', 'F6', 'F7', 'FG'
+  phase: string
   number: string // e.g., 'WO 05', 'WO01'
   value: number
   referencedByInvoice?: boolean
@@ -659,239 +290,7 @@ export type Vendor = {
   changeOrders?: ReadonlyArray<ChangeOrder>
 }
 
-export const vendors: ReadonlyArray<Vendor> = [
-  // --- Sterling Ranch CAB — real vendor hierarchy from Downloads examples ---
-  {
-    id: 'srcab-agwe',
-    code: 'AGWE',
-    name: 'AGW Engineering',
-    clientId: 'srcab',
-    authorized: 1_935_000,
-    spent: 1_252_500,
-    contract: {
-      refName: 'MSA for Geotechnical Services',
-      executedOn: 'Jun 18, 2024',
-      value: 1_935_000,
-    },
-    taskOrders: [
-      { id: 'srcab-agwe-to-1', phase: 'F2', number: 'WO 05', value: 33_694.5 },
-      { id: 'srcab-agwe-to-2', phase: 'F2', number: 'WO 10', value: 10_510.0 },
-      { id: 'srcab-agwe-to-3', phase: 'F3', number: 'WO 12', value: 30_540.0 },
-      { id: 'srcab-agwe-to-4', phase: 'F3', number: 'WO 13', value: 99_295.0 },
-      { id: 'srcab-agwe-to-5', phase: 'F3B', number: 'WO 10', value: 157_946.0 },
-      { id: 'srcab-agwe-to-6', phase: 'F3B', number: 'WO 11', value: 332_812.0 },
-      { id: 'srcab-agwe-to-7', phase: 'F4A', number: 'WO 12', value: 114_268.0 },
-      { id: 'srcab-agwe-to-8', phase: 'F5', number: 'WO 01', value: 17_600.0 },
-      {
-        id: 'srcab-agwe-to-9',
-        phase: 'F3',
-        number: 'WO 08',
-        value: 278_976.5,
-        referencedByInvoice: true,
-      },
-      {
-        id: 'srcab-agwe-to-10',
-        phase: 'F3',
-        number: '00001-009',
-        value: 557_961.5,
-        referencedByInvoice: true,
-      },
-      {
-        id: 'srcab-agwe-to-11',
-        phase: 'F6',
-        number: '00001-003',
-        value: 6_163.0,
-        referencedByInvoice: true,
-      },
-      {
-        id: 'srcab-agwe-to-12',
-        phase: 'F6',
-        number: '00001-004',
-        value: 20_140.0,
-        referencedByInvoice: true,
-      },
-      {
-        id: 'srcab-agwe-to-13',
-        phase: 'F6',
-        number: '00001-005',
-        value: 55_410.0,
-        referencedByInvoice: true,
-      },
-      {
-        id: 'srcab-agwe-to-14',
-        phase: 'FG',
-        number: '00001-003',
-        value: 53_488.0,
-        referencedByInvoice: true,
-      },
-      {
-        id: 'srcab-agwe-to-15',
-        phase: 'FG',
-        number: '00001-007',
-        value: 96_364.0,
-        referencedByInvoice: true,
-      },
-      {
-        id: 'srcab-agwe-to-16',
-        phase: 'FG',
-        number: '00001-009',
-        value: 68_270.0,
-        referencedByInvoice: true,
-      },
-    ],
-  },
-  {
-    id: 'srcab-aztc',
-    code: 'AZTC',
-    name: 'Aztec Utility Locating',
-    clientId: 'srcab',
-    // Pushed into the amend band (~94% utilized) to demo Tim's
-    // "as you get close to spending all that money" amendment cue.
-    authorized: 490_000,
-    spent: 460_000,
-    contract: {
-      refName: 'MSA for Utility Locating Services',
-      executedOn: 'Aug 03, 2024',
-      value: 490_000,
-    },
-    taskOrders: [
-      { id: 'srcab-aztc-to-1', phase: 'F3', number: 'WO 12', value: 46_500.0 },
-      { id: 'srcab-aztc-to-2', phase: 'F3', number: 'WO 13', value: 30_500.0 },
-      { id: 'srcab-aztc-to-3', phase: 'F3', number: 'WO 15', value: 138_060.0 },
-      { id: 'srcab-aztc-to-4', phase: 'F6', number: 'WO 02B', value: 27_440.0 },
-      { id: 'srcab-aztc-to-5', phase: 'F6', number: 'WO 03C', value: 28_140.0 },
-      { id: 'srcab-aztc-to-6', phase: 'F6', number: 'WO 06A', value: 5_400.0 },
-      { id: 'srcab-aztc-to-7', phase: 'F6', number: 'WO 07', value: 24_520.0 },
-      { id: 'srcab-aztc-to-8', phase: 'F7', number: 'WO 01', value: 24_600.0 },
-      { id: 'srcab-aztc-to-9', phase: 'F7', number: 'WO 03', value: 14_625.0 },
-      { id: 'srcab-aztc-to-10', phase: 'F7', number: 'WO 08', value: 46_500.0 },
-      { id: 'srcab-aztc-to-11', phase: 'FG', number: 'WO 14', value: 15_000.0 },
-      { id: 'srcab-aztc-to-12', phase: 'FG', number: 'WO 16', value: 7_560.0 },
-      { id: 'srcab-aztc-to-13', phase: 'FG', number: 'WO 18', value: 43_150.0 },
-      { id: 'srcab-aztc-to-14', phase: 'FG', number: 'WO 25', value: 27_000.0 },
-      { id: 'srcab-aztc-to-15', phase: 'FG', number: 'WO 26', value: 10_360.0 },
-    ],
-  },
-  {
-    id: 'srcab-atwl',
-    code: 'ATWL',
-    name: 'Atwell LLC',
-    clientId: 'srcab',
-    authorized: 85_000,
-    spent: 66_300,
-    contract: {
-      refName: 'Master Service Agreement (Fully Executed)',
-      executedOn: 'Mar 22, 2024',
-      value: 85_000,
-    },
-    taskOrders: [
-      {
-        id: 'srcab-atwl-to-1',
-        phase: 'F2',
-        number: 'Townhome Advanced Concrete WO',
-        value: 66_300.0,
-      },
-    ],
-  },
-  {
-    id: 'srcab-aqtc',
-    code: 'AQTC',
-    name: 'Aquatic Consultants',
-    clientId: 'srcab',
-    authorized: 28_700,
-    spent: 12_900,
-    contract: {
-      refName: 'Water Features Consulting Agreement',
-      executedOn: 'Sep 14, 2024',
-      value: 28_700,
-    },
-    taskOrders: [
-      { id: 'srcab-aqtc-to-1', phase: 'FG', number: 'WO 01', value: 28_700.0 },
-    ],
-  },
-  {
-    id: 'srcab-rsin',
-    code: 'RSIN',
-    name: 'Rusin Drafting',
-    clientId: 'srcab',
-    authorized: 180_000,
-    spent: 82_400,
-    contract: {
-      refName: 'Structural Drafting Services Agreement',
-      executedOn: 'Nov 02, 2024',
-      value: 180_000,
-    },
-    taskOrders: [
-      { id: 'srcab-rsin-to-1', phase: 'F3', number: 'WO 04', value: 55_800.0 },
-      { id: 'srcab-rsin-to-2', phase: 'F6', number: 'WO 02', value: 26_600.0 },
-    ],
-    changeOrders: [
-      { id: 'srcab-rsin-co-1', number: 'CO-001', value: 2_254.0 },
-      { id: 'srcab-rsin-co-2', number: 'CO-002', value: 3_880.01 },
-      { id: 'srcab-rsin-co-3', number: 'CO-003', value: 20_290.26 },
-    ],
-  },
-
-  // --- Highlands Creek Authority — secondary entity, flat per-vendor ---
-  {
-    id: 'hca-apex',
-    code: 'APEX',
-    name: 'Apex Civil Construction',
-    clientId: 'hca',
-    authorized: 780_000,
-    spent: 734_820,
-  },
-  {
-    id: 'hca-meri',
-    code: 'MERI',
-    name: 'Meridian Engineering',
-    clientId: 'hca',
-    authorized: 180_000,
-    spent: 112_480,
-  },
-  {
-    id: 'hca-dlta',
-    code: 'DLTA',
-    name: 'Delta Underground Utilities',
-    clientId: 'hca',
-    authorized: 240_000,
-    spent: 181_200,
-  },
-  {
-    id: 'hca-slno',
-    code: 'SLNO',
-    name: 'Solano Surveying',
-    clientId: 'hca',
-    authorized: 50_000,
-    spent: 21_650,
-  },
-
-  // --- Downtown BID — smallest, flat per-vendor ---
-  {
-    id: 'dbi-apex',
-    code: 'APEX',
-    name: 'Apex Civil Construction',
-    clientId: 'dbi',
-    authorized: 180_000,
-    spent: 71_200,
-  },
-  {
-    id: 'dbi-slno',
-    code: 'SLNO',
-    name: 'Solano Surveying',
-    clientId: 'dbi',
-    authorized: 40_000,
-    spent: 14_800,
-  },
-  {
-    id: 'dbi-meri',
-    code: 'MERI',
-    name: 'Meridian Engineering',
-    clientId: 'dbi',
-    authorized: 60_000,
-    spent: 42_830,
-  },
-]
+export const vendors: ReadonlyArray<Vendor> = []
 
 // ---- Helpers ----
 
@@ -899,7 +298,9 @@ export function getClientById(clientId: string | undefined): Client {
   return clients.find((c) => c.id === clientId) ?? clients[0]
 }
 
-export function getKnownClientById(clientId: string | undefined): Client | null {
+export function getKnownClientById(
+  clientId: string | undefined,
+): Client | null {
   return clients.find((c) => c.id === clientId) ?? null
 }
 
@@ -998,8 +399,8 @@ export function formatRef(input: {
 
 /**
  * Prefer the live Schedio-assigned ref off the snapshot; otherwise rebuild
- * from the verification's mock seq. Centralised so /processing, /dashboard,
- * /confirmation, and the AppShell topbar all show the same value.
+ * from the configured verification sequence. Centralised so /processing,
+ * /dashboard, /confirmation, and the AppShell topbar all show the same value.
  */
 export function displayRef(input: {
   snapshotRef?: string | null
@@ -1013,6 +414,14 @@ export function displayRef(input: {
     year: input.verification.year,
     seq: input.verification.seq,
   })
+}
+
+export function displaySubmissionCycle(verification: Verification): string {
+  const n = String(verification.number).padStart(2, '0')
+  if (/developer reimbursement/i.test(verification.period)) {
+    return `Reimbursement cycle ${n}`
+  }
+  return `Review cycle ${n}`
 }
 
 export function formatCurrency(value: number): string {
@@ -1154,7 +563,7 @@ export function sumChangeOrders(changeOrders?: ReadonlyArray<ChangeOrder>) {
   return (changeOrders ?? []).reduce((s, co) => s + co.value, 0)
 }
 
-/* ───────────────────────────── Users & access (mock) ───────────────────────────── */
+/* ───────────────────────────── Users & access ───────────────────────────── */
 
 export type AccessRole =
   | 'sg_admin'
@@ -1182,28 +591,7 @@ export type PendingUser = {
   expiresInHours: number
 }
 
-export const pendingUsers: ReadonlyArray<PendingUser> = [
-  {
-    id: 'jchen',
-    initials: 'JC',
-    name: 'Jordan Chen',
-    affiliation: 'Apex Construction · External',
-    email: 'jchen@apexcon.example',
-    requestedRole: 'client_mgr',
-    entityCode: 'HCA',
-    expiresInHours: 38,
-  },
-  {
-    id: 'mrodriguez',
-    initials: 'MR',
-    name: 'Maya Rodriguez',
-    affiliation: 'SR Metro Board · Trustee',
-    email: 'm.rodriguez@srmetro.example',
-    requestedRole: 'client_viewer',
-    entityCode: 'SRM',
-    expiresInHours: 64,
-  },
-]
+export const pendingUsers: ReadonlyArray<PendingUser> = []
 
 export type MfaState = 'enabled' | 'not_set'
 
@@ -1219,57 +607,9 @@ export type ActiveUser = {
   isYou?: boolean
 }
 
-export const activeUsers: ReadonlyArray<ActiveUser> = [
-  {
-    id: 'amy-lee',
-    initials: 'AL',
-    name: 'Amy Lee',
-    email: 'amy.lee@districts.example',
-    role: 'entity_owner',
-    entityCodes: ['HCA', 'SRC', 'DBI'],
-    mfa: 'enabled',
-    lastSignInLabel: '2m ago',
-    isYou: true,
-  },
-  {
-    id: 'd-kim',
-    initials: 'DK',
-    name: 'Daniel Kim',
-    email: 'd.kim@districts.example',
-    role: 'client_mgr',
-    entityCodes: ['HCA'],
-    mfa: 'enabled',
-    lastSignInLabel: '1d ago',
-  },
-  {
-    id: 'p-tan',
-    initials: 'PT',
-    name: 'Priya Tan',
-    email: 'p.tan@srmetro.example',
-    role: 'client_mgr',
-    entityCodes: ['SRC'],
-    mfa: 'not_set',
-    lastSignInLabel: '8d ago',
-  },
-  {
-    id: 's-park',
-    initials: 'SP',
-    name: 'Sam Park',
-    email: 'sam@apexcon.example',
-    role: 'client_viewer',
-    entityCodes: ['HCA'],
-    mfa: 'enabled',
-    lastSignInLabel: '23d ago',
-  },
-]
+/* ───────────────────────────── Audit log ───────────────────────────── */
 
-/* ───────────────────────────── Audit log (mock) ───────────────────────────── */
-
-export type AuditCategory =
-  | 'auth'
-  | 'documents'
-  | 'verifications'
-  | 'access'
+export type AuditCategory = 'auth' | 'documents' | 'verifications' | 'access'
 
 export type AuditResult = 'ok' | 'override' | 'flagged' | 'pending' | 'failed'
 
@@ -1293,104 +633,4 @@ export type AuditEvent = {
   category: AuditCategory
 }
 
-export const auditEvents: ReadonlyArray<AuditEvent> = [
-  {
-    id: 'a-001',
-    timeLabel: 'Feb 06 · 10:43',
-    clientId: 'srcab',
-    actor: 'System',
-    event: 'Verification submitted',
-    object: 'SGD-DP-V4-2026-0011',
-    result: 'ok',
-    ip: '—',
-    category: 'verifications',
-  },
-  {
-    id: 'a-002',
-    timeLabel: 'Feb 06 · 10:43',
-    clientId: 'srcab',
-    actor: 'Amy Lee',
-    event: 'Confirmation acknowledged',
-    object: 'SGD-DP-V4-2026-0011',
-    result: 'ok',
-    ip: '98.21.×.×',
-    category: 'verifications',
-  },
-  {
-    id: 'a-003',
-    timeLabel: 'Feb 06 · 10:43',
-    clientId: 'srcab',
-    actor: 'Amy Lee',
-    event: 'Duplicate kept (override)',
-    object: 'INV-MERI-2026-002',
-    result: 'override',
-    ip: '98.21.×.×',
-    category: 'documents',
-  },
-  {
-    id: 'a-004',
-    timeLabel: 'Feb 06 · 10:42',
-    clientId: 'srcab',
-    actor: 'System',
-    event: 'Duplicate detected',
-    object: '3 files',
-    result: 'flagged',
-    ip: '—',
-    category: 'documents',
-  },
-  {
-    id: 'a-005',
-    timeLabel: 'Feb 06 · 10:41',
-    clientId: 'srcab',
-    actor: 'Amy Lee',
-    event: 'Files uploaded',
-    object: '11 files · 28.7 MB',
-    result: 'ok',
-    ip: '98.21.×.×',
-    category: 'documents',
-  },
-  {
-    id: 'a-006',
-    timeLabel: 'Feb 04 · 14:08',
-    clientId: 'srcab',
-    actor: 'SG PM (T. Reyes)',
-    event: 'V3 status changed',
-    object: 'SGD-DP-V3 → Under Review',
-    result: 'ok',
-    ip: '10.0.×.×',
-    category: 'verifications',
-  },
-  {
-    id: 'a-007',
-    timeLabel: 'Feb 02 · 09:11',
-    clientId: 'hca',
-    actor: 'Amy Lee',
-    event: 'User invited',
-    object: 'jchen@apexcon.example',
-    result: 'pending',
-    ip: '98.21.×.×',
-    category: 'access',
-  },
-  {
-    id: 'a-008',
-    timeLabel: 'Jan 28 · 16:55',
-    clientId: 'hca',
-    actor: 'SG Admin',
-    event: 'Entity Owner set',
-    object: 'HCA → Amy Lee',
-    result: 'ok',
-    ip: '10.0.×.×',
-    category: 'access',
-  },
-  {
-    id: 'a-009',
-    timeLabel: 'Jan 24 · 22:12',
-    clientId: 'srcab',
-    actor: 'Anonymous',
-    event: 'Sign-in attempt',
-    object: 'amy.lee@districts.example',
-    result: 'failed',
-    ip: '203.×.×.×',
-    category: 'auth',
-  },
-]
+export const auditEvents: ReadonlyArray<AuditEvent> = []

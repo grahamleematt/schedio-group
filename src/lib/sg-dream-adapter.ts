@@ -24,6 +24,7 @@ export function storedToDisplay(doc: StoredDocument): Document {
   return {
     id: doc.id,
     verificationId: doc.verificationId,
+    sourceKind: doc.sourceKind,
     docType: doc.docType,
     vendor: vendorCode(vendorName),
     vendorName,
@@ -34,6 +35,10 @@ export function storedToDisplay(doc: StoredDocument): Document {
     duplicateFlag: doc.duplicateFlag,
     matchedPreviousName: doc.matchedPreviousName,
     matchedVerificationRef: doc.matchedVerificationRef,
+    egnyteIncomingPath: doc.egnyteIncomingPath,
+    egnyteSourcePath: doc.egnyteSourcePath,
+    egnyteEntryId: doc.egnyteEntryId,
+    egnyteGroupId: doc.egnyteGroupId,
     egnyteClassifiedPath: doc.egnyteClassifiedPath,
     egnyteWebUrl: doc.egnyteWebUrl,
     custodyState: doc.custodyState,
@@ -64,21 +69,20 @@ export type LiveTotals = {
 }
 
 /**
- * Returns the verification totals to render in the UI. Prefers live snapshot
- * data (real uploads through the DocuPipe pipeline) over the static mock
- * fixtures so entities with real activity (e.g. Downtown BID) show their
- * actual queue depth and submitted cost, not the seeded numbers.
+ * Returns the verification totals to render in the UI. The customer-facing
+ * app should reflect what Tim has actually uploaded, so an empty server
+ * snapshot renders as a real empty state.
  */
 export function liveVerificationTotals(input: {
   snapshot: DreamSnapshot | null | undefined
-  mockDocsCount: number
-  mockCostsSubmitted: number
+  fallbackDocsCount: number
+  fallbackCostsSubmitted: number
 }): LiveTotals {
   const docs = input.snapshot?.verification.documents ?? []
   if (docs.length === 0) {
     return {
-      docsCount: input.mockDocsCount,
-      costsSubmitted: input.mockCostsSubmitted,
+      docsCount: 0,
+      costsSubmitted: 0,
       hasLiveAmounts: false,
       hasLiveDocs: false,
     }

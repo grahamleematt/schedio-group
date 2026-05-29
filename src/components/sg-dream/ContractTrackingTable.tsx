@@ -235,7 +235,8 @@ function VendorRows({
               className="flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-2.5 text-sm"
               style={{
                 background: 'var(--color-util-amend-soft)',
-                borderColor: 'color-mix(in oklab, var(--color-util-amend) 40%, transparent)',
+                borderColor:
+                  'color-mix(in oklab, var(--color-util-amend) 40%, transparent)',
                 color: 'var(--color-util-amend)',
               }}
             >
@@ -320,7 +321,10 @@ function VendorRows({
                       </span>
                     </p>
                   </header>
-                  <ul className="divide-y" style={{ borderColor: 'var(--color-border-base)' }}>
+                  <ul
+                    className="divide-y"
+                    style={{ borderColor: 'var(--color-border-base)' }}
+                  >
                     {phaseGroups.map((group) => (
                       <li key={group.phase} className="px-4 py-3">
                         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -388,13 +392,18 @@ function VendorRows({
                       </span>
                     </p>
                   </header>
-                  <ul className="divide-y" style={{ borderColor: 'var(--color-border-base)' }}>
+                  <ul
+                    className="divide-y"
+                    style={{ borderColor: 'var(--color-border-base)' }}
+                  >
                     {vendor.changeOrders.map((co) => (
                       <li
                         key={co.id}
                         className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 text-xs"
                       >
-                        <span className="font-mono text-text-strong">{co.number}</span>
+                        <span className="font-mono text-text-strong">
+                          {co.number}
+                        </span>
                         <span className="font-mono text-text-strong">
                           {formatCurrency(co.value)}
                         </span>

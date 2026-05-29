@@ -6,10 +6,12 @@ import {
 } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
-import { QueryClientProvider  } from '@tanstack/react-query'
-import type {QueryClient} from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query'
+import type { QueryClient } from '@tanstack/react-query'
 import Footer from '../components/Footer'
 import Header from '../components/Header'
+
+import { sessionUserQuery } from '#/lib/queries'
 
 import appCss from '../styles.css?url'
 
@@ -63,6 +65,8 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
       },
     ],
   }),
+  loader: ({ context }) =>
+    context.queryClient.ensureQueryData(sessionUserQuery()),
   shellComponent: RootDocument,
 })
 

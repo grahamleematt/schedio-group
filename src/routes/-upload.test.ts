@@ -15,7 +15,7 @@ describe('snapshotUploadFiles', () => {
       0: file,
       length: 1,
       item(index) {
-        return index === 0 ? this[0] ?? null : null
+        return index === 0 ? (this[0] ?? null) : null
       },
     }
 

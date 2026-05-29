@@ -36,7 +36,10 @@ export function CutoffCountdown({
   )
 }
 
-function styleForUrgency(urgency: CutoffUrgency, daysLeft: number): {
+function styleForUrgency(
+  urgency: CutoffUrgency,
+  daysLeft: number,
+): {
   background: string
   color: string
   border: string
@@ -47,8 +50,7 @@ function styleForUrgency(urgency: CutoffUrgency, daysLeft: number): {
     return {
       background: 'var(--color-util-amend-soft)',
       color: 'var(--color-util-amend)',
-      border:
-        'color-mix(in oklab, var(--color-util-amend) 40%, transparent)',
+      border: 'color-mix(in oklab, var(--color-util-amend) 40%, transparent)',
       icon: <AlarmClock aria-hidden className="size-3.5" />,
       text: 'Cutoff passed — contact Schedio',
     }
@@ -57,8 +59,7 @@ function styleForUrgency(urgency: CutoffUrgency, daysLeft: number): {
     return {
       background: 'var(--color-util-amend-soft)',
       color: 'var(--color-util-amend)',
-      border:
-        'color-mix(in oklab, var(--color-util-amend) 40%, transparent)',
+      border: 'color-mix(in oklab, var(--color-util-amend) 40%, transparent)',
       icon: <AlarmClock aria-hidden className="size-3.5" />,
       text:
         daysLeft <= 0
@@ -70,8 +71,7 @@ function styleForUrgency(urgency: CutoffUrgency, daysLeft: number): {
     return {
       background: 'var(--color-util-monitor-soft)',
       color: 'var(--color-util-monitor)',
-      border:
-        'color-mix(in oklab, var(--color-util-monitor) 40%, transparent)',
+      border: 'color-mix(in oklab, var(--color-util-monitor) 40%, transparent)',
       icon: <TimerReset aria-hidden className="size-3.5" />,
       text: `Closes in ${daysLeft} days`,
     }

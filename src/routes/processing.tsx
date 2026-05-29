@@ -18,20 +18,22 @@ type ProcessingSearch = {
 
 export const Route = createFileRoute('/processing')({
   validateSearch: (s: Record<string, unknown>): ProcessingSearch => ({
-    client: typeof s.client === 'string' ? s.client : 'srcab',
+    client: typeof s.client === 'string' ? s.client : 'dawson-trails-md1',
     verification:
-      typeof s.verification === 'string' ? s.verification : 'srcab-v4',
+      typeof s.verification === 'string'
+        ? s.verification
+        : 'dawson-trails-md1-v1',
   }),
   loader: ({ context, location }) => {
     const search = location.search as ProcessingSearch
     const requestedClient =
-      typeof search.client === 'string' ? search.client : 'srcab'
+      typeof search.client === 'string' ? search.client : 'dawson-trails-md1'
     const knownClient = clients.find((c) => c.id === requestedClient)
     if (!knownClient) {
-      const open = getOpenVerification('srcab')
+      const open = getOpenVerification('dawson-trails-md1')
       throw redirect({
         to: '/processing',
-        search: { client: 'srcab', verification: open.id },
+        search: { client: 'dawson-trails-md1', verification: open.id },
       })
     }
     const clientId = knownClient.id
@@ -107,11 +109,7 @@ function deriveSteps(docs: ReadonlyArray<StoredDocument>): ReadonlyArray<Step> {
     label: 'Applying naming convention',
     detail: `Standard filing names prepared · ${renamedCount} / ${total}`,
     state:
-      renamedCount === total
-        ? 'done'
-        : renamedCount > 0
-          ? 'running'
-          : 'idle',
+      renamedCount === total ? 'done' : renamedCount > 0 ? 'running' : 'idle',
   }
 
   // Step 3 — Classification.
@@ -132,9 +130,7 @@ function deriveSteps(docs: ReadonlyArray<StoredDocument>): ReadonlyArray<Step> {
     detail:
       completed === total
         ? `${completed} / ${total} documents checked${
-            totalBytes > 0
-              ? ` · $${totalBytes.toLocaleString()} captured`
-              : ''
+            totalBytes > 0 ? ` · $${totalBytes.toLocaleString()} captured` : ''
           }`
         : `${completed} / ${total} documents checked${
             inFlight > 0 ? ` · ${inFlight} in progress` : ''
@@ -151,11 +147,7 @@ function deriveSteps(docs: ReadonlyArray<StoredDocument>): ReadonlyArray<Step> {
 
   // Step 5 — Duplicate check. Pauses when any flagged dupes are present.
   const duplicateState: StepState =
-    completed === total
-      ? flaggedCount > 0
-        ? 'paused'
-        : 'done'
-      : 'idle'
+    completed === total ? (flaggedCount > 0 ? 'paused' : 'done') : 'idle'
   const duplicate: Step = {
     label: 'Checking against previously submitted documents',
     detail:
@@ -186,14 +178,7 @@ function deriveSteps(docs: ReadonlyArray<StoredDocument>): ReadonlyArray<Step> {
     extraction.state = extraction.state === 'done' ? 'done' : 'error'
   }
 
-  return [
-    receiving,
-    naming,
-    classification,
-    extraction,
-    duplicate,
-    packageStep,
-  ]
+  return [receiving, naming, classification, extraction, duplicate, packageStep]
 }
 
 function statusPill(status: StoredDocument['status']) {
@@ -278,7 +263,7 @@ function ProcessingPage() {
               <FileQuestion className="size-6" />
             </span>
             <p className="m-0 font-ops text-[15px] font-semibold text-ink">
-              No documents queued for V{verification.number}
+              No documents queued for this submission
             </p>
             <p className="m-0 max-w-md text-[13px] text-muted-1">
               Upload one or more files to kick off classification, extraction,

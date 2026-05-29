@@ -8,7 +8,7 @@
  * upload server function.
  *
  * Writes use a small revision-guarded retry loop so two concurrent writers
- * don't lose each other's updates. Three attempts is enough for the demo:
+ * don't lose each other's updates. Three attempts is enough for the review app:
  * if all three lose the CAS we throw and the webhook returns a non-fatal
  * `200` (its caller swallows handler errors so Svix doesn't hammer us).
  */
@@ -127,8 +127,7 @@ class KvStore implements DreamStore {
         ? { ...existing, ...doc, updatedAt: new Date().toISOString() }
         : { ...doc, updatedAt: new Date().toISOString() }
       state.documents[merged.id] = merged
-      const list =
-        state.documentsByVerification[merged.verificationId] ?? []
+      const list = state.documentsByVerification[merged.verificationId] ?? []
       if (!list.includes(merged.id)) list.push(merged.id)
       state.documentsByVerification[merged.verificationId] = list
       return merged

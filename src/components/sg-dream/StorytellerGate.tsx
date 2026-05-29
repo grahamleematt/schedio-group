@@ -1,7 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { AlertTriangle, ArrowRight, CircleAlert, Sparkles } from 'lucide-react'
 import type { Client, User, Verification, Workflow } from '#/lib/sg-dream'
-import { workflowConfigs } from '#/lib/sg-dream'
+import { displaySubmissionCycle, workflowConfigs } from '#/lib/sg-dream'
 
 type StorytellerGateProps = {
   user: User
@@ -35,6 +35,7 @@ export function StorytellerGate({
 }: StorytellerGateProps) {
   const config = workflowConfigs[workflow]
   const needsReview = lowConfidenceFieldCount > 0
+  const reviewCycle = displaySubmissionCycle(verification)
 
   return (
     <section
@@ -64,7 +65,7 @@ export function StorytellerGate({
             </p>
             <p className="opacity-80">
               AI may draft extractions but cannot grant reliance. A Schedio
-              engineer must verify the flagged fields before this verification
+              engineer must verify the flagged fields before this submission
               moves to dashboard.
             </p>
           </div>
@@ -94,11 +95,8 @@ export function StorytellerGate({
               <span className="text-[color:var(--wf-strong)]">
                 {client.name}
               </span>{' '}
-              — a {config.label} entity — for Verification No.{' '}
-              <span className="text-[color:var(--wf-strong)]">
-                {verification.number}
-              </span>
-              , {verification.period}.
+              — a {config.label} entity — for a draft submission in{' '}
+              {reviewCycle}.
             </h2>
             <p className="text-sm text-text-muted">
               Your cutoff is{' '}

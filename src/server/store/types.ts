@@ -56,6 +56,8 @@ export type StoredDocument = {
   id: string
   clientId: string
   verificationId: string
+  /** Where this document entered SG DREAM. */
+  sourceKind?: 'upload' | 'egnyte_import'
   originalName: string
   /** Stable label the UI falls back to until `extractedFields` populates. */
   displayName: string
@@ -85,8 +87,21 @@ export type StoredDocument = {
   egnyteClassifiedPath?: string
   /** Egnyte GUID (stable across moves / renames). */
   egnyteGuid?: string
+  /** Egnyte source path used when the file was imported instead of uploaded. */
+  egnyteSourcePath?: string
+  /** Egnyte entry_id for the specific file version imported. */
+  egnyteEntryId?: string
+  /** Egnyte group_id for the logical file across versions. */
+  egnyteGroupId?: string
+  /** Egnyte checksum, when returned by list/upload APIs. */
+  egnyteChecksum?: string
   /** Pre-built human-facing Egnyte Web URL (computed server-side). */
   egnyteWebUrl?: string
+  /** MIME type and size captured at intake time. */
+  mimeType?: string
+  sizeBytes?: number
+  /** Import job that created this row, when the source is Egnyte. */
+  importJobId?: string
 
   /** DocuPipe Visual Review URL (yellow-box overlay image). */
   visualReviewUrl?: string
@@ -122,12 +137,7 @@ export type AuditCategory =
   | 'access'
   | 'system'
 
-export type AuditResult =
-  | 'ok'
-  | 'override'
-  | 'flagged'
-  | 'pending'
-  | 'failed'
+export type AuditResult = 'ok' | 'override' | 'flagged' | 'pending' | 'failed'
 
 export type AuditSource = 'docupipe' | 'egnyte' | 'system' | 'user'
 
@@ -192,7 +202,7 @@ export type DreamStoreState = {
  * webhook's renaming step a single store call regardless of backend.
  */
 export type DreamStore = {
-  /** Seed from prior-filing mock data on first boot if empty. */
+  /** Seed from configured intake data on first boot if empty. */
   init: () => Promise<void>
 
   ensureVerification: (input: {

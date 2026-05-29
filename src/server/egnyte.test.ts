@@ -1,17 +1,23 @@
 import { describe, expect, it } from 'vitest'
 
-import { EgnyteError, encodeEgnytePath, isDestinationExistsError } from './egnyte'
+import {
+  EgnyteError,
+  encodeEgnytePath,
+  isDestinationExistsError,
+} from './egnyte'
 
 describe('encodeEgnytePath', () => {
   it('preserves forward slashes but encodes path segments', () => {
-    expect(encodeEgnytePath('/Shared/Clients/SRC/SGD-DP-V4-2026-0001/Incoming')).toBe(
-      '/Shared/Clients/SRC/SGD-DP-V4-2026-0001/Incoming',
-    )
+    expect(
+      encodeEgnytePath('/Shared/Clients/SRC/SGD-DP-V4-2026-0001/Incoming'),
+    ).toBe('/Shared/Clients/SRC/SGD-DP-V4-2026-0001/Incoming')
   })
 
   it('percent-encodes spaces and punctuation inside segments', () => {
     expect(
-      encodeEgnytePath('/Shared/Clients/SRC/SGD-DP-V4-2026-0001/Incoming/Invoice #12.pdf'),
+      encodeEgnytePath(
+        '/Shared/Clients/SRC/SGD-DP-V4-2026-0001/Incoming/Invoice #12.pdf',
+      ),
     ).toBe(
       '/Shared/Clients/SRC/SGD-DP-V4-2026-0001/Incoming/Invoice%20%2312.pdf',
     )
@@ -69,7 +75,9 @@ describe('SG DREAM folder convention', () => {
     expect(encodeEgnytePath(`${incoming}/original.pdf`)).toBe(
       '/Shared/Clients/SRC/SGD-DP-V4-2026-0001/Incoming/original.pdf',
     )
-    expect(encodeEgnytePath(`${classified}/2026-03-15_INV_Rusin_12345_1000.00.pdf`)).toBe(
+    expect(
+      encodeEgnytePath(`${classified}/2026-03-15_INV_Rusin_12345_1000.00.pdf`),
+    ).toBe(
       '/Shared/Clients/SRC/SGD-DP-V4-2026-0001/Classified/INV/2026-03-15_INV_Rusin_12345_1000.00.pdf',
     )
   })

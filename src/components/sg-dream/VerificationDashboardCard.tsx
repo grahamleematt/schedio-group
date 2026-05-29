@@ -1,5 +1,5 @@
 import type { Verification } from '#/lib/sg-dream'
-import { formatCurrency } from '#/lib/sg-dream'
+import { displaySubmissionCycle, formatCurrency } from '#/lib/sg-dream'
 import { VerificationPill } from './VerificationPill'
 
 type VerificationDashboardCardProps = {
@@ -17,6 +17,7 @@ export function VerificationDashboardCard({
   costsSubmitted,
   workAuthValue,
 }: VerificationDashboardCardProps) {
+  const reviewCycle = displaySubmissionCycle(verification)
   const stats = [
     { label: 'Documents uploaded', value: docsUploaded.toString() },
     { label: 'Document types', value: docTypeCount.toString() },
@@ -55,12 +56,12 @@ export function VerificationDashboardCard({
             <div className="flex flex-wrap items-center gap-2">
               <VerificationPill
                 number={verification.number}
-                period={verification.period}
+                period={reviewCycle}
               />
               <span className="status-pill-open">Currently open</span>
             </div>
             <h2 className="font-ops text-xl font-semibold tracking-[-0.02em] text-text-strong">
-              Verification No. {verification.number} · {verification.period}
+              Draft submission · {reviewCycle}
             </h2>
             <p className="text-sm text-text-muted">
               Cutoff {verification.cutoffDate}. Schedio Group will assign a
