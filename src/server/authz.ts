@@ -1,4 +1,4 @@
-import { currentUser } from '#/lib/sg-dream'
+import { currentUser, initialsFromName } from '#/lib/sg-dream'
 import type { User } from '#/lib/sg-dream'
 import { dbQuery } from '#/server/database'
 import {
@@ -52,17 +52,6 @@ async function workOsAuthUser(): Promise<{
   }
 }
 
-function initialsFor(name: string): string {
-  const parts = name
-    .split(/\s+/)
-    .map((part) => part.trim())
-    .filter(Boolean)
-  return parts
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? '')
-    .join('')
-}
-
 async function accessFromDatabase(input: {
   workosUserId?: string
   email?: string
@@ -93,7 +82,7 @@ async function accessFromDatabase(input: {
     return {
       id: first.id,
       workosUserId: first.workos_user_id ?? undefined,
-      initials: initialsFor(first.name),
+      initials: initialsFromName(first.name),
       name: first.name,
       email: first.email,
       role: first.role,

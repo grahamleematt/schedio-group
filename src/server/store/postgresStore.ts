@@ -494,8 +494,8 @@ class PostgresStore implements DreamStore {
       `select id, client_id, ref from dream_verifications where id = $1`,
       [verificationId],
     )
+    if (header.rows.length === 0) return null
     const verificationRow = header.rows[0]
-    if (!verificationRow) return null
 
     const docs = await dbQuery<DocumentRow>(
       `

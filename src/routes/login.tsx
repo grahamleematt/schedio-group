@@ -1,12 +1,5 @@
-import { Link, createFileRoute } from '@tanstack/react-router'
-import {
-  ArrowRight,
-  CircleHelp,
-  KeyRound,
-  LockKeyhole,
-  Mail,
-  ShieldCheck,
-} from 'lucide-react'
+import { createFileRoute } from '@tanstack/react-router'
+import { ArrowRight, CircleHelp, Mail, ShieldCheck } from 'lucide-react'
 
 type LoginSearch = {
   error?: 'bad_creds' | 'auth_failed' | 'workos_missing'
@@ -25,15 +18,23 @@ export const Route = createFileRoute('/login')({
   component: LoginPage,
 })
 
+// No hardcoded recipient — Schedio's admin address isn't known to the client.
+// Mirrors the access-request affordance on /blocked.
+const supportMailto = `mailto:?subject=${encodeURIComponent(
+  'SG DREAM sign-in help',
+)}&body=${encodeURIComponent(
+  'I need help accessing my SG DREAM workspace.\n\nName:\nOrganization / entity:\n',
+)}`
+
 function LoginPage() {
   const { error } = Route.useSearch()
   const hasError = Boolean(error)
   const errorCopy =
     error === 'workos_missing'
-      ? 'WorkOS is not configured in this environment yet. Add the WorkOS env vars, then restart the server.'
+      ? 'Single sign-on isn’t configured in this environment yet. Add the WorkOS keys, then restart the server.'
       : error === 'auth_failed'
-        ? 'WorkOS could not complete this sign-in. Try again or confirm the callback URL in the WorkOS dashboard.'
-        : 'We couldn’t verify those credentials. Check your email or request a password reset.'
+        ? 'WorkOS couldn’t complete that sign-in. Try again, or confirm the callback URL in the WorkOS dashboard.'
+        : 'We couldn’t verify that sign-in. Try again, or contact Schedio Group to confirm your access.'
 
   return (
     <main className="stage login-stage" data-workflow="district_dp">
@@ -50,9 +51,9 @@ function LoginPage() {
         <h2 className="mt-6 font-ops text-[20px] font-semibold tracking-[-0.02em] text-ink">
           Sign in to your workspace
         </h2>
-        <p className="text-ink-2 mt-1 text-[12.5px]">
-          Access is invitation-only. Schedio Group manages every entity in this
-          portal.
+        <p className="text-ink-2 mt-1 text-[12.5px] leading-snug">
+          Access is invitation-only. Schedio Group provisions every entity and
+          identity through WorkOS single sign-on.
         </p>
 
         {hasError ? (
@@ -65,89 +66,46 @@ function LoginPage() {
           </div>
         ) : null}
 
-        <form
-          onSubmit={(e) => e.preventDefault()}
-          className="mt-3"
-          aria-label="Sign in"
+        <a
+          href="/api/auth/sign-in?returnPathname=/clients"
+          className="v2-btn primary lg mt-5 w-full justify-center"
         >
-          <label className="field-block" htmlFor="login-email">
-            <span className="field-label">Email</span>
-            <span className="field-input">
-              <Mail className="text-muted-1 size-4" aria-hidden />
-              <input
-                id="login-email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                defaultValue="tim.mccarley@schedio.example"
-              />
-            </span>
-          </label>
+          Continue with WorkOS
+          <ArrowRight className="size-4" aria-hidden />
+        </a>
+        <p className="text-muted-1 mt-2 flex items-center justify-center gap-1.5 text-[11px]">
+          <ShieldCheck className="size-3.5" aria-hidden />
+          Secured by WorkOS — your password is never stored by SG DREAM.
+        </p>
 
-          <label className="field-block" htmlFor="login-password">
-            <span className="field-label">Password</span>
-            <span className="field-input">
-              <LockKeyhole className="text-muted-1 size-4" aria-hidden />
-              <input
-                id="login-password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                defaultValue="••••••••••"
-              />
-            </span>
-          </label>
-
-          <div className="field-block">
-            <div className="login-reset-head">
-              <span className="field-label">Password reset</span>
-              <span className="login-help">
-                <button
-                  type="button"
-                  className="login-help-button"
-                  aria-label="Password resets are managed by SG Admin after identity verification."
-                >
-                  <CircleHelp className="size-3.5" aria-hidden />
-                </button>
-                <span className="login-tooltip" role="tooltip">
-                  SG Admin verifies identity and sends a reset invitation.
-                </span>
-              </span>
-            </div>
-            <Link
-              to="/login"
-              search={{ error: undefined }}
-              className="login-reset-field"
+        <div className="login-reset-head mt-5">
+          <span className="field-label">Trouble signing in?</span>
+          <span className="login-help">
+            <button
+              type="button"
+              className="login-help-button"
+              aria-label="Schedio Admin verifies identity and manages access and password resets through WorkOS."
             >
-              <span className="login-reset-copy">
-                <KeyRound className="size-4" aria-hidden />
-                Request reset invitation
-              </span>
-              <ArrowRight className="size-4" aria-hidden />
-            </Link>
-          </div>
+              <CircleHelp className="size-3.5" aria-hidden />
+            </button>
+            <span className="login-tooltip" role="tooltip">
+              Schedio Admin verifies identity and manages access and password
+              resets through WorkOS.
+            </span>
+          </span>
+        </div>
+        <a href={supportMailto} className="login-reset-field">
+          <span className="login-reset-copy">
+            <Mail className="size-4" aria-hidden />
+            Email Schedio Admin
+          </span>
+          <ArrowRight className="size-4" aria-hidden />
+        </a>
 
-          <a
-            href="/api/auth/sign-in?returnPathname=/clients"
-            className="v2-btn primary mt-2 w-full justify-center"
-          >
-            Continue with WorkOS
-            <ArrowRight className="size-4" aria-hidden />
-          </a>
-
-          <div className="login-trust">
-            <ShieldCheck className="size-3.5" aria-hidden />
-            MFA encouraged for every entity owner
-          </div>
-
-          <Link
-            to="/login"
-            search={{ error: 'bad_creds' }}
-            className="login-preview-link"
-          >
-            Preview error state
-          </Link>
-        </form>
+        <div className="login-trust">
+          <ShieldCheck className="size-3.5" aria-hidden />
+          Invitation-only · MFA encouraged · administered by Schedio Group
+        </div>
       </div>
     </main>
   )

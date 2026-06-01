@@ -495,9 +495,9 @@ export function summarizeDocTypes(
   })
 }
 
-// ---- Countdown helpers (used by CutoffCountdown) ----
-
-export type CutoffUrgency = 'healthy' | 'warning' | 'critical' | 'passed'
+// ---- Countdown helpers ----
+// `daysUntilCutoff` powers the cutoff "days left" pills on /dashboard and
+// /verifications.
 
 const MOCKUP_TODAY_ISO = '2026-04-16'
 
@@ -515,21 +515,6 @@ export function daysUntilCutoff(
   const today = isoDateToUtcMs(todayISO)
   if (Number.isNaN(target) || Number.isNaN(today)) return 0
   return Math.round((target - today) / (1000 * 60 * 60 * 24))
-}
-
-export function computeCutoffUrgency(cutoffDateISO: string): {
-  daysLeft: number
-  urgency: CutoffUrgency
-} {
-  const daysLeft = daysUntilCutoff(cutoffDateISO)
-
-  let urgency: CutoffUrgency
-  if (daysLeft < 0) urgency = 'passed'
-  else if (daysLeft <= 3) urgency = 'critical'
-  else if (daysLeft <= 7) urgency = 'warning'
-  else urgency = 'healthy'
-
-  return { daysLeft, urgency }
 }
 
 // ---- Task-order / change-order helpers ----
