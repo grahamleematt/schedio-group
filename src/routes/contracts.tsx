@@ -248,6 +248,19 @@ function ContractsPage() {
                   </tr>
                 )
               })}
+              {ranked.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={6}
+                    className="text-muted-1 text-center text-[12.5px]"
+                    style={{ padding: '32px 12px' }}
+                  >
+                    No vendor contracts on file for this entity yet. Schedio
+                    Group adds vendor authorizations here as contracts are
+                    executed and approved submissions post spend.
+                  </td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
         </div>

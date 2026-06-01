@@ -414,8 +414,11 @@ function IntelligenceRelationshipsPage() {
               pannable
               zoomable
               nodeStrokeWidth={3}
+              // React Flow renders the minimap to canvas, so these must be
+              // literal colors rather than CSS vars. They mirror the tokens
+              // --color-brand-blue and --color-line.
               nodeColor={(node) =>
-                node.id === selectedNodeId ? '#003da6' : '#d8dee8'
+                node.id === selectedNodeId ? '#003da6' : '#e5e9f0'
               }
             />
           </ReactFlow>

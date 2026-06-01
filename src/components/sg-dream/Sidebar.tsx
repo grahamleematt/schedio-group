@@ -20,7 +20,11 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { Client, User, Verification, Workflow } from '#/lib/sg-dream'
-import { workflowConfigs } from '#/lib/sg-dream'
+import {
+  accessRoleLabels,
+  initialsFromName,
+  workflowConfigs,
+} from '#/lib/sg-dream'
 import type { SidebarCounts } from '#/lib/session'
 
 type ActiveSection =
@@ -64,6 +68,11 @@ export function Sidebar({
     client: client.id,
     verification: activeVerification.id,
   }
+  // Render the real session identity: derive initials from the name when the
+  // server-supplied initials are blank, and label the role from the access map
+  // rather than hardcoding "Entity Owner".
+  const avatarInitials = user.initials.trim() || initialsFromName(user.name)
+  const roleLabel = accessRoleLabels[user.role]
 
   const workspace: ReadonlyArray<NavItem> = [
     {
@@ -138,11 +147,13 @@ export function Sidebar({
       />
       <div className="nav-foot">
         <div className="avatar" aria-hidden>
-          {user.initials}
+          {avatarInitials}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="nm truncate">{user.name}</div>
-          <div className="rl">Entity Owner</div>
+          <div className="nm truncate" title={user.name}>
+            {user.name}
+          </div>
+          <div className="rl">{roleLabel}</div>
         </div>
         <a
           href="/api/auth/sign-out"

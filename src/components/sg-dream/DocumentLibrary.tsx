@@ -1,4 +1,4 @@
-import { ChevronRight, Search } from 'lucide-react'
+import { ChevronRight, FileStack, Search } from 'lucide-react'
 import { docTypeLabels, docTypeOrder } from '#/lib/sg-dream'
 import type { Document, DocType } from '#/lib/sg-dream'
 import { cn } from '#/lib/utils'
@@ -122,11 +122,32 @@ export function DocumentLibrary({
 
       <div>
         {presentTypes.length === 0 ? (
-          <p className="px-5 py-8 text-center text-sm text-text-muted">
-            {normalizedQuery.length === 0
-              ? 'No documents uploaded for this submission yet.'
-              : `No documents match "${normalizedQuery}".`}
-          </p>
+          normalizedQuery.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 px-6 py-12 text-center">
+              <span
+                aria-hidden
+                className="inline-flex size-10 items-center justify-center rounded-xl"
+                style={{
+                  background: 'var(--wf-soft)',
+                  color: 'var(--wf-strong)',
+                }}
+              >
+                <FileStack className="size-5" />
+              </span>
+              <p className="m-0 font-ops text-sm font-semibold text-text-strong">
+                No documents filed yet
+              </p>
+              <p className="m-0 max-w-sm text-xs text-text-muted">
+                As you upload pay apps, invoices, and supporting files, they’ll
+                be grouped here by document type with both original and
+                standardized filing names.
+              </p>
+            </div>
+          ) : (
+            <p className="px-5 py-10 text-center text-sm text-text-muted">
+              No documents match “{normalizedQuery}”.
+            </p>
+          )
         ) : null}
 
         {presentTypes.map((docType) => {

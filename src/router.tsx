@@ -3,6 +3,7 @@ import { createRouter as createTanStackRouter } from '@tanstack/react-router'
 import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query'
 
 import { routeTree } from './routeTree.gen'
+import { RouteError, RoutePending } from './components/sg-dream/RouteStates'
 
 export function getRouter() {
   const queryClient = new QueryClient({
@@ -19,6 +20,8 @@ export function getRouter() {
     scrollRestoration: true,
     defaultPreload: 'intent',
     defaultPreloadStaleTime: 0,
+    defaultPendingComponent: RoutePending,
+    defaultErrorComponent: RouteError,
     context: { queryClient },
   })
 

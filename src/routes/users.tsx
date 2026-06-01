@@ -1,5 +1,6 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
+import { CheckCircle2 } from 'lucide-react'
 import { AppShell } from '#/components/sg-dream/AppShell'
 import {
   accessRoleLabels,
@@ -46,6 +47,7 @@ function UsersPage() {
   // MFA enrollment, last sign-in) joined with each user's Postgres entity
   // access.
   const activeUsers = useSuspenseQuery(userDirectoryQuery()).data
+  const hasPending = pendingUsers.length > 0
 
   const rail = (
     <section className="v2-card">
@@ -99,92 +101,122 @@ function UsersPage() {
 
       <section
         className="v2-card mb-3"
-        style={{
-          borderColor: 'var(--color-amber-bd)',
-          background: 'linear-gradient(180deg, var(--color-amber-bg), #fff)',
-        }}
+        style={
+          hasPending
+            ? {
+                borderColor: 'var(--color-amber-bd)',
+                background:
+                  'linear-gradient(180deg, var(--color-amber-bg), var(--color-brand-white))',
+              }
+            : undefined
+        }
       >
         <header
           className="v2-card-head"
-          style={{
-            background: 'transparent',
-            borderBottomColor: 'var(--color-amber-bd)',
-          }}
+          style={
+            hasPending
+              ? {
+                  background: 'transparent',
+                  borderBottomColor: 'var(--color-amber-bd)',
+                }
+              : undefined
+          }
         >
-          <h3 style={{ color: 'var(--color-amber-base)' }}>
+          <h3
+            style={
+              hasPending ? { color: 'var(--color-amber-base)' } : undefined
+            }
+          >
             Pending approval · {pendingUsers.length}
           </h3>
-          <span className="sub" style={{ color: 'var(--color-amber-base)' }}>
+          <span
+            className="sub"
+            style={
+              hasPending ? { color: 'var(--color-amber-base)' } : undefined
+            }
+          >
             72-hour window
           </span>
         </header>
-        <div className="v2-table-scroll">
-          <table className="v2-tbl users-table users-table-pending">
-            <colgroup>
-              <col style={{ width: '23%' }} />
-              <col style={{ width: '26%' }} />
-              <col style={{ width: '15%' }} />
-              <col style={{ width: '11%' }} />
-              <col style={{ width: '10%' }} />
-              <col style={{ width: '15%' }} />
-            </colgroup>
-            <thead>
-              <tr>
-                <th>Requester</th>
-                <th>Email</th>
-                <th>Requested role</th>
-                <th>Entity</th>
-                <th className="num">Expires</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {pendingUsers.map((u) => (
-                <tr key={u.id}>
-                  <td>
-                    <div className="flex items-center gap-2">
-                      <Avatar initials={u.initials} />
-                      <div className="min-w-0">
-                        <div className="user-name font-semibold text-ink">
-                          {u.name}
-                        </div>
-                        <div className="user-sub text-muted-1 text-[11px]">
-                          {u.affiliation}
+        {!hasPending ? (
+          <div className="v2-card-body flex items-center gap-2 text-[12.5px] text-muted-1">
+            <CheckCircle2
+              className="size-4 shrink-0"
+              style={{ color: 'var(--color-green-base)' }}
+              aria-hidden
+            />
+            No pending approval requests. New invitations appear here for a
+            72-hour decision window before they expire.
+          </div>
+        ) : (
+          <div className="v2-table-scroll">
+            <table className="v2-tbl users-table users-table-pending">
+              <colgroup>
+                <col style={{ width: '23%' }} />
+                <col style={{ width: '26%' }} />
+                <col style={{ width: '15%' }} />
+                <col style={{ width: '11%' }} />
+                <col style={{ width: '10%' }} />
+                <col style={{ width: '15%' }} />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Requester</th>
+                  <th>Email</th>
+                  <th>Requested role</th>
+                  <th>Entity</th>
+                  <th className="num">Expires</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {pendingUsers.map((u) => (
+                  <tr key={u.id}>
+                    <td>
+                      <div className="flex items-center gap-2">
+                        <Avatar initials={u.initials} />
+                        <div className="min-w-0">
+                          <div className="user-name font-semibold text-ink">
+                            {u.name}
+                          </div>
+                          <div className="user-sub text-muted-1 text-[11px]">
+                            {u.affiliation}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </td>
-                  <td className="mono email-cell">{u.email}</td>
-                  <td>
-                    <span className="pill pill-gray">
-                      {accessRoleLabels[u.requestedRole]}
-                    </span>
-                  </td>
-                  <td>
-                    <span className="pill pill-wf">
-                      <span className="dot" />
-                      {u.entityCode}
-                    </span>
-                  </td>
-                  <td
-                    className="num mono whitespace-nowrap"
-                    style={{ color: 'var(--color-amber-base)' }}
-                  >
-                    in {u.expiresInHours}h
-                  </td>
-                  <td>
-                    <div className="flex justify-end">
-                      <span className="pill pill-amber">
-                        <span className="dot" />
-                        Awaiting owner decision
+                    </td>
+                    <td className="mono email-cell">{u.email}</td>
+                    <td>
+                      <span className="pill pill-gray">
+                        {accessRoleLabels[u.requestedRole]}
                       </span>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    </td>
+                    <td>
+                      <span className="pill pill-wf">
+                        <span className="dot" />
+                        {u.entityCode}
+                      </span>
+                    </td>
+                    <td
+                      className="num mono whitespace-nowrap"
+                      style={{ color: 'var(--color-amber-base)' }}
+                    >
+                      in {u.expiresInHours}h
+                    </td>
+                    <td>
+                      <div className="flex justify-end">
+                        <span className="pill pill-amber">
+                          <span className="dot" />
+                          Awaiting owner decision
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       <section className="v2-card mb-3">
@@ -225,10 +257,7 @@ function UsersPage() {
                         <div className="flex items-center gap-2 font-semibold text-ink">
                           <span className="user-name">{u.name}</span>
                           {u.isYou ? (
-                            <span
-                              className="pill pill-brand"
-                              style={{ fontSize: '10px' }}
-                            >
+                            <span className="pill pill-brand text-[10px]">
                               You
                             </span>
                           ) : null}
@@ -283,7 +312,7 @@ function UsersPage() {
 
       <section
         className="v2-card"
-        style={{ background: 'var(--color-brand-tint-2, #EAF1FA)' }}
+        style={{ background: 'var(--color-brand-tint-2)' }}
       >
         <div className="v2-card-body">
           <p

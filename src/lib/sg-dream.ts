@@ -444,6 +444,25 @@ export function formatPercent(value: number, digits = 0): string {
   return `${value.toFixed(digits)}%`
 }
 
+/**
+ * Derive up-to-two-letter initials from a display name. UI-side safety net for
+ * the avatar: the server computes initials when it resolves a user, but the
+ * non-DB auth fallback path overrides the name without recomputing initials,
+ * so components derive from the name they actually render. Falls back to a
+ * neutral dash when the name is empty rather than rendering a blank circle.
+ */
+export function initialsFromName(name: string): string {
+  const parts = name
+    .split(/\s+/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+  if (parts.length === 0) return '—'
+  return parts
+    .slice(0, 2)
+    .map((part) => part[0].toUpperCase())
+    .join('')
+}
+
 export function getStatusLabel(status: VerificationStatus): string {
   switch (status) {
     case 'approved':

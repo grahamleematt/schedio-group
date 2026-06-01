@@ -196,8 +196,8 @@ function AuditPage() {
             pipeline classifies, extracts, and files each document.
           </p>
           <p className="m-0 text-muted-1">
-            Auth + access rows are seeded from a historical fixture so the
-            screen renders a populated timeline pre-launch.
+            Earlier auth and access activity is shown alongside live pipeline
+            events so the ledger reads as one continuous timeline.
           </p>
         </div>
       </section>
@@ -300,8 +300,11 @@ function AuditPage() {
                   <td
                     colSpan={7}
                     className="text-muted-1 text-center text-[12.5px]"
+                    style={{ padding: '32px 12px' }}
                   >
-                    No events match the selected filter.
+                    {events.length === 0
+                      ? 'No audit events recorded for this entity yet. Activity appears here as soon as documents are submitted.'
+                      : 'No events match the selected filter.'}
                   </td>
                 </tr>
               ) : null}

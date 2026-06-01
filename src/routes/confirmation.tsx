@@ -279,7 +279,7 @@ function ConfirmationPage() {
       <section className="confirm">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="ops-label m-0 text-(--wf-ink)">
+            <p className="ops-label m-0">
               {reviewNeeded ? 'Review reference' : 'Submission reference'}
             </p>
             <p className="ref-mono mt-1">{ref}</p>

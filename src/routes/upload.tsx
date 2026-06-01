@@ -295,7 +295,7 @@ function UploadPage() {
             Files placed in this folder can be pulled into the same DocuPipe
             queue without uploading them again.
           </p>
-          <div className="rounded-md border border-line bg-paper-soft p-2 font-mono text-[11px] leading-snug text-muted-1">
+          <div className="rounded-md border border-line bg-paper-2 p-2 font-mono text-[11px] leading-snug text-muted-1">
             {egnyteIncomingFolder}
           </div>
           <button
