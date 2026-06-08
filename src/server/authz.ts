@@ -106,42 +106,24 @@ export async function resolvePortalUser(): Promise<PortalUser> {
   }
 
   const authUser = await workOsAuthUser()
-  if (isWorkOsConfigured() && !authUser) {
+  if (!authUser) {
     throw new AuthzError(401, 'sign-in required')
   }
 
+  // Identity and entity access are fully data-driven: the authenticated WorkOS
+  // user must map to a Postgres entity-access grant (by workos_user_id or
+  // email). There is no static fallback in any mode — an ungranted user is
+  // denied rather than silently inheriting the seeded reviewer's entities.
   const dbUser = await accessFromDatabase({
-    workosUserId: authUser?.id,
-    email: authUser?.email,
+    workosUserId: authUser.id,
+    email: authUser.email,
   })
   if (dbUser) return dbUser
 
-  // Strict mode fails closed: a real WorkOS user must map to a Postgres access
-  // row. No static Tim fallback, so staging/production can't authorize anyone
-  // who hasn't been explicitly granted entity access.
-  if (isStrictMode()) {
-    throw new AuthzError(
-      403,
-      'no Schedio workspace access for this user; grant access in Postgres',
-    )
-  }
-
-  const timEmail =
-    process.env.WORKOS_TIM_EMAIL ?? 'tim.mccarley@schedio.example'
-  if (
-    authUser &&
-    authUser.email &&
-    authUser.email.toLowerCase() !== timEmail.toLowerCase()
-  ) {
-    throw new AuthzError(403, 'user is not attached to this Schedio workspace')
-  }
-
-  return {
-    ...currentUser,
-    workosUserId: authUser?.id,
-    email: authUser?.email ?? currentUser.email,
-    name: authUser?.name ?? currentUser.name,
-  }
+  throw new AuthzError(
+    403,
+    'no Schedio workspace access for this user; grant access in Postgres',
+  )
 }
 
 export async function assertClientAccess(

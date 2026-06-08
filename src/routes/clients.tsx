@@ -1,4 +1,9 @@
-import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
+import {
+  Link,
+  createFileRoute,
+  redirect,
+  useNavigate,
+} from '@tanstack/react-router'
 import { useQueries } from '@tanstack/react-query'
 import { ArrowRight } from 'lucide-react'
 import {
@@ -27,8 +32,12 @@ export const Route = createFileRoute('/clients')({
     // Warm the open-verification snapshot for every entity the user can see,
     // so each entity card can render its actual "Docs in queue" count.
     const user = await context.queryClient.ensureQueryData(sessionUserQuery())
-    const permittedIds = user?.permittedClientIds ?? []
-    const permitted = clients.filter((c) => permittedIds.includes(c.id))
+    if (!user) {
+      throw redirect({ to: '/login' })
+    }
+    const permitted = clients.filter((c) =>
+      user.permittedClientIds.includes(c.id),
+    )
     return Promise.all(
       permitted.map((c) =>
         context.queryClient.ensureQueryData(
