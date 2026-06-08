@@ -488,6 +488,26 @@ class PostgresStore implements DreamStore {
     return result.rows[0] ? rowToDocument(result.rows[0]) : null
   }
 
+  async deleteDocument(id: string): Promise<StoredDocument | null> {
+    await this.init()
+    const result = await dbQuery<DocumentRow>(
+      `delete from dream_documents where id = $1 returning *`,
+      [id],
+    )
+    return result.rows[0] ? rowToDocument(result.rows[0]) : null
+  }
+
+  async deleteVerificationDocuments(
+    verificationId: string,
+  ): Promise<ReadonlyArray<StoredDocument>> {
+    await this.init()
+    const result = await dbQuery<DocumentRow>(
+      `delete from dream_documents where verification_id = $1 returning *`,
+      [verificationId],
+    )
+    return result.rows.map(rowToDocument)
+  }
+
   async getSnapshot(verificationId: string): Promise<DreamSnapshot | null> {
     await this.init()
     const header = await dbQuery<VerificationRow>(

@@ -149,6 +149,37 @@ class JsonFileStore implements DreamStore {
     return null
   }
 
+  async deleteDocument(id: string): Promise<StoredDocument | null> {
+    await this.init()
+    const existing = this.state.documents[id]
+    if (!existing) return null
+    delete this.state.documents[id]
+    const list = this.state.documentsByVerification[existing.verificationId]
+    if (list) {
+      this.state.documentsByVerification[existing.verificationId] = list.filter(
+        (docId) => docId !== id,
+      )
+    }
+    await this.flush()
+    return existing
+  }
+
+  async deleteVerificationDocuments(
+    verificationId: string,
+  ): Promise<ReadonlyArray<StoredDocument>> {
+    await this.init()
+    const ids = this.state.documentsByVerification[verificationId] ?? []
+    const removed: Array<StoredDocument> = []
+    for (const id of ids) {
+      const doc = this.state.documents[id]
+      if (doc) removed.push(doc)
+      delete this.state.documents[id]
+    }
+    this.state.documentsByVerification[verificationId] = []
+    await this.flush()
+    return removed
+  }
+
   async getSnapshot(verificationId: string): Promise<DreamSnapshot | null> {
     await this.init()
     const header = this.state.verifications[verificationId]

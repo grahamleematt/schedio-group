@@ -21,6 +21,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 
 import { assertClientAccess, authzJsonError } from '#/server/authz'
+import { buildEgnyteCredentialsForUser } from '#/server/egnyteConnections'
 import { isIntakePipelineEnabled } from '#/server/env'
 import { resolveIntakeContext } from '#/server/intake/context'
 import { ingestDocument } from '#/server/intake/ingest'
@@ -50,7 +51,11 @@ async function processUpload(form: FormData): Promise<Response> {
       404,
     )
   }
-  await assertClientAccess(context.client.id)
+  const user = await assertClientAccess(context.client.id)
+  // Stage to the connecting user's own Egnyte account when they've linked one;
+  // null falls back to the shared service token (if configured) inside ingest.
+  const egnyteCredentials =
+    (await buildEgnyteCredentialsForUser(user.id)) ?? undefined
 
   const rawFiles = form.getAll('files')
   // Some runtimes deliver multipart parts as Blob without the File wrapper;
@@ -86,6 +91,7 @@ async function processUpload(form: FormData): Promise<Response> {
         sizeBytes: file.size,
         sourceKind: 'upload',
         stageUploadInEgnyte: true,
+        egnyteCredentials,
       })
       uploaded.push(doc)
     } catch (err) {

@@ -31,12 +31,29 @@ export type ExtractedFields = {
   vendorName?: string
   vendorIdGuess?: string
   documentNumber?: string
+  /**
+   * Headline payable amount. For pay applications (PA) this is pinned to
+   * Current Payment Due (AIA G702 Line 11) — see the `SG DREAM PA` schema in
+   * src/server/docupipe-spec.ts.
+   */
   amount?: number
   currency?: string
   documentDate?: string
   periodStart?: string
   periodEnd?: string
   contractReference?: string
+  /**
+   * Pay-application (PA) waterfall. Populated only by the `SG DREAM PA`
+   * schema; absent for every other document type. Lets the verifier confirm
+   * `amount` (Current Payment Due) against the G702 math rather than trusting
+   * a single extracted number.
+   */
+  contractSumToDate?: number
+  completedAndStoredToDate?: number
+  retainage?: number
+  totalEarnedLessRetainage?: number
+  lessPreviousPayments?: number
+  balanceToFinish?: number
 }
 
 /**
@@ -229,6 +246,24 @@ export type DreamStore = {
   findDocumentByDocupipeId: (
     docupipeDocumentId: string,
   ) => Promise<StoredDocument | null>
+
+  /**
+   * Remove a single document from the store. Returns the deleted row (so the
+   * caller can audit what was removed), or `null` when no such document
+   * exists. The verification header and the append-only audit log are left
+   * intact; deletion provenance is recorded by the caller via
+   * {@link appendAuditEvent}.
+   */
+  deleteDocument: (id: string) => Promise<StoredDocument | null>
+
+  /**
+   * Remove every document filed under a verification (i.e. clear a
+   * submission) while keeping the verification header and its filename
+   * counters' history. Returns the rows that were removed.
+   */
+  deleteVerificationDocuments: (
+    verificationId: string,
+  ) => Promise<ReadonlyArray<StoredDocument>>
 
   getSnapshot: (verificationId: string) => Promise<DreamSnapshot | null>
 

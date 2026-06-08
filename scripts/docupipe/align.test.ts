@@ -24,6 +24,9 @@ const ALL_CLASSES: ReadonlyArray<DocupipeClass> =
 const INV_SCHEMA = SG_DREAM_DOCUPIPE_SPEC.schemas.find(
   (s) => s.schemaName === 'SG DREAM INV',
 )!
+const PA_SCHEMA = SG_DREAM_DOCUPIPE_SPEC.schemas.find(
+  (s) => s.schemaName === 'SG DREAM PA',
+)!
 const UNIVERSAL_SCHEMA = SG_DREAM_DOCUPIPE_SPEC.schemas.find(
   (s) => s.schemaName === 'SG DREAM Universal',
 )!
@@ -33,6 +36,11 @@ const ALL_SCHEMAS: ReadonlyArray<DocupipeSchema> = [
     schemaId: 'sid_inv',
     schemaName: INV_SCHEMA.schemaName,
     jsonSchema: INV_SCHEMA.jsonSchema,
+  },
+  {
+    schemaId: 'sid_pa',
+    schemaName: PA_SCHEMA.schemaName,
+    jsonSchema: PA_SCHEMA.jsonSchema,
   },
   {
     schemaId: 'sid_universal',
@@ -140,8 +148,8 @@ describe('compareSpecToLive', () => {
     )
   })
 
-  it('reproduces the live drift today: universal schema missing + 7 unmapped classes', () => {
-    // Today's actual situation: only SG DREAM INV exists, only INV is mapped.
+  it('reports PA + universal schemas missing + 7 unmapped classes when only INV exists', () => {
+    // Drift scenario: only SG DREAM INV exists, only INV is mapped.
     const liveSchemas: ReadonlyArray<DocupipeSchema> = [
       {
         schemaId: 'sid_inv',
@@ -162,12 +170,13 @@ describe('compareSpecToLive', () => {
     }
     const result = compareSpecToLive(baseInput({ liveSchemas, liveWorkflow }))
 
-    // Exactly one structural FAIL today: the missing universal schema.
-    // Workflow mappings can't be added until the schema exists, so they
-    // surface as a deferred INFO note (sync's two-phase apply re-derives
-    // them after the schema is created).
+    // Two structural FAILs: the missing PA and universal schemas (in spec
+    // order). Workflow mappings can't be added until the schemas exist, so
+    // they surface as a deferred INFO note (sync's two-phase apply re-derives
+    // them after the schemas are created).
     const fails = result.issues.filter((i) => i.severity === 'fail')
     expect(fails.map((i) => i.message)).toEqual([
+      expect.stringContaining("'SG DREAM PA' missing"),
       expect.stringContaining("'SG DREAM Universal' missing"),
     ])
     const deferred = result.issues.find(
@@ -203,15 +212,7 @@ describe('compareSpecToLive', () => {
     if (!action || action.kind !== 'createSchema') {
       throw new Error('expected a createSchema action for SG DREAM Universal')
     }
-    expect(action.mappedTo).toEqual([
-      'CTR',
-      'TO',
-      'CO',
-      'PA',
-      'POP',
-      'LSP',
-      'CD',
-    ])
+    expect(action.mappedTo).toEqual(['CTR', 'TO', 'CO', 'POP', 'LSP', 'CD'])
   })
 
   it('flags WARN with editSchema action when a known schema has extra fields', () => {

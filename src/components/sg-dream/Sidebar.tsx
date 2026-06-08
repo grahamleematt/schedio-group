@@ -16,6 +16,7 @@ import {
   FileStack,
   LayoutDashboard,
   LogOut,
+  Settings,
   UploadCloud,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -36,6 +37,7 @@ type ActiveSection =
   | 'intelligence'
   | 'users'
   | 'audit'
+  | 'settings'
 
 type SidebarProps = {
   client: Client
@@ -155,6 +157,16 @@ export function Sidebar({
           </div>
           <div className="rl">{roleLabel}</div>
         </div>
+        <Link
+          to="/settings"
+          search={{ client: client.id }}
+          className={`icon-btn${active === 'settings' ? ' active' : ''}`}
+          aria-label="Settings"
+          aria-current={active === 'settings' ? 'page' : undefined}
+          title="Settings & integrations"
+        >
+          <Settings className="size-4" />
+        </Link>
         <a
           href="/api/auth/sign-out"
           className="icon-btn"

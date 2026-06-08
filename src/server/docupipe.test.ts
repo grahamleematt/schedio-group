@@ -84,8 +84,8 @@ describe('computeLowConfidence', () => {
     expect(computeLowConfidence({ vendor_name: 0.91, amount: 0.9 })).toBe(false)
   })
 
-  it('is false when there is no confidence data (we trust DocuPipe)', () => {
-    expect(computeLowConfidence({})).toBe(false)
+  it('is true when there is no confidence data (un-scored → route to review)', () => {
+    expect(computeLowConfidence({})).toBe(true)
   })
 
   it('honors a custom threshold', () => {

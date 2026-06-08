@@ -28,6 +28,21 @@ export type EgnyteEnv = {
   EGNYTE_ROOT_PATH: string
 }
 
+/**
+ * The Egnyte OAuth *application* credentials, without the refresh token. These
+ * identify our registered key and are all that's needed to mint a per-user
+ * token via the Resource Owner Password flow; each user supplies their own
+ * Egnyte username/password at connect time. {@link getEgnyteEnv} (which also
+ * requires a single shared `EGNYTE_REFRESH_TOKEN`) is the legacy service-token
+ * path and is only used by background/import flows.
+ */
+export type EgnyteAppEnv = {
+  EGNYTE_DOMAIN: string
+  EGNYTE_CLIENT_ID: string
+  EGNYTE_CLIENT_SECRET: string
+  EGNYTE_ROOT_PATH: string
+}
+
 export type WorkOsEnv = {
   WORKOS_API_KEY: string
   WORKOS_CLIENT_ID: string
@@ -44,6 +59,7 @@ export type AiEnv = {
 let cached: Env | null = null
 let databaseCached: DatabaseEnv | null = null
 let egnyteCached: EgnyteEnv | null = null
+let egnyteAppCached: EgnyteAppEnv | null = null
 let workOsCached: WorkOsEnv | null = null
 let aiCached: AiEnv | null = null
 
@@ -109,6 +125,37 @@ export function getEgnyteEnv(): EgnyteEnv {
   return egnyteCached
 }
 
+/**
+ * Egnyte OAuth application credentials (no shared refresh token). Used by the
+ * per-user connection flow to mint and refresh each user's own token.
+ */
+export function getEgnyteAppEnv(): EgnyteAppEnv {
+  if (egnyteAppCached) return egnyteAppCached
+  egnyteAppCached = {
+    EGNYTE_DOMAIN: read('EGNYTE_DOMAIN'),
+    EGNYTE_CLIENT_ID: read('EGNYTE_CLIENT_ID'),
+    EGNYTE_CLIENT_SECRET: read('EGNYTE_CLIENT_SECRET'),
+    EGNYTE_ROOT_PATH: read('EGNYTE_ROOT_PATH', '/Shared/Clients'),
+  }
+  return egnyteAppCached
+}
+
+/**
+ * Symmetric key material used to encrypt per-user Egnyte refresh tokens at rest
+ * (see `src/server/crypto.ts`). Prefers a dedicated `EGNYTE_TOKEN_ENC_KEY`;
+ * falls back to the WorkOS cookie password so local dev works without an extra
+ * secret. Throws only if neither is set.
+ */
+export function getTokenEncryptionSecret(): string {
+  const dedicated = readOptional('EGNYTE_TOKEN_ENC_KEY')
+  if (dedicated) return dedicated
+  const fallback = readOptional('WORKOS_COOKIE_PASSWORD')
+  if (fallback) return fallback
+  throw new Error(
+    'Missing token encryption secret: set EGNYTE_TOKEN_ENC_KEY (or WORKOS_COOKIE_PASSWORD).',
+  )
+}
+
 export function getWorkOsEnv(): WorkOsEnv {
   if (workOsCached) return workOsCached
   workOsCached = {
@@ -144,6 +191,19 @@ export function isEgnyteConfigured(): boolean {
     readOptional('EGNYTE_CLIENT_ID') &&
     readOptional('EGNYTE_CLIENT_SECRET') &&
     readOptional('EGNYTE_REFRESH_TOKEN'),
+  )
+}
+
+/**
+ * True when the Egnyte OAuth *application* is configured (domain + client
+ * id/secret), regardless of whether a shared refresh token exists. Gates the
+ * per-user "Connect Egnyte" UI and connect flow.
+ */
+export function isEgnyteAppConfigured(): boolean {
+  return Boolean(
+    readOptional('EGNYTE_DOMAIN') &&
+      readOptional('EGNYTE_CLIENT_ID') &&
+      readOptional('EGNYTE_CLIENT_SECRET'),
   )
 }
 

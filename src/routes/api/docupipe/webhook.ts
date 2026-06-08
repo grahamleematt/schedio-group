@@ -190,16 +190,35 @@ function normalizeExtracted(raw: Record<string, unknown>): ExtractedFields {
     }
     return undefined
   }
+  // PA schema pins `amount` to Current Payment Due (G702 Line 11) and emits a
+  // duplicate `current_payment_due` for cross-checking. Prefer the explicit
+  // current-payment-due value when present so the headline figure can never
+  // regress to a different waterfall line.
+  const amount =
+    asNumber(v('current_payment_due', 'currentPaymentDue')) ??
+    asNumber(v('amount'))
   return {
     vendorName: asString(v('vendor_name', 'vendorName')),
     vendorIdGuess: asString(v('vendor_id_guess', 'vendorIdGuess')),
     documentNumber: asString(v('document_number', 'documentNumber')),
-    amount: asNumber(v('amount')),
+    amount,
     currency: asString(v('currency')),
     documentDate: asString(v('document_date', 'documentDate')),
     periodStart: asString(v('period_start', 'periodStart')),
     periodEnd: asString(v('period_end', 'periodEnd')),
     contractReference: asString(v('contract_reference', 'contractReference')),
+    contractSumToDate: asNumber(v('contract_sum_to_date', 'contractSumToDate')),
+    completedAndStoredToDate: asNumber(
+      v('completed_and_stored_to_date', 'completedAndStoredToDate'),
+    ),
+    retainage: asNumber(v('retainage')),
+    totalEarnedLessRetainage: asNumber(
+      v('total_earned_less_retainage', 'totalEarnedLessRetainage'),
+    ),
+    lessPreviousPayments: asNumber(
+      v('less_previous_payments', 'lessPreviousPayments'),
+    ),
+    balanceToFinish: asNumber(v('balance_to_finish', 'balanceToFinish')),
   }
 }
 
@@ -776,6 +795,31 @@ async function handleEvent(event: BaseEvent): Promise<void> {
         const extracted = normalizeExtracted(
           result.data as Record<string, unknown>,
         )
+
+        const docType = resolveStandardizedDocType(
+          result.className,
+          effectiveStored.docType,
+        )
+        if (toDocType(result.className) === 'UNK' && docType !== 'UNK') {
+          console.warn(
+            `[docupipe webhook] standardization className "${
+              result.className ?? ''
+            }" did not resolve; falling back to ${docType} from prior state`,
+          )
+        }
+
+        // A proof of payment records the magnitude disbursed; the model
+        // occasionally emits it as a negative (an outflow). Normalize to a
+        // positive amount so POP figures are consistent and duplicate /
+        // reconciliation math compares like signs.
+        if (
+          docType === 'POP' &&
+          typeof extracted.amount === 'number' &&
+          extracted.amount < 0
+        ) {
+          extracted.amount = Math.abs(extracted.amount)
+        }
+
         const priorSnapshot = await store.getSnapshot(stored.verificationId)
         const verificationRefs: Record<string, string> = {}
         if (priorSnapshot) {
@@ -792,17 +836,6 @@ async function handleEvent(event: BaseEvent): Promise<void> {
           verificationRefs,
         })
 
-        const docType = resolveStandardizedDocType(
-          result.className,
-          effectiveStored.docType,
-        )
-        if (toDocType(result.className) === 'UNK' && docType !== 'UNK') {
-          console.warn(
-            `[docupipe webhook] standardization className "${
-              result.className ?? ''
-            }" did not resolve; falling back to ${docType} from prior state`,
-          )
-        }
         const lowConfidence = computeLowConfidence(result.fieldConfidence)
 
         // Visual review is optional — treat failures as "not available".

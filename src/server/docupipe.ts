@@ -88,9 +88,9 @@ export const LOW_CONFIDENCE_THRESHOLD = 0.85
  *      JSON-Schema generator. We strip the `_confidence` suffix and re-key.
  *   4. Confidence not returned at all (older workflows / preview schemas).
  *
- * (4) returns an empty record and `lowConfidence` is left to the caller to
- * interpret (we default to `false` in that case so the UI doesn't alarm on
- * every doc). Earlier shapes win over later ones — e.g. an explicit top-level
+ * (4) returns an empty record; `computeLowConfidence` treats an empty map as
+ * low-confidence (needs review) so an un-scored extraction is never silently
+ * trusted. Earlier shapes win over later ones — e.g. an explicit top-level
  * map overrides a sibling `_confidence` field for the same key.
  */
 const CONFIDENCE_SUFFIX = '_confidence'
@@ -132,15 +132,23 @@ export function extractFieldConfidence(
 }
 
 /**
- * True iff any field confidence value is below `LOW_CONFIDENCE_THRESHOLD`.
- * Returns `false` when `fieldConfidence` is empty — no evidence of low
- * confidence is treated as "good enough" per the plan.
+ * True iff the extraction should route to engineer review: either any field
+ * confidence value is below `LOW_CONFIDENCE_THRESHOLD`, OR there is no
+ * confidence data at all.
+ *
+ * An empty map means DocuPipe returned no per-field confidence (older
+ * workflows, or a schema whose `_confidence` siblings the model left blank).
+ * We treat "no signal" as needs-review rather than silently trusting it — an
+ * un-scored extraction is exactly the case a human should eyeball, so it must
+ * not pass as high-confidence.
  */
 export function computeLowConfidence(
   fieldConfidence: Record<string, number>,
   threshold: number = LOW_CONFIDENCE_THRESHOLD,
 ): boolean {
-  for (const v of Object.values(fieldConfidence)) {
+  const values = Object.values(fieldConfidence)
+  if (values.length === 0) return true
+  for (const v of values) {
     if (v < threshold) return true
   }
   return false

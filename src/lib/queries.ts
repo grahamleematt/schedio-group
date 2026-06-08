@@ -17,6 +17,8 @@ import { getDeterminationWorkspace } from '#/server/fns/getDeterminationWorkspac
 import { getIntelligenceWorkspace } from '#/server/fns/getIntelligenceWorkspace'
 import { getSessionUser } from '#/server/fns/getSessionUser'
 import type { SessionUser } from '#/server/fns/getSessionUser'
+import { getEgnyteConnection } from '#/server/fns/getEgnyteConnection'
+import type { EgnyteConnectionStatus } from '#/server/egnyteConnections'
 import { getUserDirectory } from '#/server/fns/getUserDirectory'
 import type { ActiveUser } from '#/lib/sg-dream'
 import type { DreamSnapshot } from '#/server/store'
@@ -36,6 +38,20 @@ export function sessionUserQuery() {
     queryKey: ['session-user'] as const,
     queryFn: () => getSessionUser(),
     staleTime: 5 * 60 * 1000,
+  })
+}
+
+export type EgnyteConnectionData = EgnyteConnectionStatus
+
+/**
+ * The signed-in user's Egnyte connection status (per-user link, not the shared
+ * service token). Drives the Integrations settings card and header pill.
+ */
+export function egnyteConnectionQuery() {
+  return queryOptions({
+    queryKey: ['egnyte-connection'] as const,
+    queryFn: () => getEgnyteConnection(),
+    staleTime: 60_000,
   })
 }
 

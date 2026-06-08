@@ -61,12 +61,37 @@ type TokenCache = {
   expiresAt: number
 }
 
-let tokenCache: TokenCache | null = null
+/**
+ * Identity for a single Egnyte connection. When omitted from a file-op call,
+ * the operation falls back to the shared service credentials from the
+ * environment ({@link getEgnyteEnv}). Per-user callers pass the connecting
+ * user's credentials so the operation runs as that user.
+ */
+export type EgnyteCredentials = {
+  domain: string
+  clientId: string
+  clientSecret: string
+  refreshToken: string
+}
+
+/** Access-token cache keyed by refresh token, so per-user tokens don't collide. */
+const tokenCacheByRefresh = new Map<string, TokenCache>()
 const REFRESH_EARLY_MS = 5 * 60 * 1000
 
-function baseUrl(): string {
+function resolveCredentials(creds?: EgnyteCredentials): EgnyteCredentials {
+  if (creds) return creds
   const env = getEgnyteEnv()
-  return `https://${env.EGNYTE_DOMAIN}.egnyte.com`
+  return {
+    domain: env.EGNYTE_DOMAIN,
+    clientId: env.EGNYTE_CLIENT_ID,
+    clientSecret: env.EGNYTE_CLIENT_SECRET,
+    refreshToken: env.EGNYTE_REFRESH_TOKEN,
+  }
+}
+
+function baseUrl(creds?: EgnyteCredentials): string {
+  const domain = creds?.domain ?? getEgnyteEnv().EGNYTE_DOMAIN
+  return `https://${domain}.egnyte.com`
 }
 
 /**
@@ -103,14 +128,14 @@ export function egnyteFolderWebUrlById(folderId: string): string {
   return `${baseUrl()}/navigate/folder/${encodeURIComponent(folderId)}`
 }
 
-async function refreshAccessToken(): Promise<string> {
-  const env = getEgnyteEnv()
-  const url = `${baseUrl()}/puboauth/token`
+async function refreshAccessToken(creds?: EgnyteCredentials): Promise<string> {
+  const resolved = resolveCredentials(creds)
+  const url = `${baseUrl(resolved)}/puboauth/token`
   const body = new URLSearchParams({
     grant_type: 'refresh_token',
-    client_id: env.EGNYTE_CLIENT_ID,
-    client_secret: env.EGNYTE_CLIENT_SECRET,
-    refresh_token: env.EGNYTE_REFRESH_TOKEN,
+    client_id: resolved.clientId,
+    client_secret: resolved.clientSecret,
+    refresh_token: resolved.refreshToken,
   })
   const res = await fetch(url, {
     method: 'POST',
@@ -149,26 +174,29 @@ async function refreshAccessToken(): Promise<string> {
     )
   }
   const ttlMs = (obj.expires_in ?? 3600) * 1000
-  tokenCache = {
+  tokenCacheByRefresh.set(resolved.refreshToken, {
     accessToken: obj.access_token,
     expiresAt: Date.now() + ttlMs,
-  }
+  })
   return obj.access_token
 }
 
-async function getAccessToken(): Promise<string> {
-  if (tokenCache && tokenCache.expiresAt - REFRESH_EARLY_MS > Date.now()) {
-    return tokenCache.accessToken
+async function getAccessToken(creds?: EgnyteCredentials): Promise<string> {
+  const resolved = resolveCredentials(creds)
+  const cached = tokenCacheByRefresh.get(resolved.refreshToken)
+  if (cached && cached.expiresAt - REFRESH_EARLY_MS > Date.now()) {
+    return cached.accessToken
   }
-  return refreshAccessToken()
+  return refreshAccessToken(resolved)
 }
 
 async function egFetch<T>(
   path: string,
   init: RequestInit & { rawBody?: boolean } = {},
+  creds?: EgnyteCredentials,
 ): Promise<T> {
-  const token = await getAccessToken()
-  const url = `${baseUrl()}${path}`
+  const token = await getAccessToken(creds)
+  const url = `${baseUrl(creds)}${path}`
   const headers = new Headers(init.headers)
   headers.set('Authorization', `Bearer ${token}`)
   if (!headers.has('Accept')) headers.set('Accept', 'application/json')
@@ -259,11 +287,14 @@ function normalizeListedFolder(
   }
 }
 
-export async function listFolder(input: {
-  path: string
-  includePermissions?: boolean
-  includeCustomMetadata?: boolean
-}): Promise<EgnyteFolderListing> {
+export async function listFolder(
+  input: {
+    path: string
+    includePermissions?: boolean
+    includeCustomMetadata?: boolean
+  },
+  creds?: EgnyteCredentials,
+): Promise<EgnyteFolderListing> {
   const encoded = encodeEgnytePath(input.path)
   const params = new URLSearchParams()
   if (input.includePermissions) params.set('include_perm', 'true')
@@ -272,6 +303,8 @@ export async function listFolder(input: {
   const suffix = query.length > 0 ? `?${query}` : ''
   const raw = await egFetch<Record<string, unknown>>(
     `/pubapi/v1/fs/${encoded}${suffix}`,
+    {},
+    creds,
   )
   const folders = Array.isArray(raw.folders)
     ? raw.folders
@@ -301,14 +334,17 @@ export async function listFolder(input: {
   }
 }
 
-export async function downloadFile(input: {
-  path: string
-}): Promise<{ contents: ArrayBuffer; contentType?: string }> {
+export async function downloadFile(
+  input: {
+    path: string
+  },
+  creds?: EgnyteCredentials,
+): Promise<{ contents: ArrayBuffer; contentType?: string }> {
   const encoded = encodeEgnytePath(input.path)
-  const res = await fetch(`${baseUrl()}/pubapi/v1/fs-content/${encoded}`, {
+  const res = await fetch(`${baseUrl(creds)}/pubapi/v1/fs-content/${encoded}`, {
     method: 'GET',
     headers: {
-      Authorization: `Bearer ${await getAccessToken()}`,
+      Authorization: `Bearer ${await getAccessToken(creds)}`,
       Accept: 'application/octet-stream',
     },
   })
@@ -337,11 +373,14 @@ export async function downloadFile(input: {
  * folders must already exist (call `createFolderIfMissing` first — or use
  * `uploadToFolder` which chains them).
  */
-export async function uploadFile(input: {
-  path: string
-  contents: ArrayBuffer | Uint8Array
-  contentType?: string
-}): Promise<EgnyteFileRef> {
+export async function uploadFile(
+  input: {
+    path: string
+    contents: ArrayBuffer | Uint8Array
+    contentType?: string
+  },
+  creds?: EgnyteCredentials,
+): Promise<EgnyteFileRef> {
   const encoded = encodeEgnytePath(input.path)
   // Node's `fetch` typings don't advertise `Uint8Array` as `BodyInit`, but a
   // Blob is accepted everywhere and avoids an extra copy on the runtime side.
@@ -352,10 +391,10 @@ export async function uploadFile(input: {
   const bodyBlob = new Blob([buf], {
     type: input.contentType ?? 'application/octet-stream',
   })
-  const res = await fetch(`${baseUrl()}/pubapi/v1/fs-content/${encoded}`, {
+  const res = await fetch(`${baseUrl(creds)}/pubapi/v1/fs-content/${encoded}`, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${await getAccessToken()}`,
+      Authorization: `Bearer ${await getAccessToken(creds)}`,
       'Content-Type': input.contentType ?? 'application/octet-stream',
     },
     body: bodyBlob,
@@ -388,14 +427,21 @@ export async function uploadFile(input: {
  * Ensure the given folder path exists. Idempotent: a 403 "folder already
  * exists" response is swallowed. Creates parents recursively.
  */
-export async function createFolderIfMissing(path: string): Promise<void> {
+export async function createFolderIfMissing(
+  path: string,
+  creds?: EgnyteCredentials,
+): Promise<void> {
   const encoded = encodeEgnytePath(path)
   try {
-    await egFetch(`/pubapi/v1/fs/${encoded}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'add_folder' }),
-    })
+    await egFetch(
+      `/pubapi/v1/fs/${encoded}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'add_folder' }),
+      },
+      creds,
+    )
   } catch (err) {
     if (
       err instanceof EgnyteError &&
@@ -434,16 +480,23 @@ export function isDestinationExistsError(err: unknown): boolean {
  * webhook for the same `egnyteGuid`) or a bug (two distinct documents
  * collided on a renamed-filename seq).
  */
-export async function moveFile(input: {
-  from: string
-  to: string
-}): Promise<void> {
+export async function moveFile(
+  input: {
+    from: string
+    to: string
+  },
+  creds?: EgnyteCredentials,
+): Promise<void> {
   const encoded = encodeEgnytePath(input.from)
-  await egFetch(`/pubapi/v1/fs/${encoded}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'move', destination: input.to }),
-  })
+  await egFetch(
+    `/pubapi/v1/fs/${encoded}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'move', destination: input.to }),
+    },
+    creds,
+  )
 }
 
 /**
@@ -455,6 +508,7 @@ export async function setMetadata(
   entryId: string,
   namespace: string,
   values: Record<string, string | number | boolean | null>,
+  creds?: EgnyteCredentials,
 ): Promise<void> {
   await egFetch(
     `/pubapi/v1/fs/ids/file/${encodeURIComponent(
@@ -465,6 +519,7 @@ export async function setMetadata(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(values),
     },
+    creds,
   )
 }
 
@@ -472,18 +527,24 @@ export async function setMetadata(
  * Chain `createFolderIfMissing` + `uploadFile`. Use this from higher-level
  * flows that want "put file here, don't worry about the folder".
  */
-export async function uploadToFolder(input: {
-  folder: string
-  filename: string
-  contents: ArrayBuffer | Uint8Array
-  contentType?: string
-}): Promise<EgnyteFileRef> {
-  await createFolderIfMissing(input.folder)
-  return uploadFile({
-    path: `${input.folder.replace(/\/$/, '')}/${input.filename}`,
-    contents: input.contents,
-    contentType: input.contentType,
-  })
+export async function uploadToFolder(
+  input: {
+    folder: string
+    filename: string
+    contents: ArrayBuffer | Uint8Array
+    contentType?: string
+  },
+  creds?: EgnyteCredentials,
+): Promise<EgnyteFileRef> {
+  await createFolderIfMissing(input.folder, creds)
+  return uploadFile(
+    {
+      path: `${input.folder.replace(/\/$/, '')}/${input.filename}`,
+      contents: input.contents,
+      contentType: input.contentType,
+    },
+    creds,
+  )
 }
 
 /**
@@ -491,5 +552,5 @@ export async function uploadToFolder(input: {
  * the next call.
  */
 export function __resetTokenCache(): void {
-  tokenCache = null
+  tokenCacheByRefresh.clear()
 }

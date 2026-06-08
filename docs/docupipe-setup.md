@@ -68,7 +68,9 @@ updates automatically on the next reload.
 > "below threshold → UNK" knob. We enforce the same idea client-side in the
 > webhook handler using the per-field confidences that come back on the
 > standardization (see `LOW_CONFIDENCE_THRESHOLD` in
-> [`src/server/docupipe.ts`](../src/server/docupipe.ts)).
+> [`src/server/docupipe.ts`](../src/server/docupipe.ts)). A document whose
+> standardization returns **no** per-field confidence at all is also routed to
+> review — an un-scored extraction is treated as needs-review, not trusted.
 
 ## 3. (deprecated — see §2)
 

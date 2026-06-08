@@ -9,6 +9,8 @@
 import { Workflow } from 'lucide-react'
 import type { ReactNode } from 'react'
 
+import { EgnyteStatusPill } from '#/components/sg-dream/EgnyteStatusPill'
+
 export type Crumb = {
   label: string
   /** Optional bolded segment (last crumb is usually bold). */
@@ -45,6 +47,7 @@ export function Topbar({ crumbs, actions, workflowLabel }: TopbarProps) {
 
       {actions ?? (
         <div className="topbar-status" aria-label="Workspace status">
+          <EgnyteStatusPill />
           <span className="topbar-pill wf">
             <Workflow className="size-3.5" aria-hidden />
             {workflowLabel}

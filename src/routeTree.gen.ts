@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as VerificationsRouteImport } from './routes/verifications'
 import { Route as UsersRouteImport } from './routes/users'
 import { Route as UploadRouteImport } from './routes/upload'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ProcessingRouteImport } from './routes/processing'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LibraryRouteImport } from './routes/library'
@@ -51,6 +52,11 @@ const UsersRoute = UsersRouteImport.update({
 const UploadRoute = UploadRouteImport.update({
   id: '/upload',
   path: '/upload',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProcessingRoute = ProcessingRouteImport.update({
@@ -196,6 +202,7 @@ export interface FileRoutesByFullPath {
   '/library': typeof LibraryRoute
   '/login': typeof LoginRoute
   '/processing': typeof ProcessingRoute
+  '/settings': typeof SettingsRoute
   '/upload': typeof UploadRoute
   '/users': typeof UsersRoute
   '/verifications': typeof VerificationsRoute
@@ -226,6 +233,7 @@ export interface FileRoutesByTo {
   '/library': typeof LibraryRoute
   '/login': typeof LoginRoute
   '/processing': typeof ProcessingRoute
+  '/settings': typeof SettingsRoute
   '/upload': typeof UploadRoute
   '/users': typeof UsersRoute
   '/verifications': typeof VerificationsRoute
@@ -257,6 +265,7 @@ export interface FileRoutesById {
   '/library': typeof LibraryRoute
   '/login': typeof LoginRoute
   '/processing': typeof ProcessingRoute
+  '/settings': typeof SettingsRoute
   '/upload': typeof UploadRoute
   '/users': typeof UsersRoute
   '/verifications': typeof VerificationsRoute
@@ -289,6 +298,7 @@ export interface FileRouteTypes {
     | '/library'
     | '/login'
     | '/processing'
+    | '/settings'
     | '/upload'
     | '/users'
     | '/verifications'
@@ -319,6 +329,7 @@ export interface FileRouteTypes {
     | '/library'
     | '/login'
     | '/processing'
+    | '/settings'
     | '/upload'
     | '/users'
     | '/verifications'
@@ -349,6 +360,7 @@ export interface FileRouteTypes {
     | '/library'
     | '/login'
     | '/processing'
+    | '/settings'
     | '/upload'
     | '/users'
     | '/verifications'
@@ -380,6 +392,7 @@ export interface RootRouteChildren {
   LibraryRoute: typeof LibraryRoute
   LoginRoute: typeof LoginRoute
   ProcessingRoute: typeof ProcessingRoute
+  SettingsRoute: typeof SettingsRoute
   UploadRoute: typeof UploadRoute
   UsersRoute: typeof UsersRoute
   VerificationsRoute: typeof VerificationsRoute
@@ -419,6 +432,13 @@ declare module '@tanstack/react-router' {
       path: '/upload'
       fullPath: '/upload'
       preLoaderRoute: typeof UploadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/processing': {
@@ -612,6 +632,7 @@ const rootRouteChildren: RootRouteChildren = {
   LibraryRoute: LibraryRoute,
   LoginRoute: LoginRoute,
   ProcessingRoute: ProcessingRoute,
+  SettingsRoute: SettingsRoute,
   UploadRoute: UploadRoute,
   UsersRoute: UsersRoute,
   VerificationsRoute: VerificationsRoute,

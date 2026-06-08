@@ -1,8 +1,24 @@
+import { useState } from 'react'
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
-import { useSuspenseQuery } from '@tanstack/react-query'
+import {
+  useMutation,
+  useQueryClient,
+  useSuspenseQuery,
+} from '@tanstack/react-query'
+import { Loader2, Trash2 } from 'lucide-react'
 import { AppShell } from '#/components/sg-dream/AppShell'
 import { DocumentLibrary } from '#/components/sg-dream/DocumentLibrary'
 import type { NameDisplay } from '#/components/sg-dream/DocumentLibrary'
+import { Button } from '#/components/ui/button'
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '#/components/ui/dialog'
 import {
   clients,
   docTypeOrder,
@@ -10,9 +26,14 @@ import {
   getOpenVerification,
   getVerificationById,
 } from '#/lib/sg-dream'
-import type { DocType } from '#/lib/sg-dream'
+import type { Document, DocType } from '#/lib/sg-dream'
 import { verificationSnapshotQuery } from '#/lib/queries'
 import { storedListToDisplay } from '#/lib/sg-dream-adapter'
+import {
+  clearSubmission,
+  deleteSubmissionDocument,
+} from '#/server/fns/deleteSubmission'
+import type { DreamSnapshot } from '#/server/store'
 
 type LibrarySearch = {
   client: string
@@ -96,11 +117,40 @@ function LibraryPage() {
     getVerificationById(verificationId, clientId) ??
     getOpenVerification(clientId)
 
+  const queryClient = useQueryClient()
   const snapshotQuery = useSuspenseQuery(
     verificationSnapshotQuery(verification.id),
   )
   const snapshot = snapshotQuery.data
   const docs = storedListToDisplay(snapshot?.verification.documents ?? [])
+
+  const [pendingDoc, setPendingDoc] = useState<Document | null>(null)
+  const [confirmClear, setConfirmClear] = useState(false)
+
+  const snapshotKey = verificationSnapshotQuery(verification.id).queryKey
+  const applySnapshot = (next: DreamSnapshot | null) => {
+    queryClient.setQueryData(snapshotKey, next)
+  }
+
+  const deleteDocMut = useMutation({
+    mutationFn: (documentId: string) =>
+      deleteSubmissionDocument({
+        data: { verificationId: verification.id, documentId },
+      }),
+    onSuccess: (next) => {
+      applySnapshot(next)
+      setPendingDoc(null)
+    },
+  })
+
+  const clearMut = useMutation({
+    mutationFn: () =>
+      clearSubmission({ data: { verificationId: verification.id } }),
+    onSuccess: (next) => {
+      applySnapshot(next)
+      setConfirmClear(false)
+    },
+  })
   const referenceLabel =
     docs.length > 0 && snapshot?.verification.ref
       ? snapshot.verification.ref
@@ -189,6 +239,31 @@ function LibraryPage() {
           </p>
         </div>
       </section>
+
+      {docs.length > 0 ? (
+        <section className="v2-card">
+          <header className="v2-card-head">
+            <h3>Danger zone</h3>
+          </header>
+          <div className="v2-card-body space-y-3">
+            <p className="text-muted-1 m-0 text-[12.5px]">
+              Clear this submission to remove all {docs.length} document
+              {docs.length === 1 ? '' : 's'} from SG DREAM — useful when a batch
+              was filed to the wrong workflow. The verification reference and
+              audit trail are kept; Egnyte originals are untouched.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setConfirmClear(true)}
+              className="text-destructive hover:text-destructive"
+            >
+              <Trash2 className="size-4" aria-hidden />
+              Clear submission
+            </Button>
+          </div>
+        </section>
+      ) : null}
     </>
   )
 
@@ -218,7 +293,135 @@ function LibraryPage() {
           updateLibrary({ open: libraryOpen === t ? null : t })
         }
         onNameDisplayChange={(v) => updateLibrary({ nameDisplay: v })}
+        onDelete={(doc) => {
+          deleteDocMut.reset()
+          setPendingDoc(doc)
+        }}
+        pendingDeleteId={
+          deleteDocMut.isPending ? (pendingDoc?.id ?? undefined) : undefined
+        }
       />
+
+      <Dialog
+        open={pendingDoc !== null}
+        onOpenChange={(next) => {
+          if (!next && !deleteDocMut.isPending) {
+            setPendingDoc(null)
+            deleteDocMut.reset()
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove document?</DialogTitle>
+            <DialogDescription>
+              This removes{' '}
+              <span className="font-mono">
+                {pendingDoc?.originalName ?? 'this document'}
+              </span>{' '}
+              from SG DREAM and records the removal in the audit log. The
+              original file in Egnyte is not deleted.
+            </DialogDescription>
+          </DialogHeader>
+          {deleteDocMut.isError ? (
+            <p
+              className="m-0 text-[13px]"
+              role="alert"
+              style={{ color: 'var(--color-rose-ink, #be123c)' }}
+            >
+              Could not remove the document. Try again.
+            </p>
+          ) : null}
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={deleteDocMut.isPending}
+              >
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              disabled={deleteDocMut.isPending || !pendingDoc}
+              onClick={() => {
+                if (pendingDoc) deleteDocMut.mutate(pendingDoc.id)
+              }}
+            >
+              {deleteDocMut.isPending ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+              ) : (
+                <Trash2 className="size-4" aria-hidden />
+              )}
+              Remove
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={confirmClear}
+        onOpenChange={(next) => {
+          if (!next && !clearMut.isPending) {
+            setConfirmClear(false)
+            clearMut.reset()
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Clear this submission?</DialogTitle>
+            <DialogDescription>
+              This removes all {docs.length} document
+              {docs.length === 1 ? '' : 's'} filed under{' '}
+              <span className="font-mono">
+                {snapshot?.verification.ref ?? verification.id}
+              </span>{' '}
+              and records the change in the audit log. Egnyte originals are not
+              deleted.
+            </DialogDescription>
+          </DialogHeader>
+          {clearMut.isError ? (
+            <p
+              className="m-0 text-[13px]"
+              role="alert"
+              style={{ color: 'var(--color-rose-ink, #be123c)' }}
+            >
+              Could not clear the submission. Try again.
+            </p>
+          ) : null}
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={clearMut.isPending}
+              >
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              disabled={clearMut.isPending}
+              onClick={() => clearMut.mutate()}
+            >
+              {clearMut.isPending ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+              ) : (
+                <Trash2 className="size-4" aria-hidden />
+              )}
+              Clear submission
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   )
 }

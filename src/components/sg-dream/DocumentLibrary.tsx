@@ -1,4 +1,4 @@
-import { ChevronRight, FileStack, Search } from 'lucide-react'
+import { ChevronRight, FileStack, Loader2, Search, Trash2 } from 'lucide-react'
 import { docTypeLabels, docTypeOrder } from '#/lib/sg-dream'
 import type { Document, DocType } from '#/lib/sg-dream'
 import { cn } from '#/lib/utils'
@@ -14,6 +14,13 @@ type DocumentLibraryProps = {
   onQueryChange: (query: string) => void
   onToggleCategory: (docType: DocType) => void
   onNameDisplayChange: (value: NameDisplay) => void
+  /**
+   * When provided, each row renders a remove control. The parent owns
+   * confirmation and the delete mutation; this component stays presentational.
+   */
+  onDelete?: (doc: Document) => void
+  /** Id of the document whose delete is currently in flight (shows a spinner). */
+  pendingDeleteId?: string
 }
 
 const nameDisplayOptions: ReadonlyArray<{
@@ -38,6 +45,8 @@ export function DocumentLibrary({
   onQueryChange,
   onToggleCategory,
   onNameDisplayChange,
+  onDelete,
+  pendingDeleteId,
 }: DocumentLibraryProps) {
   const normalizedQuery = query.trim().toLowerCase()
 
@@ -205,7 +214,7 @@ export function DocumentLibrary({
                     return (
                       <li
                         key={doc.id}
-                        className="flex flex-col gap-2 px-10 py-3"
+                        className="flex items-start gap-3 px-10 py-3"
                         style={
                           isFlagged
                             ? {
@@ -277,6 +286,25 @@ export function DocumentLibrary({
                             </p>
                           ) : null}
                         </div>
+                        {onDelete ? (
+                          <button
+                            type="button"
+                            onClick={() => onDelete(doc)}
+                            disabled={pendingDeleteId === doc.id}
+                            aria-label={`Remove ${doc.originalName}`}
+                            title="Remove document"
+                            className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-transparent text-text-muted transition-colors hover:border-(--color-flag-exact-bd,#fca5a5) hover:bg-(--color-flag-exact-bg,#fef2f2) hover:text-(--color-rose-ink,#be123c) disabled:opacity-50"
+                          >
+                            {pendingDeleteId === doc.id ? (
+                              <Loader2
+                                className="size-4 animate-spin"
+                                aria-hidden
+                              />
+                            ) : (
+                              <Trash2 className="size-4" aria-hidden />
+                            )}
+                          </button>
+                        ) : null}
                       </li>
                     )
                   })}

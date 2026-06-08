@@ -169,6 +169,39 @@ class KvStore implements DreamStore {
     return null
   }
 
+  async deleteDocument(id: string): Promise<StoredDocument | null> {
+    let removed: StoredDocument | null = null
+    await this.withState((state) => {
+      const existing = state.documents[id]
+      if (!existing) return
+      removed = existing
+      delete state.documents[id]
+      const list = state.documentsByVerification[existing.verificationId]
+      if (list) {
+        state.documentsByVerification[existing.verificationId] = list.filter(
+          (docId) => docId !== id,
+        )
+      }
+    })
+    return removed
+  }
+
+  async deleteVerificationDocuments(
+    verificationId: string,
+  ): Promise<ReadonlyArray<StoredDocument>> {
+    const removed: Array<StoredDocument> = []
+    await this.withState((state) => {
+      const ids = state.documentsByVerification[verificationId] ?? []
+      for (const id of ids) {
+        const doc = state.documents[id]
+        if (doc) removed.push(doc)
+        delete state.documents[id]
+      }
+      state.documentsByVerification[verificationId] = []
+    })
+    return removed
+  }
+
   async getSnapshot(verificationId: string): Promise<DreamSnapshot | null> {
     await this.init()
     const state = normalize(await kv.get<DreamStoreState>(STATE_KEY))

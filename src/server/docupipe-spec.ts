@@ -25,10 +25,16 @@
  *   - TO: 33 (12%)
  *   - PA: 6, CTR: 3, CO: 3, POP: 2, LSP: 0, CD: 0
  *
- * We ship two schemas:
+ * We ship three schemas:
  *   - `SG DREAM INV` — tailored for invoices (the dominant 83% of volume).
  *     Includes invoice-specific fields like `po_number` and
  *     `line_item_count` even though the app doesn't currently render them.
+ *   - `SG DREAM PA` — tailored for AIA G702/G703 pay applications. Captures
+ *     the full payment waterfall and pins `amount` to Current Payment Due
+ *     (G702 Line 11). A shared `amount` description was too ambiguous for
+ *     pay apps (the model alternated between period gross and total earned
+ *     less retainage), so PA gets its own schema with the supporting
+ *     waterfall fields the figure can be validated against.
  *   - `SG DREAM Universal` — the 9 fields the app actually reads from
  *     `ExtractedFields` in src/server/store/types.ts, with per-class hints
  *     baked into each field's `description`. The AI honors descriptions
@@ -140,10 +146,113 @@ const INV_SCHEMA = {
 } as const
 
 /**
- * Universal schema covering the 7 non-INV doc types. Field descriptions
- * include per-class instructions because DocuPipe's AI uses descriptions
- * during extraction; this is the only way to encode per-class meaning
- * under a shared schema.
+ * Pay-application schema (AIA G702/G703 and vendor draws).
+ *
+ * Pay apps carry a payment waterfall, and the single number that matters for
+ * verification is **Current Payment Due** (G702 Line 11 / "AMOUNT DUE THIS
+ * APPLICATION") — total earned less retainage, minus amounts already certified
+ * on prior applications. The previous universal schema collapsed this to a
+ * vague "amount due this billing period", which the model read inconsistently
+ * (sometimes the period gross, sometimes total-earned-less-retainage). We map
+ * `amount` explicitly to Current Payment Due and capture the rest of the
+ * waterfall so the figure can be validated rather than trusted blindly.
+ */
+const PA_SCHEMA = {
+  $schema: 'http://json-schema.org/draft-07/schema#',
+  type: 'object',
+  description:
+    'AIA G702/G703 (or vendor) pay-application extraction schema. Read the full G702 certificate; figures are dollars, numeric (strip currency symbols and commas).',
+  properties: withConfidence({
+    vendor_name: {
+      type: 'string',
+      description:
+        'Contractor / vendor being paid (the "FROM CONTRACTOR" / applicant party on the G702).',
+    },
+    vendor_id_guess: {
+      type: 'string',
+      description:
+        'Contractor tax ID, EIN, or vendor number if printed. Leave blank if absent.',
+    },
+    document_number: {
+      type: 'string',
+      description:
+        'Application / pay-app / draw number (G702 "APPLICATION NO."), e.g. "11" or "12".',
+    },
+    amount: {
+      type: 'number',
+      description:
+        'CURRENT PAYMENT DUE — AIA G702 Line 11 (also labeled "AMOUNT DUE THIS APPLICATION" / "CURRENT PAYMENT DUE"). This equals Total Earned Less Retainage (Line 6) minus Less Previous Certificates for Payment (Line 7). It is the single dollar amount payable for THIS application only. Do NOT return the contract sum, the total completed & stored to date, the period gross, or total earned less retainage — return the Current Payment Due line specifically. If the form truly has no current-payment-due line, return null.',
+    },
+    current_payment_due: {
+      type: 'number',
+      description:
+        'Same value as `amount`: the G702 Line 11 Current Payment Due. Provide it here as well for cross-checking.',
+    },
+    contract_sum_to_date: {
+      type: 'number',
+      description:
+        'Contract Sum To Date — G702 Line 3 (original contract sum plus net change orders). Null if not shown.',
+    },
+    completed_and_stored_to_date: {
+      type: 'number',
+      description:
+        'Total Completed & Stored To Date — G702 Line 4 (G703 column G grand total). Cumulative across all applications. Null if not shown.',
+    },
+    retainage: {
+      type: 'number',
+      description:
+        'Total retainage withheld to date — G702 Line 5 (sum of line 5a + 5b). Null if not shown.',
+    },
+    total_earned_less_retainage: {
+      type: 'number',
+      description:
+        'Total Earned Less Retainage — G702 Line 6 (Line 4 minus Line 5). Null if not shown.',
+    },
+    less_previous_payments: {
+      type: 'number',
+      description:
+        'Less Previous Certificates for Payment — G702 Line 7 (cumulative amount certified on prior applications). Null if this is the first application or not shown.',
+    },
+    balance_to_finish: {
+      type: 'number',
+      description:
+        'Balance To Finish, Including Retainage — G702 Line 9. Null if not shown.',
+    },
+    currency: {
+      type: 'string',
+      description: 'ISO 4217 currency code. Default to USD if not stated.',
+      examples: ['USD'],
+    },
+    document_date: {
+      type: 'string',
+      format: 'date',
+      description:
+        'Application date (G702 "APPLICATION DATE" / period-to date signature date) in YYYY-MM-DD.',
+    },
+    period_start: {
+      type: 'string',
+      format: 'date',
+      description: 'Start of the billing period covered, YYYY-MM-DD.',
+    },
+    period_end: {
+      type: 'string',
+      format: 'date',
+      description:
+        'End of the billing period covered (G702 "PERIOD TO"), YYYY-MM-DD.',
+    },
+    contract_reference: {
+      type: 'string',
+      description:
+        'Project name/number or parent contract this application bills against (G702 "PROJECT" / "VIA CONTRACT").',
+    },
+  }),
+} as const
+
+/**
+ * Universal schema covering the 6 remaining non-INV, non-PA doc types. Field
+ * descriptions include per-class instructions because DocuPipe's AI uses
+ * descriptions during extraction; this is the only way to encode per-class
+ * meaning under a shared schema.
  */
 const UNIVERSAL_SCHEMA = {
   $schema: 'http://json-schema.org/draft-07/schema#',
@@ -164,12 +273,12 @@ const UNIVERSAL_SCHEMA = {
     document_number: {
       type: 'string',
       description:
-        'Primary document identifier as printed. CTR: contract number; TO: work order or PO number; CO: change order number (e.g. CO-001); PA: pay app / draw number; POP: check number, wire confirmation number, or waiver reference; LSP: plat or survey number; CD: drawing set or sheet number.',
+        'Primary document identifier as printed. CTR: contract number; TO: work order or PO number; CO: change order number (e.g. CO-001); POP: check number, wire confirmation number, or waiver reference; LSP: plat or survey number; CD: drawing set or sheet number.',
     },
     amount: {
       type: 'number',
       description:
-        'Headline dollar amount in USD, numeric (strip currency symbols and commas). CTR: total contract value; TO: work order value; CO: change amount (positive for additive, negative for deductive); PA: amount due this billing period (NOT the contract total); POP: amount actually paid; LSP/CD: leave null. If no monetary amount is on the document face, return null.',
+        'Headline dollar amount in USD, numeric (strip currency symbols and commas). CTR: total contract value; TO: work order value; CO: change amount (positive for additive, negative for deductive — CO is the only class that may be negative); POP: the amount actually paid, ALWAYS a positive number (the magnitude disbursed — never negative, even though a payment is an outflow); LSP/CD: leave null. If no monetary amount is on the document face, return null.',
     },
     currency: {
       type: 'string',
@@ -181,24 +290,24 @@ const UNIVERSAL_SCHEMA = {
       type: 'string',
       format: 'date',
       description:
-        'Issue / effective date on the document face in YYYY-MM-DD format. CTR: execution date; TO/CO/PA/INV: issue date; POP: payment date; LSP: recording date; CD: stamp / issue date.',
+        'Issue / effective date on the document face in YYYY-MM-DD format. CTR: execution date; TO/CO: issue date; POP: payment date; LSP: recording date; CD: stamp / issue date.',
     },
     period_start: {
       type: 'string',
       format: 'date',
       description:
-        'Billing or coverage period start in YYYY-MM-DD. Required for PA (the start of the billing period). Optional for POP (date range a wire / waiver covers). Leave blank for CTR/TO/CO/LSP/CD.',
+        'Billing or coverage period start in YYYY-MM-DD. Optional for POP (date range a wire / waiver covers). Leave blank for CTR/TO/CO/LSP/CD.',
     },
     period_end: {
       type: 'string',
       format: 'date',
       description:
-        'Billing or coverage period end in YYYY-MM-DD. Required for PA. Same rules as period_start.',
+        'Billing or coverage period end in YYYY-MM-DD. Same rules as period_start.',
     },
     contract_reference: {
       type: 'string',
       description:
-        'Parent contract or master agreement number. CRITICAL for TO (the parent MSA that authorizes this work order) and CO (the contract being amended). Recommended for PA and POP (the contract being billed against). Leave blank for CTR (which IS the contract) and LSP/CD.',
+        'Parent contract or master agreement number. CRITICAL for TO (the parent MSA that authorizes this work order) and CO (the contract being amended). Recommended for POP (the contract being billed against). Leave blank for CTR (which IS the contract) and LSP/CD.',
     },
   }),
 } as const
@@ -250,9 +359,14 @@ export const SG_DREAM_DOCUPIPE_SPEC = {
       mappedTo: ['INV'],
     },
     {
+      schemaName: 'SG DREAM PA',
+      jsonSchema: PA_SCHEMA,
+      mappedTo: ['PA'],
+    },
+    {
       schemaName: 'SG DREAM Universal',
       jsonSchema: UNIVERSAL_SCHEMA,
-      mappedTo: ['CTR', 'TO', 'CO', 'PA', 'POP', 'LSP', 'CD'],
+      mappedTo: ['CTR', 'TO', 'CO', 'POP', 'LSP', 'CD'],
     },
   ] as const satisfies ReadonlyArray<SchemaSpec>,
   workflow: {

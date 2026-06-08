@@ -6,6 +6,7 @@ import {
   setMetadata,
   uploadFile,
 } from '#/server/egnyte'
+import type { EgnyteCredentials } from '#/server/egnyte'
 import { isEgnyteConfigured } from '#/server/env'
 import { getStore } from '#/server/store'
 import type { StoredDocument } from '#/server/store'
@@ -30,6 +31,19 @@ type IngestInput = {
   importJobId?: string
   egnyteIdentity?: EgnyteIdentity
   stageUploadInEgnyte?: boolean
+  /**
+   * Per-user Egnyte credentials for the connecting user. When present, staging
+   * runs as that user; when absent we fall back to the shared service token
+   * (only if `isEgnyteConfigured()`).
+   */
+  egnyteCredentials?: EgnyteCredentials
+}
+
+/** Whether we can stage to Egnyte for this ingest (per-user or service token). */
+function canStageEgnyte(input: {
+  egnyteCredentials?: EgnyteCredentials
+}): boolean {
+  return Boolean(input.egnyteCredentials) || isEgnyteConfigured()
 }
 
 export function newDocumentId(prefix = 'u'): string {
@@ -46,15 +60,20 @@ async function stageUpload(input: {
   filename: string
   contents: ArrayBuffer
   contentType?: string
+  egnyteCredentials?: EgnyteCredentials
 }): Promise<EgnyteIdentity | null> {
-  if (!isEgnyteConfigured()) return null
-  await createFolderIfMissing(input.context.incomingFolder)
+  if (!canStageEgnyte(input)) return null
+  const creds = input.egnyteCredentials
+  await createFolderIfMissing(input.context.incomingFolder, creds)
   const fullPath = `${input.context.incomingFolder}/${input.filename}`
-  const ref = await uploadFile({
-    path: fullPath,
-    contents: input.contents,
-    contentType: input.contentType,
-  })
+  const ref = await uploadFile(
+    {
+      path: fullPath,
+      contents: input.contents,
+      contentType: input.contentType,
+    },
+    creds,
+  )
   return {
     path: fullPath,
     entryId: ref.guid || undefined,
@@ -69,17 +88,23 @@ async function stampEgnyteMetadata(input: {
   documentId: string
   docupipeDocumentId?: string
   docupipeJobId?: string
+  egnyteCredentials?: EgnyteCredentials
 }): Promise<void> {
   if (!input.entryId) return
   try {
-    await setMetadata(input.entryId, 'sg-dream', {
-      clientId: input.context.client.id,
-      verificationId: input.context.verification.id,
-      verificationRef: input.context.verificationRef,
-      documentId: input.documentId,
-      docupipeDocumentId: input.docupipeDocumentId ?? '',
-      docupipeJobId: input.docupipeJobId ?? '',
-    })
+    await setMetadata(
+      input.entryId,
+      'sg-dream',
+      {
+        clientId: input.context.client.id,
+        verificationId: input.context.verification.id,
+        verificationRef: input.context.verificationRef,
+        documentId: input.documentId,
+        docupipeDocumentId: input.docupipeDocumentId ?? '',
+        docupipeJobId: input.docupipeJobId ?? '',
+      },
+      input.egnyteCredentials,
+    )
   } catch (err) {
     console.warn('[egnyte] setMetadata failed', err)
   }
@@ -113,7 +138,7 @@ export async function ingestDocument(
     duplicateFlag: 'none',
     custodyState: incoming
       ? 'incoming'
-      : input.stageUploadInEgnyte && isEgnyteConfigured()
+      : input.stageUploadInEgnyte && canStageEgnyte(input)
         ? 'processing'
         : undefined,
     egnyteIncomingPath: incoming?.path,
@@ -145,6 +170,7 @@ export async function ingestDocument(
           filename: input.filename,
           contents: input.contents,
           contentType: input.contentType,
+          egnyteCredentials: input.egnyteCredentials,
         })) ?? undefined
       if (staged) {
         await store.patchDocument(id, {
@@ -179,6 +205,7 @@ export async function ingestDocument(
       documentId: id,
       docupipeDocumentId: result.documentId,
       docupipeJobId: result.jobId,
+      egnyteCredentials: input.egnyteCredentials,
     })
     const patched = await store.patchDocument(id, {
       docupipeDocumentId: result.documentId,
