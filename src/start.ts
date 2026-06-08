@@ -1,5 +1,4 @@
 import { createMiddleware, createStart } from '@tanstack/react-start'
-import { authkitMiddleware } from '@workos/authkit-tanstack-react-start'
 
 function hasWorkOsConfig(): boolean {
   return Boolean(
@@ -10,8 +9,15 @@ function hasWorkOsConfig(): boolean {
   )
 }
 
+// AuthKit is Node-only (iron-session touches `Buffer`). Import it lazily inside
+// the server handler so the package never enters the client bundle, which the
+// vite `noExternal` inlining would otherwise force and break hydration with a
+// `Buffer is not defined` ReferenceError.
 const optionalAuthkitMiddleware = createMiddleware().server(async (ctx) => {
   if (!hasWorkOsConfig()) return ctx.next()
+  const { authkitMiddleware } = await import(
+    '@workos/authkit-tanstack-react-start'
+  )
   const runAuthkit = authkitMiddleware().options.server
   if (!runAuthkit) return ctx.next()
   return runAuthkit(ctx)

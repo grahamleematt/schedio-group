@@ -47,7 +47,7 @@ async function main(): Promise<number> {
   })()
   console.log(`Preflight against Postgres host: ${host} (ssl: ${dbEnv.DATABASE_SSL})`)
 
-  const pool = getDatabasePool()
+  const pool = await getDatabasePool()
   try {
     await pool.query('select 1')
     checks.push({ label: 'database connectivity', ok: true })

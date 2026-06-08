@@ -9,7 +9,6 @@
  */
 
 import { createServerFn } from '@tanstack/react-start'
-import { WorkOS } from '@workos-inc/node'
 
 import { clients } from '#/lib/sg-dream'
 import type { AccessRole, ActiveUser, MfaState } from '#/lib/sg-dream'
@@ -92,6 +91,7 @@ export const getUserDirectory = createServerFn({ method: 'GET' }).handler(
     }
 
     try {
+      const { WorkOS } = await import('@workos-inc/node')
       const workos = new WorkOS(getWorkOsEnv().WORKOS_API_KEY)
       const memberships =
         await workos.userManagement.listOrganizationMemberships({

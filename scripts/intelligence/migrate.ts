@@ -8,7 +8,7 @@ async function main() {
   const files = (await fs.readdir(dir))
     .filter((file) => file.endsWith('.sql'))
     .sort((a, b) => a.localeCompare(b))
-  const pool = getDatabasePool()
+  const pool = await getDatabasePool()
   try {
     for (const file of files) {
       const sql = await fs.readFile(path.join(dir, file), 'utf8')

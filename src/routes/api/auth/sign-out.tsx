@@ -1,5 +1,4 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { getAuth, signOut } from '@workos/authkit-tanstack-react-start'
 
 import { isWorkOsConfigured } from '#/server/env'
 
@@ -14,6 +13,9 @@ export const Route = createFileRoute('/api/auth/sign-out')({
         if (!isWorkOsConfigured()) {
           return redirectTo(request, '/login')
         }
+        const { getAuth, signOut } = await import(
+          '@workos/authkit-tanstack-react-start'
+        )
         // No active session → nothing to revoke at WorkOS; bounce to /login
         // ourselves. Calling signOut() without a session fails to build a
         // logout URL and 500s.
