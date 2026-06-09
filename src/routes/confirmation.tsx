@@ -165,8 +165,11 @@ function ConfirmationPage() {
   const flaggedCount = flaggedDocs.length
   const reviewNeeded = flaggedCount > 0
 
+  // Claim value submitted this period = invoices + pay-app current payment due.
+  // POPs / lien waivers evidence the same dollars and contracts are
+  // authorization, so they're excluded to avoid double-counting.
   const totalSubmitted = docs
-    .filter((d) => d.docType === 'INV')
+    .filter((d) => d.docType === 'INV' || d.docType === 'PA')
     .reduce((sum, d) => sum + d.amount, 0)
 
   const ref = displayRef({
@@ -309,7 +312,7 @@ function ConfirmationPage() {
             <div className="v">{summaries.length}</div>
           </div>
           <div className="v2-stat">
-            <div className="k">Invoice costs extracted</div>
+            <div className="k">Costs submitted</div>
             <div className="v mono">{formatCurrency(totalSubmitted)}</div>
           </div>
           <div className="v2-stat">

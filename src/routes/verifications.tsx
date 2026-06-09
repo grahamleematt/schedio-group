@@ -196,8 +196,8 @@ function VerificationsPage() {
               </div>
               <div className="d">
                 {liveTotals.hasLiveAmounts
-                  ? 'Sum of extracted invoice amounts'
-                  : 'Awaiting extracted invoice amounts'}
+                  ? 'Invoice + pay-app amounts'
+                  : 'Awaiting extracted invoice + pay-app amounts'}
               </div>
             </div>
             <div className="v2-stat">

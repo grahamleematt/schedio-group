@@ -28,22 +28,9 @@ export function EgnyteStatusPill() {
     <Link
       to="/settings"
       search={{ client: client.id }}
-      className="topbar-pill"
+      className={`topbar-pill ${connected ? 'ok' : 'warn'}`}
       title={title}
       aria-label={title}
-      style={
-        connected
-          ? {
-              color: 'var(--color-emerald-ink, #047857)',
-              borderColor: 'var(--color-emerald-bd, #a7f3d0)',
-              background: 'var(--color-emerald-bg, #ecfdf5)',
-            }
-          : {
-              color: 'var(--color-amber-ink)',
-              borderColor: 'var(--color-amber-bd)',
-              background: 'var(--color-amber-bg)',
-            }
-      }
     >
       {connected ? (
         <CheckCircle2 className="size-3.5" aria-hidden />

@@ -76,7 +76,7 @@ export function DocumentInventoryTiles({
                   'relative flex flex-col gap-2 rounded-2xl border px-4 py-4 transition-colors',
                   isActive
                     ? 'bg-white'
-                    : 'bg-[color:var(--color-surface-muted)] text-text-muted',
+                    : 'bg-(--color-surface-muted) text-text-muted',
                 )}
                 style={{
                   borderColor: isActive

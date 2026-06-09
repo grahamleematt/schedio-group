@@ -4,10 +4,14 @@ import { ArrowRight, FileQuestion, UploadCloud } from 'lucide-react'
 import { AppShell } from '#/components/sg-dream/AppShell'
 import {
   clients,
+  docTypeLabels,
+  formatCurrencyPrecise,
   getClientById,
   getOpenVerification,
   getVerificationById,
 } from '#/lib/sg-dream'
+import type { Document } from '#/lib/sg-dream'
+import { storedListToDisplay } from '#/lib/sg-dream-adapter'
 import { verificationSnapshotQuery } from '#/lib/queries'
 import type { StoredDocument } from '#/server/store'
 
@@ -196,17 +200,6 @@ function statusPill(status: StoredDocument['status']) {
   }
 }
 
-function duplicateCheckPill(doc: StoredDocument) {
-  switch (doc.duplicateFlag) {
-    case 'exact':
-      return { label: 'Exact match', cls: 'pill pill-red' }
-    case 'likely':
-      return { label: 'Likely match', cls: 'pill pill-amber' }
-    case 'none':
-      return { label: 'No match', cls: 'pill pill-green' }
-  }
-}
-
 function filedStatusPill(custody: StoredDocument['custodyState']) {
   switch (custody) {
     case 'classified':
@@ -233,6 +226,7 @@ function ProcessingPage() {
   )
   const snapshot = snapshotQuery.data
   const docs = snapshot?.verification.documents ?? []
+  const displayDocs = storedListToDisplay(docs)
   const isEmpty = docs.length === 0
   const steps = deriveSteps(docs)
   const flaggedCount = docs.filter(
@@ -377,61 +371,83 @@ function ProcessingPage() {
 
       <section className="v2-card mt-4">
         <header className="v2-card-head">
-          <h3>Per-document status</h3>
+          <h3>Per-document detail</h3>
           <span className="sub">
-            Original upload names stay visible for auditability.
+            Standardized filing name, vendor, extracted amount, duplicate and
+            custody status. Original upload names stay visible for auditability.
           </span>
         </header>
-        <div className="v2-table-scroll">
-          <table className="v2-tbl">
-            <thead>
-              <tr>
-                <th>Original file</th>
-                <th>Document type</th>
-                <th>Processing status</th>
-                <th>Duplicate check</th>
-                <th>Filed status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {docs.map((doc) => {
-                const status = statusPill(doc.status)
-                const duplicate = duplicateCheckPill(doc)
-                const filed = filedStatusPill(doc.custodyState)
-                return (
-                  <tr key={doc.id}>
-                    <td className="mono break-all text-[11.5px]">
-                      {doc.originalName}
-                    </td>
-                    <td>
-                      <span className="pill pill-ink">{doc.docType}</span>
-                    </td>
-                    <td>
-                      <span className={status.cls}>
-                        <span className="dot" />
-                        {status.label}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={duplicate.cls}>
-                        <span className="dot" />
-                        {duplicate.label}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={filed.cls}>
-                        <span className="dot" />
-                        {filed.label}
-                      </span>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+        <div>
+          {displayDocs.map((doc) => (
+            <ProcessingRow key={doc.id} doc={doc} />
+          ))}
         </div>
       </section>
     </AppShell>
+  )
+}
+
+/**
+ * The rich per-file row that streams live while DocuPipe works. This is the
+ * canonical processing view: it carries the standardized filing name (with the
+ * original kept beneath for audit), source, classified type · vendor, the
+ * extracted amount, duplicate flag, low-confidence badge, Egnyte custody
+ * status, and any error — everything the old upload queue surfaced, plus
+ * custody and confidence.
+ */
+function ProcessingRow({ doc }: { doc: Document }) {
+  const status = doc.status
+    ? statusPill(doc.status)
+    : { label: 'Queued', cls: 'pill pill-gray' }
+  const filed = filedStatusPill(doc.custodyState)
+  const dupClass =
+    doc.duplicateFlag === 'exact'
+      ? 'pill-red'
+      : doc.duplicateFlag === 'likely'
+        ? 'pill-amber'
+        : null
+  const hasStandardizedName = doc.renamedName !== doc.originalName
+  const displayName = hasStandardizedName ? doc.renamedName : doc.originalName
+  const typeAndVendor = [docTypeLabels[doc.docType], doc.vendorName]
+    .filter(Boolean)
+    .join(' · ')
+  const sourceLabel =
+    doc.sourceKind === 'egnyte_import' ? 'Imported from Egnyte' : 'Uploaded'
+
+  return (
+    <div className="queue-row">
+      <span className="doc-ico" aria-hidden />
+      <div className="qmeta min-w-0">
+        <p className="qtitle truncate">{displayName}</p>
+        <div className="qdetail">
+          <span>{sourceLabel}</span>
+          {hasStandardizedName ? (
+            <span className="truncate">Original: {doc.originalName}</span>
+          ) : null}
+          {typeAndVendor ? <span>{typeAndVendor}</span> : null}
+          {dupClass ? (
+            <span className={`pill ${dupClass}`}>
+              {doc.duplicateFlag === 'exact' ? 'Exact match' : 'Likely match'}
+            </span>
+          ) : null}
+          {doc.lowConfidence ? (
+            <span className="pill pill-amber">Low confidence</span>
+          ) : null}
+          <span className={filed.cls}>
+            <span className="dot" />
+            {filed.label}
+          </span>
+        </div>
+        {doc.errorMessage ? <p className="qerror">{doc.errorMessage}</p> : null}
+      </div>
+      <span className="queue-amount mono">
+        {doc.amount > 0 ? formatCurrencyPrecise(doc.amount) : '—'}
+      </span>
+      <span className={status.cls}>
+        <span className="dot" />
+        {status.label}
+      </span>
+    </div>
   )
 }
 

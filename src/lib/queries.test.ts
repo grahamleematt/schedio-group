@@ -96,7 +96,7 @@ describe('liveVerificationTotals', () => {
     expect(totals.hasLiveDocs).toBe(false)
   })
 
-  it('sums extracted invoice amounts only once live documents exist', () => {
+  it('sums invoice and pay-app claim amounts once live documents exist', () => {
     const totals = liveVerificationTotals({
       snapshot: snapshotWithDocs([
         {
@@ -120,9 +120,33 @@ describe('liveVerificationTotals', () => {
     })
 
     expect(totals.docsCount).toBe(3)
-    expect(totals.costsSubmitted).toBe(200.5)
+    expect(totals.invoiceTotal).toBe(200.5)
+    expect(totals.payAppTotal).toBe(10_000)
+    expect(totals.costsSubmitted).toBe(10_200.5)
     expect(totals.hasLiveAmounts).toBe(true)
     expect(totals.hasLiveDocs).toBe(true)
+  })
+
+  it('excludes proof-of-payment amounts so claim dollars are not double-counted', () => {
+    const totals = liveVerificationTotals({
+      snapshot: snapshotWithDocs([
+        {
+          id: 'invoice-1',
+          docType: 'INV',
+          extractedFields: { amount: 5_000 },
+        },
+        {
+          id: 'pop-1',
+          docType: 'POP',
+          extractedFields: { amount: 5_000 },
+        },
+      ]),
+      fallbackDocsCount: 11,
+      fallbackCostsSubmitted: 322_940.11,
+    })
+
+    expect(totals.costsSubmitted).toBe(5_000)
+    expect(totals.payAppTotal).toBe(0)
   })
 
   it('keeps a live zero instead of falling back to configured dollars', () => {

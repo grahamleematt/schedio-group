@@ -2152,6 +2152,16 @@ pre code {
   background: var(--wf-soft);
   color: var(--wf-strong);
 }
+.app-shell .topbar .topbar-pill.ok {
+  border-color: rgba(31, 110, 69, 0.28);
+  background: var(--color-green-bg);
+  color: var(--color-green-base);
+}
+.app-shell .topbar .topbar-pill.warn {
+  border-color: var(--color-amber-bd);
+  background: var(--color-amber-bg);
+  color: var(--color-amber-ink);
+}
 .app-shell .icon-btn {
   display: grid;
   place-items: center;

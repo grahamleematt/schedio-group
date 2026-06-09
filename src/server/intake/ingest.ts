@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto'
+
 import { postDocument } from '#/server/docupipe'
 import {
   createFolderIfMissing,
@@ -124,6 +126,43 @@ export async function ingestDocument(
   const now = new Date().toISOString()
   const incoming = input.egnyteIdentity
 
+  // Pre-classification duplicate guard: SHA-256 the bytes and short-circuit if
+  // the identical file was already submitted to this verification. This avoids
+  // spending a DocuPipe call on a re-drop and surfaces the duplicate
+  // immediately, rather than waiting for the extracted-field detector to maybe
+  // catch it post-standardization.
+  const contentHash = createHash('sha256')
+    .update(Buffer.from(input.contents))
+    .digest('hex')
+  const existingSnapshot = await store.getSnapshot(input.context.verification.id)
+  const priorSameBytes = existingSnapshot?.verification.documents.find(
+    (d) => d.contentHash === contentHash && d.status !== 'error',
+  )
+  if (priorSameBytes) {
+    return store.upsertDocument({
+      id,
+      clientId: input.context.client.id,
+      verificationId: input.context.verification.id,
+      sourceKind: input.sourceKind,
+      originalName: input.filename,
+      displayName: input.filename,
+      docType: 'UNK',
+      status: 'completed',
+      uploadedAt: now,
+      updatedAt: now,
+      duplicateFlag: 'exact',
+      matchedPreviousName:
+        priorSameBytes.renamedName ?? priorSameBytes.originalName,
+      matchedVerificationRef: input.context.verificationRef,
+      mimeType: input.contentType,
+      sizeBytes: input.sizeBytes,
+      importJobId: input.importJobId,
+      contentHash,
+      errorMessage:
+        'Identical file already in this submission — not sent to DocuPipe.',
+    })
+  }
+
   await store.upsertDocument({
     id,
     clientId: input.context.client.id,
@@ -158,6 +197,7 @@ export async function ingestDocument(
     mimeType: input.contentType,
     sizeBytes: input.sizeBytes,
     importJobId: input.importJobId,
+    contentHash,
   })
 
   let staged: EgnyteIdentity | undefined = incoming

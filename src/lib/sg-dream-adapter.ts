@@ -60,9 +60,18 @@ export function storedListToDisplay(
 export type LiveTotals = {
   /** Number of docs the user actually has on the verification right now. */
   docsCount: number
-  /** Sum of extracted invoice amounts for the verification. */
+  /**
+   * Sum of the claim amounts submitted this period: invoices plus pay-app
+   * "current payment due". Proofs of payment and lien waivers are evidence of
+   * these same dollars, and contracts / change orders are authorization (shown
+   * separately), so neither is added here — adding them would double-count.
+   */
   costsSubmitted: number
-  /** True when at least one live invoice doc with an extracted amount exists. */
+  /** Invoice-only subtotal (docType `INV`). */
+  invoiceTotal: number
+  /** Pay-application subtotal (docType `PA`, current payment due). */
+  payAppTotal: number
+  /** True when at least one invoice or pay-app has an extracted amount. */
   hasLiveAmounts: boolean
   /** True when at least one live doc exists, even if amounts haven't extracted yet. */
   hasLiveDocs: boolean
@@ -83,22 +92,32 @@ export function liveVerificationTotals(input: {
     return {
       docsCount: 0,
       costsSubmitted: 0,
+      invoiceTotal: 0,
+      payAppTotal: 0,
       hasLiveAmounts: false,
       hasLiveDocs: false,
     }
   }
-  const invoiceDocs = docs.filter((d) => d.docType === 'INV')
-  const docsWithInvoiceAmounts = invoiceDocs.filter(
-    (d) => typeof d.extractedFields?.amount === 'number',
-  )
-  const sum = docsWithInvoiceAmounts.reduce(
-    (acc, d) => acc + (d.extractedFields?.amount ?? 0),
-    0,
+  const sumForType = (docType: StoredDocument['docType']) =>
+    docs
+      .filter(
+        (d) =>
+          d.docType === docType && typeof d.extractedFields?.amount === 'number',
+      )
+      .reduce((acc, d) => acc + (d.extractedFields?.amount ?? 0), 0)
+  const invoiceTotal = sumForType('INV')
+  const payAppTotal = sumForType('PA')
+  const hasLiveAmounts = docs.some(
+    (d) =>
+      (d.docType === 'INV' || d.docType === 'PA') &&
+      typeof d.extractedFields?.amount === 'number',
   )
   return {
     docsCount: docs.length,
-    costsSubmitted: sum,
-    hasLiveAmounts: docsWithInvoiceAmounts.length > 0,
+    costsSubmitted: invoiceTotal + payAppTotal,
+    invoiceTotal,
+    payAppTotal,
+    hasLiveAmounts,
     hasLiveDocs: true,
   }
 }

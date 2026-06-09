@@ -170,8 +170,12 @@ function CustomerIntakeDashboard() {
               </div>
               <div className="d">
                 {liveTotals.hasLiveAmounts
-                  ? 'Sum of extracted invoice amounts'
-                  : 'Awaiting extracted invoice amounts'}
+                  ? liveTotals.payAppTotal > 0 && liveTotals.invoiceTotal > 0
+                    ? `Invoices ${formatCurrency(liveTotals.invoiceTotal)} · pay apps ${formatCurrency(liveTotals.payAppTotal)}`
+                    : liveTotals.payAppTotal > 0
+                      ? 'Sum of pay-app current payment due'
+                      : 'Sum of extracted invoice amounts'
+                  : 'Awaiting extracted invoice + pay-app amounts'}
               </div>
             </div>
             <div className="v2-stat">

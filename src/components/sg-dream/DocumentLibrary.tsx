@@ -101,7 +101,7 @@ export function DocumentLibrary({
                   className={cn(
                     'inline-flex h-8 items-center rounded-full px-3 text-[0.72rem] font-semibold uppercase tracking-[0.06em] transition-colors',
                     isActive
-                      ? 'text-[color:var(--color-brand-white)]'
+                      ? 'text-(--color-brand-white)'
                       : 'text-text-muted hover:text-text-strong',
                   )}
                   style={
@@ -175,7 +175,7 @@ export function DocumentLibrary({
                 onClick={() => onToggleCategory(docType)}
                 aria-expanded={isOpen}
                 aria-controls={panelId}
-                className="flex w-full items-center justify-between gap-3 px-5 py-3 text-left hover:bg-[color:var(--color-surface-muted)]"
+                className="flex w-full items-center justify-between gap-3 px-5 py-3 text-left hover:bg-(--color-surface-muted)"
               >
                 <div className="flex items-center gap-3">
                   <ChevronRight
@@ -293,7 +293,7 @@ export function DocumentLibrary({
                             disabled={pendingDeleteId === doc.id}
                             aria-label={`Remove ${doc.originalName}`}
                             title="Remove document"
-                            className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-transparent text-text-muted transition-colors hover:border-(--color-flag-exact-bd,#fca5a5) hover:bg-(--color-flag-exact-bg,#fef2f2) hover:text-(--color-rose-ink,#be123c) disabled:opacity-50"
+                            className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-transparent text-text-muted transition-colors hover:border-flag-exact-border hover:bg-flag-exact-bg hover:text-(--color-flag-exact-text) disabled:opacity-50"
                           >
                             {pendingDeleteId === doc.id ? (
                               <Loader2

@@ -152,26 +152,13 @@ function EgnyteIntegrationCard() {
           <span className="text-[12px] text-muted-2">File custody</span>
         </div>
         {status.connected ? (
-          <span
-            className="chip inline-flex items-center gap-1.5"
-            style={{
-              color: 'var(--color-emerald-ink, #047857)',
-              borderColor: 'var(--color-emerald-bd, #a7f3d0)',
-              background: 'var(--color-emerald-bg, #ecfdf5)',
-            }}
-          >
+          <span className="pill pill-green">
             <CheckCircle2 className="size-3.5" aria-hidden />
             Connected
           </span>
         ) : (
-          <span
-            className="chip inline-flex items-center gap-1.5"
-            style={{
-              color: 'var(--color-amber-ink)',
-              borderColor: 'var(--color-amber-bd)',
-              background: 'var(--color-amber-bg)',
-            }}
-          >
+          <span className="pill pill-amber">
+            <span className="dot" />
             Not connected
           </span>
         )}
@@ -330,9 +317,8 @@ function ConnectEgnyteDialog({
 
           {errorText ? (
             <p
-              className="m-0 flex items-start gap-1.5 text-[13px]"
+              className="m-0 flex items-start gap-1.5 text-[13px] text-destructive"
               role="alert"
-              style={{ color: 'var(--color-rose-ink, #be123c)' }}
             >
               <Lock className="mt-0.5 size-3.5 shrink-0" aria-hidden />
               {errorText}

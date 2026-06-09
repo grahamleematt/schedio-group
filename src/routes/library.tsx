@@ -324,11 +324,7 @@ function LibraryPage() {
             </DialogDescription>
           </DialogHeader>
           {deleteDocMut.isError ? (
-            <p
-              className="m-0 text-[13px]"
-              role="alert"
-              style={{ color: 'var(--color-rose-ink, #be123c)' }}
-            >
+            <p className="m-0 text-[13px] text-destructive" role="alert">
               Could not remove the document. Try again.
             </p>
           ) : null}
@@ -386,11 +382,7 @@ function LibraryPage() {
             </DialogDescription>
           </DialogHeader>
           {clearMut.isError ? (
-            <p
-              className="m-0 text-[13px]"
-              role="alert"
-              style={{ color: 'var(--color-rose-ink, #be123c)' }}
-            >
+            <p className="m-0 text-[13px] text-destructive" role="alert">
               Could not clear the submission. Try again.
             </p>
           ) : null}

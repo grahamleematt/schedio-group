@@ -1,4 +1,4 @@
-import { Link, createFileRoute, redirect } from '@tanstack/react-router'
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import {
   useMutation,
   useQueryClient,
@@ -6,10 +6,10 @@ import {
 } from '@tanstack/react-query'
 import {
   ArrowRight,
-  FileText,
   FolderOpen,
   Loader2,
   RefreshCw,
+  Trash2,
   UploadCloud,
 } from 'lucide-react'
 import { useRef, useState } from 'react'
@@ -17,14 +17,11 @@ import type { DragEvent } from 'react'
 import { AppShell } from '#/components/sg-dream/AppShell'
 import {
   clients,
-  docTypeLabels,
   displaySubmissionCycle,
-  formatCurrencyPrecise,
   getClientById,
   getOpenVerification,
   getVerificationById,
 } from '#/lib/sg-dream'
-import type { Document } from '#/lib/sg-dream'
 import { verificationSnapshotQuery } from '#/lib/queries'
 import { storedListToDisplay } from '#/lib/sg-dream-adapter'
 
@@ -50,6 +47,33 @@ const stateValues = new Set<UploadState>(['normal', 'empty', 'error'])
 export function snapshotUploadFiles(files: FileList | null): File[] {
   if (!files || files.length === 0) return []
   return Array.from(files)
+}
+
+/** A file the user has added to the draft but has NOT analyzed yet. Held in
+ * browser state only — nothing reaches the server, DocuPipe, or Egnyte until
+ * "Analyze submission" runs. */
+type StagedFile = {
+  /** Stable client id so React keys + removal are deterministic. */
+  id: string
+  file: File
+  /** SHA-256 of the file bytes; used to block staging the same file twice. */
+  hash: string
+}
+
+/** SHA-256 the file bytes in the browser so we can dedupe a draft before
+ * spending a DocuPipe call. */
+async function hashFile(file: File): Promise<string> {
+  const buf = await file.arrayBuffer()
+  const digest = await crypto.subtle.digest('SHA-256', buf)
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 export const Route = createFileRoute('/upload')({
@@ -109,10 +133,15 @@ function UploadPage() {
     verificationSnapshotQuery(verification.id),
   )
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [importMessage, setImportMessage] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
+  // Files the user has added but not yet analyzed. Browser-only — see StagedFile.
+  const [stagedFiles, setStagedFiles] = useState<Array<StagedFile>>([])
+  const [isStaging, setIsStaging] = useState(false)
+  const [stageNotice, setStageNotice] = useState<string | null>(null)
 
   const snapshot = snapshotQuery.data
   const clientRootPath = (
@@ -129,13 +158,6 @@ function UploadPage() {
   const referenceStateLabel = hasDraftSubmission
     ? 'Assigned after Schedio review'
     : 'Pending first upload'
-  const flaggedDocs = displayDocs.filter((d) => d.duplicateFlag !== 'none')
-  const exactCount = flaggedDocs.filter(
-    (d) => d.duplicateFlag === 'exact',
-  ).length
-  const likelyCount = flaggedDocs.filter(
-    (d) => d.duplicateFlag === 'likely',
-  ).length
   const inFlight = displayDocs.filter(
     (d) =>
       d.status === 'queued' ||
@@ -279,15 +301,25 @@ function UploadPage() {
     onSuccess: (result) => {
       setUploadError(
         result.failures.length > 0
-          ? `Some files were not uploaded — ${result.failures.join('; ')}`
+          ? `Some files were not analyzed — ${result.failures.join('; ')}`
           : null,
       )
       void queryClient.invalidateQueries({
         queryKey: ['verification', verificationId],
       })
+      // The staged files are now real, queued documents. Clear the draft tray
+      // and move to the processing view where DocuPipe progress streams in.
+      if (result.uploaded.length > 0) {
+        setStagedFiles([])
+        setStageNotice(null)
+        void navigate({
+          to: '/processing',
+          search: { client: client.id, verification: verification.id },
+        })
+      }
     },
     onError: (err) => {
-      setUploadError(err instanceof Error ? err.message : 'Upload failed')
+      setUploadError(err instanceof Error ? err.message : 'Analysis failed')
     },
   })
 
@@ -331,22 +363,61 @@ function UploadPage() {
     },
   })
 
-  const onFilesChosen = (files: FileList | null) => {
+  const stageFiles = async (files: FileList | null) => {
     const chosenFiles = snapshotUploadFiles(files)
     if (chosenFiles.length === 0) return
-    mutation.mutate(chosenFiles)
-    if (fileInputRef.current) fileInputRef.current.value = ''
+    setIsStaging(true)
+    setStageNotice(null)
+    try {
+      const seen = new Set(stagedFiles.map((s) => s.hash))
+      const additions: Array<StagedFile> = []
+      const skipped: Array<string> = []
+      for (const file of chosenFiles) {
+        const hash = await hashFile(file)
+        if (seen.has(hash)) {
+          skipped.push(file.name)
+          continue
+        }
+        seen.add(hash)
+        additions.push({ id: `${hash}-${file.size}-${seen.size}`, file, hash })
+      }
+      if (additions.length > 0) {
+        setStagedFiles((prev) => [...prev, ...additions])
+      }
+      setStageNotice(
+        skipped.length > 0
+          ? `Skipped ${skipped.length} duplicate file${
+              skipped.length === 1 ? '' : 's'
+            } already in this draft — ${skipped.join(', ')}`
+          : null,
+      )
+    } finally {
+      setIsStaging(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  const removeStagedFile = (id: string) => {
+    setStagedFiles((prev) => prev.filter((s) => s.id !== id))
+  }
+
+  const analyzeSubmission = () => {
+    if (stagedFiles.length === 0 || mutation.isPending) return
+    setUploadError(null)
+    mutation.mutate(stagedFiles.map((s) => s.file))
   }
 
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault()
     setIsDragging(false)
-    if (e.dataTransfer.files.length > 0) onFilesChosen(e.dataTransfer.files)
+    if (e.dataTransfer.files.length > 0) void stageFiles(e.dataTransfer.files)
   }
 
-  const renderEmpty = variant === 'empty'
   const renderError = variant === 'error' || Boolean(uploadError)
-  const showQueue = !renderEmpty && displayDocs.length > 0
+  const hasStaged = stagedFiles.length > 0
+  const stagedBytes = stagedFiles.reduce((sum, s) => sum + s.file.size, 0)
+  const hasAnalyzed = displayDocs.length > 0
+  const canAnalyze = hasStaged && !mutation.isPending && !isStaging
 
   const rail = (
     <>
@@ -372,7 +443,11 @@ function UploadPage() {
             <span className="v">{referenceStateLabel}</span>
           </div>
           <div className="kv">
-            <span className="k">Files in queue</span>
+            <span className="k">Staged (not analyzed)</span>
+            <span className="v">{stagedFiles.length}</span>
+          </div>
+          <div className="kv">
+            <span className="k">Analyzed</span>
             <span className="v">{displayDocs.length}</span>
           </div>
           {inFlight.length > 0 ? (
@@ -380,6 +455,24 @@ function UploadPage() {
               <span className="k">Processing</span>
               <span className="v">{inFlight.length}</span>
             </div>
+          ) : null}
+          {hasAnalyzed ? (
+            <button
+              type="button"
+              className="v2-btn mt-2 w-full justify-center"
+              onClick={() =>
+                void navigate({
+                  to: '/processing',
+                  search: {
+                    client: client.id,
+                    verification: verification.id,
+                  },
+                })
+              }
+            >
+              View processing
+              <ArrowRight className="size-4" />
+            </button>
           ) : null}
         </div>
       </section>
@@ -390,12 +483,12 @@ function UploadPage() {
         </header>
         <div className="v2-card-body space-y-3 text-[12.5px] text-ink-2">
           <p className="m-0">
-            Upload PDF, TIFF, or JPG. DocuPipe runs classify + standardize on
-            every file as it lands.
+            Add PDF, TIFF, or JPG files to the draft. Nothing is sent to
+            DocuPipe until you click <strong>Analyze submission</strong>.
           </p>
           <p className="m-0">
-            Duplicate checks run after each file finishes classification —
-            results appear on this page and on the processing screen.
+            Remove anything you didn&rsquo;t mean to add before analyzing. The
+            same file can&rsquo;t be staged twice.
           </p>
           <p className="m-0 text-muted-1">
             Schedio Group assigns a final reference number when this submission
@@ -451,9 +544,9 @@ function UploadPage() {
               : 'Start submission'}
           </h1>
           <p className="v2-lede">
-            Drop files into the queue. DocuPipe classifies each file, extracts
-            vendor + cost details, and compares the draft against every prior
-            filing for {client.name}.
+            Add files to the draft and review them. When you click Analyze,
+            DocuPipe classifies each file, extracts vendor + cost details, and
+            compares the draft against every prior filing for {client.name}.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -470,21 +563,24 @@ function UploadPage() {
             )}
             Import from Egnyte
           </button>
-          {displayDocs.length > 0 ? (
-            <Link
-              to="/processing"
-              search={{ client: client.id, verification: verification.id }}
-              className="v2-btn primary"
-            >
-              Analyze submission
-              <ArrowRight className="size-4" />
-            </Link>
-          ) : (
-            <button type="button" className="v2-btn primary" disabled>
-              Analyze submission
-              <ArrowRight className="size-4" />
-            </button>
-          )}
+          <button
+            type="button"
+            className="v2-btn primary"
+            onClick={analyzeSubmission}
+            disabled={!canAnalyze}
+          >
+            {mutation.isPending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : null}
+            {mutation.isPending
+              ? 'Analyzing…'
+              : hasStaged
+                ? `Analyze submission · ${stagedFiles.length} file${
+                    stagedFiles.length === 1 ? '' : 's'
+                  }`
+                : 'Analyze submission'}
+            {!mutation.isPending ? <ArrowRight className="size-4" /> : null}
+          </button>
         </div>
       </header>
 
@@ -494,7 +590,7 @@ function UploadPage() {
         multiple
         className="sr-only"
         accept=".pdf,.tif,.tiff,.jpg,.jpeg"
-        onChange={(e) => onFilesChosen(e.target.files)}
+        onChange={(e) => void stageFiles(e.target.files)}
       />
 
       {renderError ? (
@@ -520,23 +616,13 @@ function UploadPage() {
         </div>
       ) : null}
 
-      {flaggedDocs.length > 0 ? (
+      {stageNotice ? (
         <div className="errbar amber mb-3" role="status">
           <span className="icn">!</span>
-          <div className="min-w-0 flex-1">
-            <p className="m-0 font-semibold">
-              {flaggedDocs.length} file{flaggedDocs.length === 1 ? '' : 's'}{' '}
-              flagged for possible duplication
-            </p>
-            <p className="m-0 text-[12.5px]">
-              {exactCount} exact · {likelyCount} likely. Review each row before
-              sending this draft to Schedio.
-            </p>
+          <div className="min-w-0">
+            <p className="m-0 font-semibold">Duplicate skipped</p>
+            <p className="m-0 text-[12.5px]">{stageNotice}</p>
           </div>
-          <span className="pill pill-amber">
-            <span className="dot" />
-            Decisions captured after analysis
-          </span>
         </div>
       ) : null}
 
@@ -555,7 +641,7 @@ function UploadPage() {
             className="grid size-12 place-items-center rounded-2xl"
             style={{ background: 'var(--wf-soft)', color: 'var(--wf-strong)' }}
           >
-            {mutation.isPending ? (
+            {isStaging || mutation.isPending ? (
               <Loader2 className="size-6 animate-spin" />
             ) : (
               <UploadCloud className="size-6" />
@@ -563,121 +649,62 @@ function UploadPage() {
           </span>
           <p className="m-0 font-ops text-[15px] font-semibold text-ink">
             {mutation.isPending
-              ? 'Uploading to DocuPipe…'
-              : 'Drag and drop documents here'}
+              ? 'Analyzing submission…'
+              : isStaging
+                ? 'Adding files to draft…'
+                : 'Drag and drop documents here'}
           </p>
           <p className="m-0 text-[12.5px] text-muted-1">
-            PDF, TIFF, JPG, or import this submission's Egnyte intake folder.
+            Files are added to the draft below. PDF, TIFF, JPG, or import this
+            submission's Egnyte intake folder.
           </p>
           <button
             type="button"
             className="v2-btn primary mt-2"
             onClick={() => fileInputRef.current?.click()}
-            disabled={mutation.isPending}
+            disabled={isStaging || mutation.isPending}
           >
             <UploadCloud className="size-4" /> Browse files
           </button>
         </div>
       </div>
 
-      {showQueue ? (
+      {hasStaged ? (
         <section className="v2-card mt-4">
           <header className="v2-card-head">
-            <h3>Queue</h3>
+            <h3>Draft · not analyzed yet</h3>
             <span className="sub">
-              {displayDocs.length} file{displayDocs.length === 1 ? '' : 's'}
+              {stagedFiles.length} file{stagedFiles.length === 1 ? '' : 's'} ·{' '}
+              {formatBytes(stagedBytes)} · review before analyzing
             </span>
           </header>
           <div>
-            {displayDocs.map((doc) => (
-              <UploadRow key={doc.id} doc={doc} />
+            {stagedFiles.map((staged) => (
+              <div className="queue-row" key={staged.id}>
+                <span className="doc-ico" aria-hidden />
+                <div className="qmeta min-w-0">
+                  <p className="qtitle truncate">{staged.file.name}</p>
+                  <div className="qdetail">
+                    <span>{formatBytes(staged.file.size)}</span>
+                    <span>Staged — analysis pending</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeStagedFile(staged.id)}
+                  disabled={mutation.isPending}
+                  aria-label={`Remove ${staged.file.name} from draft`}
+                  title="Remove from draft"
+                  className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-transparent text-text-muted transition-colors hover:border-flag-exact-border hover:bg-flag-exact-bg hover:text-(--color-flag-exact-text) disabled:opacity-50"
+                >
+                  <Trash2 className="size-4" aria-hidden />
+                </button>
+              </div>
             ))}
           </div>
         </section>
-      ) : renderEmpty ? (
-        <section className="v2-card mt-4">
-          <header className="v2-card-head">
-            <h3>No files yet</h3>
-          </header>
-          <div className="v2-card-body text-[13px] text-ink-2">
-            <p className="m-0 mb-2">When you drop files here, DocuPipe will:</p>
-            <ol className="m-0 ml-5 list-decimal space-y-1 text-muted-1">
-              <li>
-                Classify each file (CTR / TO / CO / PA / INV / POP / LSP).
-              </li>
-              <li>Extract vendor + cost details from the document body.</li>
-              <li>
-                Compare every file to prior filings for {client.name} and flag
-                exact or likely duplicates.
-              </li>
-            </ol>
-          </div>
-        </section>
       ) : null}
+
     </AppShell>
-  )
-}
-
-function UploadRow({ doc }: { doc: Document }) {
-  const status =
-    doc.status ?? (doc.duplicateFlag !== 'none' ? 'completed' : 'queued')
-  const statusLabel: Record<string, string> = {
-    queued: 'Queued',
-    classifying: 'Classifying',
-    standardizing: 'Extracting',
-    completed: 'Ready',
-    error: 'Error',
-  }
-  const statusClass =
-    status === 'error'
-      ? 'pill-red'
-      : status === 'completed'
-        ? 'pill-green'
-        : 'pill-amber'
-  const dupClass =
-    doc.duplicateFlag === 'exact'
-      ? 'pill-red'
-      : doc.duplicateFlag === 'likely'
-        ? 'pill-amber'
-        : null
-  const hasStandardizedName = doc.renamedName !== doc.originalName
-  const displayName = hasStandardizedName ? doc.renamedName : doc.originalName
-  const typeAndVendor = [docTypeLabels[doc.docType], doc.vendorName]
-    .filter(Boolean)
-    .join(' · ')
-  const sourceLabel =
-    doc.sourceKind === 'egnyte_import' ? 'Imported from Egnyte' : 'Uploaded'
-
-  return (
-    <div className="queue-row">
-      <span className="doc-ico" aria-hidden />
-      <div className="qmeta min-w-0">
-        <p className="qtitle truncate">{displayName}</p>
-        <div className="qdetail">
-          <span>{sourceLabel}</span>
-          {hasStandardizedName ? (
-            <span className="truncate">Original: {doc.originalName}</span>
-          ) : null}
-          <span>{typeAndVendor}</span>
-          {dupClass ? (
-            <span className={`pill ${dupClass}`}>
-              {doc.duplicateFlag === 'exact' ? 'Exact' : 'Likely'}
-            </span>
-          ) : null}
-        </div>
-        {doc.errorMessage ? <p className="qerror">{doc.errorMessage}</p> : null}
-      </div>
-      <span className="queue-amount mono">
-        {doc.amount > 0 ? formatCurrencyPrecise(doc.amount) : '—'}
-      </span>
-      <span className={`pill ${statusClass}`}>
-        {status === 'classifying' || status === 'standardizing' ? (
-          <Loader2 className="size-3 animate-spin" />
-        ) : (
-          <FileText className="size-3" />
-        )}
-        {statusLabel[status]}
-      </span>
-    </div>
   )
 }

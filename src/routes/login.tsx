@@ -58,8 +58,7 @@ function LoginPage() {
 
         {hasError ? (
           <div
-            className="border-line bg-red-bg mt-4 rounded-3 border px-3 py-2 text-[12.5px]"
-            style={{ color: 'var(--color-red-base)' }}
+            className="border-line bg-red-bg text-red-base mt-4 rounded-3 border px-3 py-2 text-[12.5px]"
             role="alert"
           >
             {errorCopy}

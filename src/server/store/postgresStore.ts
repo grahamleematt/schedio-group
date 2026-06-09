@@ -60,6 +60,7 @@ type DocumentRow = {
   visual_review_url: string | null
   field_confidence: Record<string, number> | null
   low_confidence: boolean | null
+  content_hash: string | null
 }
 
 type VerificationRow = {
@@ -135,6 +136,7 @@ function rowToDocument(row: DocumentRow): StoredDocument {
     visualReviewUrl: row.visual_review_url ?? undefined,
     fieldConfidence: row.field_confidence ?? undefined,
     lowConfidence: row.low_confidence ?? undefined,
+    contentHash: row.content_hash ?? undefined,
   }
 }
 
@@ -208,11 +210,19 @@ async function ensureSchema(): Promise<void> {
       import_job_id text,
       visual_review_url text,
       field_confidence jsonb,
-      low_confidence boolean
+      low_confidence boolean,
+      content_hash text
     );
+
+    -- Additive migration for workspaces created before content_hash existed.
+    alter table dream_documents add column if not exists content_hash text;
 
     create index if not exists dream_documents_verification_idx
       on dream_documents (verification_id, uploaded_at, id);
+
+    create index if not exists dream_documents_content_hash_idx
+      on dream_documents (verification_id, content_hash)
+      where content_hash is not null;
 
     create index if not exists dream_documents_docupipe_idx
       on dream_documents (docupipe_document_id)
@@ -300,7 +310,8 @@ async function upsertDocumentRow(doc: StoredDocument): Promise<StoredDocument> {
         custody_state, egnyte_incoming_path, egnyte_classified_path,
         egnyte_guid, egnyte_source_path, egnyte_entry_id, egnyte_group_id,
         egnyte_checksum, egnyte_web_url, mime_type, size_bytes,
-        import_job_id, visual_review_url, field_confidence, low_confidence
+        import_job_id, visual_review_url, field_confidence, low_confidence,
+        content_hash
       )
       values (
         $1, $2, $3, $4, $5,
@@ -311,7 +322,8 @@ async function upsertDocumentRow(doc: StoredDocument): Promise<StoredDocument> {
         $20, $21, $22,
         $23, $24, $25, $26,
         $27, $28, $29, $30,
-        $31, $32, $33::jsonb, $34
+        $31, $32, $33::jsonb, $34,
+        $35
       )
       on conflict (id) do update set
         client_id = excluded.client_id,
@@ -346,7 +358,8 @@ async function upsertDocumentRow(doc: StoredDocument): Promise<StoredDocument> {
         import_job_id = excluded.import_job_id,
         visual_review_url = excluded.visual_review_url,
         field_confidence = excluded.field_confidence,
-        low_confidence = excluded.low_confidence
+        low_confidence = excluded.low_confidence,
+        content_hash = excluded.content_hash
       returning *
     `,
     [
@@ -384,6 +397,7 @@ async function upsertDocumentRow(doc: StoredDocument): Promise<StoredDocument> {
       doc.visualReviewUrl ?? null,
       doc.fieldConfidence ? JSON.stringify(doc.fieldConfidence) : null,
       doc.lowConfidence ?? null,
+      doc.contentHash ?? null,
     ],
   )
   return rowToDocument(result.rows[0])

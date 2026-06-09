@@ -61,7 +61,7 @@ export function DuplicateAlertPanel({
         </div>
         <a
           href={`mailto:?subject=${notifySubject}&body=${notifyBody}`}
-          className="inline-flex h-9 items-center gap-2 rounded-full border bg-white px-4 text-sm font-semibold text-text-strong hover:bg-[color:var(--color-surface-muted)]"
+          className="inline-flex h-9 items-center gap-2 rounded-full border bg-white px-4 text-sm font-semibold text-text-strong hover:bg-(--color-surface-muted)"
           style={{ borderColor: 'var(--color-flag-panel-border)' }}
         >
           <BellRing className="size-4" />

@@ -117,6 +117,13 @@ export type StoredDocument = {
   /** MIME type and size captured at intake time. */
   mimeType?: string
   sizeBytes?: number
+  /**
+   * SHA-256 of the original file bytes, computed at intake. Used to skip the
+   * DocuPipe call when the identical file was already submitted to the same
+   * verification (a pre-classification duplicate guard, distinct from the
+   * extracted-field duplicate detection the webhook runs).
+   */
+  contentHash?: string
   /** Import job that created this row, when the source is Egnyte. */
   importJobId?: string
 
