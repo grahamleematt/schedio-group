@@ -48,6 +48,7 @@ type DocumentRow = {
   custody_state: string | null
   egnyte_incoming_path: string | null
   egnyte_classified_path: string | null
+  egnyte_planned_path: string | null
   egnyte_guid: string | null
   egnyte_source_path: string | null
   egnyte_entry_id: string | null
@@ -57,7 +58,7 @@ type DocumentRow = {
   mime_type: string | null
   size_bytes: string | number | null
   import_job_id: string | null
-  visual_review_url: string | null
+  docupipe_review_id: string | null
   field_confidence: Record<string, number> | null
   low_confidence: boolean | null
   content_hash: string | null
@@ -124,6 +125,7 @@ function rowToDocument(row: DocumentRow): StoredDocument {
     custodyState: (row.custody_state as CustodyState | null) ?? undefined,
     egnyteIncomingPath: row.egnyte_incoming_path ?? undefined,
     egnyteClassifiedPath: row.egnyte_classified_path ?? undefined,
+    egnytePlannedPath: row.egnyte_planned_path ?? undefined,
     egnyteGuid: row.egnyte_guid ?? undefined,
     egnyteSourcePath: row.egnyte_source_path ?? undefined,
     egnyteEntryId: row.egnyte_entry_id ?? undefined,
@@ -133,7 +135,7 @@ function rowToDocument(row: DocumentRow): StoredDocument {
     mimeType: row.mime_type ?? undefined,
     sizeBytes: maybeNumber(row.size_bytes),
     importJobId: row.import_job_id ?? undefined,
-    visualReviewUrl: row.visual_review_url ?? undefined,
+    docupipeReviewId: row.docupipe_review_id ?? undefined,
     fieldConfidence: row.field_confidence ?? undefined,
     lowConfidence: row.low_confidence ?? undefined,
     contentHash: row.content_hash ?? undefined,
@@ -199,6 +201,7 @@ async function ensureSchema(): Promise<void> {
       custody_state text,
       egnyte_incoming_path text,
       egnyte_classified_path text,
+      egnyte_planned_path text,
       egnyte_guid text,
       egnyte_source_path text,
       egnyte_entry_id text,
@@ -208,7 +211,7 @@ async function ensureSchema(): Promise<void> {
       mime_type text,
       size_bytes bigint,
       import_job_id text,
-      visual_review_url text,
+      docupipe_review_id text,
       field_confidence jsonb,
       low_confidence boolean,
       content_hash text
@@ -216,6 +219,15 @@ async function ensureSchema(): Promise<void> {
 
     -- Additive migration for workspaces created before content_hash existed.
     alter table dream_documents add column if not exists content_hash text;
+
+    -- Additive migration for the DocuPipe Review object ID (replaces the
+    -- earlier, incorrectly-modeled visual_review_url). The old column is left
+    -- in place on existing databases; it is simply no longer read or written.
+    alter table dream_documents add column if not exists docupipe_review_id text;
+
+    -- Additive migration for the deferred-filing gate: destination path
+    -- computed at analysis time, before the file is committed to Egnyte.
+    alter table dream_documents add column if not exists egnyte_planned_path text;
 
     create index if not exists dream_documents_verification_idx
       on dream_documents (verification_id, uploaded_at, id);
@@ -310,8 +322,8 @@ async function upsertDocumentRow(doc: StoredDocument): Promise<StoredDocument> {
         custody_state, egnyte_incoming_path, egnyte_classified_path,
         egnyte_guid, egnyte_source_path, egnyte_entry_id, egnyte_group_id,
         egnyte_checksum, egnyte_web_url, mime_type, size_bytes,
-        import_job_id, visual_review_url, field_confidence, low_confidence,
-        content_hash
+        import_job_id, docupipe_review_id, field_confidence, low_confidence,
+        content_hash, egnyte_planned_path
       )
       values (
         $1, $2, $3, $4, $5,
@@ -323,7 +335,7 @@ async function upsertDocumentRow(doc: StoredDocument): Promise<StoredDocument> {
         $23, $24, $25, $26,
         $27, $28, $29, $30,
         $31, $32, $33::jsonb, $34,
-        $35
+        $35, $36
       )
       on conflict (id) do update set
         client_id = excluded.client_id,
@@ -356,10 +368,11 @@ async function upsertDocumentRow(doc: StoredDocument): Promise<StoredDocument> {
         mime_type = excluded.mime_type,
         size_bytes = excluded.size_bytes,
         import_job_id = excluded.import_job_id,
-        visual_review_url = excluded.visual_review_url,
+        docupipe_review_id = excluded.docupipe_review_id,
         field_confidence = excluded.field_confidence,
         low_confidence = excluded.low_confidence,
-        content_hash = excluded.content_hash
+        content_hash = excluded.content_hash,
+        egnyte_planned_path = excluded.egnyte_planned_path
       returning *
     `,
     [
@@ -394,10 +407,11 @@ async function upsertDocumentRow(doc: StoredDocument): Promise<StoredDocument> {
       doc.mimeType ?? null,
       doc.sizeBytes ?? null,
       doc.importJobId ?? null,
-      doc.visualReviewUrl ?? null,
+      doc.docupipeReviewId ?? null,
       doc.fieldConfidence ? JSON.stringify(doc.fieldConfidence) : null,
       doc.lowConfidence ?? null,
       doc.contentHash ?? null,
+      doc.egnytePlannedPath ?? null,
     ],
   )
   return rowToDocument(result.rows[0])

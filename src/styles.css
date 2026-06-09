@@ -954,9 +954,9 @@ pre code {
   .queue-row {
     display: grid;
     grid-template-columns: 28px minmax(0, 1fr) auto auto;
-    gap: 12px;
-    align-items: center;
-    padding: 12px 14px;
+    gap: 14px;
+    align-items: start;
+    padding: 16px 14px;
     border-bottom: 1px solid var(--color-line-2);
   }
   .queue-row:last-child {
@@ -995,11 +995,11 @@ pre code {
   }
   .qmeta {
     display: grid;
-    gap: 3px;
+    gap: 6px;
   }
   .qmeta .qtitle {
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: 12.5px;
     color: var(--color-ink);
     font-weight: 600;
     margin: 0;
@@ -1010,9 +1010,9 @@ pre code {
     min-width: 0;
     flex-wrap: wrap;
     align-items: center;
-    gap: 6px 10px;
+    gap: 7px 12px;
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: 11.5px;
     color: var(--color-muted-1);
   }
   .qmeta .qerror {
@@ -1020,6 +1020,134 @@ pre code {
     font-size: 11.5px;
     color: var(--color-red-base);
   }
+
+  /* ——— Per-document extracted detail (processing + library) ——— */
+  .qk {
+    color: var(--color-muted-1);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 0.86em;
+  }
+  .qfacts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 20px;
+    margin: 1px 0 0;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--color-ink-2);
+  }
+  .qfacts > span {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 5px;
+  }
+  .qconf {
+    margin: 1px 0 0;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--color-amber-ink, var(--color-ink-2));
+  }
+  .qlink {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    width: fit-content;
+    margin: 2px 0 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--wf-strong);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+  }
+  .qlink:hover {
+    color: var(--wf-base);
+  }
+  .qlink:disabled {
+    cursor: default;
+    opacity: 0.65;
+    text-decoration: none;
+  }
+  .qgen {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 12px;
+    margin-top: 2px;
+  }
+  .qgen .qlink {
+    margin: 0;
+  }
+  .qgen-note {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--color-muted-1);
+  }
+  .pa-waterfall {
+    margin: 3px 0 0;
+    padding: 12px 14px;
+    border: 1px solid var(--color-line-2);
+    border-radius: var(--radius-2);
+    background: var(--color-surface-muted);
+  }
+  .pa-waterfall-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 9px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+  .pa-waterfall-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 7px 24px;
+    margin: 0;
+  }
+  .pa-waterfall-grid > div {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .pa-waterfall-grid dt {
+    font-size: 12px;
+    color: var(--color-muted-1);
+  }
+  .pa-waterfall-grid dd {
+    margin: 0;
+    font-size: 12.5px;
+    color: var(--color-ink);
+  }
+  .pa-waterfall-grid .pa-waterfall-due {
+    grid-column: 1 / -1;
+    margin-top: 5px;
+    padding-top: 8px;
+    border-top: 1px solid var(--color-line-2);
+  }
+  .pa-waterfall-grid .pa-waterfall-due dt {
+    color: var(--color-ink);
+    font-weight: 600;
+  }
+  .pa-waterfall-grid .pa-waterfall-due dd {
+    font-weight: 700;
+  }
+  .pa-waterfall-note {
+    margin: 8px 0 0;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--color-red-base);
+  }
+
   @media (max-width: 760px) {
     .queue-row {
       grid-template-columns: 28px minmax(0, 1fr);
@@ -1081,6 +1209,13 @@ pre code {
       opacity: 1;
       transform: none;
     }
+  }
+  /* Once analysis is complete the staggered entrance is misleading on revisit —
+     render the steps immediately instead of replaying the fade-in. */
+  .plog.is-static li {
+    opacity: 1;
+    transform: none;
+    animation: none;
   }
   .ptick {
     width: 22px;

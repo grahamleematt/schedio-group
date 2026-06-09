@@ -111,7 +111,6 @@ export function DuplicateAlertPanel({
                   verification: verificationId,
                   libraryQuery: doc.originalName,
                   libraryOpen: doc.docType,
-                  nameDisplay: 'both',
                 }}
                 className="v2-btn ghost h-8 px-3 text-xs"
               >

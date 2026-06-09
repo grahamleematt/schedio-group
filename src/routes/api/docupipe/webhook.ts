@@ -11,34 +11,22 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Webhook } from 'svix'
 
-import {
-  clients as configuredClients,
-  renamed,
-  verifications as configuredVerifications,
-} from '#/lib/sg-dream'
-import { getDocupipeWebhookSecret, isEgnyteConfigured } from '#/server/env'
+import { getDocupipeWebhookSecret } from '#/server/env'
 import {
   computeLowConfidence,
+  createVisualReview,
   getClassMap,
   getStandardization,
-  getVisualReview,
   getWorkflow,
 } from '#/server/docupipe'
 import { SPEC_CLASS_NAMES } from '#/server/docupipe-spec'
-import {
-  createFolderIfMissing,
-  egnyteWebUrl,
-  isDestinationExistsError,
-  moveFile,
-} from '#/server/egnyte'
 import { getStore } from '#/server/store'
 import { detectDuplicate } from '#/server/duplicateDetector'
-import { classifiedFolderFromIncomingPath } from '#/server/intake/context'
+import { planFiling } from '#/server/intake/filing'
 import type { DocType } from '#/lib/sg-dream'
 import type {
   AuditCategory,
   AuditResult,
-  CustodyState,
   DocumentStatus,
   ExtractedFields,
   StoredAuditEvent,
@@ -256,132 +244,6 @@ export function resolveStandardizedDocType(
   const fromStandardization = toDocType(standardizedClassName)
   if (fromStandardization !== 'UNK') return fromStandardization
   return fallback
-}
-
-function vendorCodeFrom(name: string | undefined): string {
-  if (!name) return 'UNK'
-  const letters = name
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, '')
-    .slice(0, 4)
-  return letters.length > 0 ? letters.padEnd(4, 'X') : 'UNK'
-}
-
-type PromotionResult = {
-  custodyState: CustodyState
-  classifiedPath?: string
-  renamedName?: string
-  webUrl?: string
-  errorMessage?: string
-}
-
-/**
- * Promote a freshly classified document from Egnyte Incoming/ to
- * Classified/<DocType>/ with the SG DREAM renamed filename.
- *
- * Idempotency: a webhook may be redelivered after we already moved this
- * document. We detect that by comparing the row's existing
- * `egnyteClassifiedPath` against the destination we'd compute now. If they
- * match, we treat it as a no-op success (the prior delivery did the move).
- * If they don't, the destination collision is a real bug and we surface it
- * as an error so we can investigate rather than silently lose the file.
- *
- * The renamed-filename `seq` segment is minted from a store-managed
- * counter scoped to `(verificationId, docType)`, which guarantees two
- * distinct uploads in the same verification + class never collide.
- */
-async function promoteInEgnyte(input: {
-  stored: StoredDocument
-  docType: DocType
-  vendorName: string | undefined
-}): Promise<PromotionResult> {
-  const { stored, docType, vendorName } = input
-  if (!isEgnyteConfigured() || !stored.egnyteIncomingPath) {
-    return { custodyState: 'classified' }
-  }
-
-  const client = configuredClients.find((c) => c.id === stored.clientId)
-  const verification = configuredVerifications.find(
-    (v) => v.id === stored.verificationId,
-  )
-  if (!client || !verification) {
-    return {
-      custodyState: 'processing',
-      errorMessage: 'unknown client or verification for Egnyte promotion',
-    }
-  }
-
-  // Webhook-redelivery short-circuit: if we already moved this row to its
-  // Classified destination, return the cached path verbatim. We never
-  // re-mint a seq for the same StoredDocument, which would otherwise leak
-  // counter values on every retry.
-  if (
-    stored.egnyteClassifiedPath &&
-    stored.renamedName &&
-    stored.custodyState === 'classified'
-  ) {
-    return {
-      custodyState: 'classified',
-      classifiedPath: stored.egnyteClassifiedPath,
-      renamedName: stored.renamedName,
-      webUrl: stored.egnyteWebUrl ?? egnyteWebUrl(stored.egnyteClassifiedPath),
-    }
-  }
-
-  try {
-    const classifiedDir = classifiedFolderFromIncomingPath({
-      incomingPath: stored.egnyteIncomingPath,
-      docType,
-    })
-
-    const store = getStore()
-    const seq = await store.nextDocSeqForVerification(
-      stored.verificationId,
-      docType,
-    )
-    const renamedName = renamed(
-      client.code,
-      verification.number,
-      docType,
-      vendorCodeFrom(vendorName),
-      seq,
-      verification.year,
-    )
-    const dest = `${classifiedDir}/${renamedName}`
-
-    await createFolderIfMissing(classifiedDir)
-    try {
-      await moveFile({ from: stored.egnyteIncomingPath, to: dest })
-    } catch (err) {
-      // Only treat destination-exists as benign when the destination matches
-      // a path this same row already owns. Any other "already exists" is a
-      // real collision — surface it.
-      if (
-        isDestinationExistsError(err) &&
-        stored.egnyteClassifiedPath === dest
-      ) {
-        return {
-          custodyState: 'classified',
-          classifiedPath: dest,
-          renamedName,
-          webUrl: stored.egnyteWebUrl ?? egnyteWebUrl(dest),
-        }
-      }
-      throw err
-    }
-
-    return {
-      custodyState: 'classified',
-      classifiedPath: dest,
-      renamedName,
-      webUrl: egnyteWebUrl(dest),
-    }
-  } catch (err) {
-    const message =
-      err instanceof Error ? err.message : 'egnyte promotion failed'
-    console.error('[egnyte] promotion failed', err)
-    return { custodyState: 'processing', errorMessage: message }
-  }
 }
 
 /**
@@ -606,11 +468,10 @@ async function emitAuditEvents(input: {
   event: BaseEvent
   stored: StoredDocument
   next: StoredDocument
-  promotion?: PromotionResult
   errorMessage?: string
 }): Promise<void> {
   const store = getStore()
-  const { event, stored, next, promotion, errorMessage } = input
+  const { event, stored, next, errorMessage } = input
   const ts = new Date().toISOString()
   const description = describeAuditEvent({
     eventType: event.eventType,
@@ -646,52 +507,6 @@ async function emitAuditEvents(input: {
       docupipeEventType: event.eventType,
       detail: description.detail,
     })
-  }
-
-  if (promotion) {
-    if (promotion.errorMessage) {
-      rows.push({
-        id: stableAuditEventId({
-          scope: 'egnyte-error',
-          event,
-          document: next,
-          detail: promotion.errorMessage,
-        }),
-        ts,
-        source: 'egnyte',
-        category: 'documents',
-        actor: 'Egnyte',
-        event: 'Egnyte promotion failed',
-        object: next.displayName || next.originalName,
-        result: 'failed',
-        ip: 'system',
-        clientId: next.clientId,
-        verificationId: next.verificationId,
-        documentId: next.id,
-        detail: promotion.errorMessage,
-      })
-    } else if (promotion.classifiedPath) {
-      rows.push({
-        id: stableAuditEventId({
-          scope: 'egnyte-promote',
-          event,
-          document: next,
-          detail: promotion.classifiedPath,
-        }),
-        ts,
-        source: 'egnyte',
-        category: 'documents',
-        actor: 'Egnyte',
-        event: 'Filed in Egnyte',
-        object: promotion.renamedName ?? next.displayName,
-        result: 'ok',
-        ip: 'system',
-        clientId: next.clientId,
-        verificationId: next.verificationId,
-        documentId: next.id,
-        detail: promotion.classifiedPath,
-      })
-    }
   }
 
   for (const row of rows) {
@@ -838,17 +653,22 @@ async function handleEvent(event: BaseEvent): Promise<void> {
 
         const lowConfidence = computeLowConfidence(result.fieldConfidence)
 
-        // Visual review is optional — treat failures as "not available".
-        let visualReviewUrl: string | undefined
+        // Kick off a DocuPipe Visual Review (the yellow-box overlay). This is
+        // an async job; we persist the review ID and mint a presigned viewer
+        // URL on demand later (see /api/docupipe/review-url). Optional —
+        // treat any failure as "not available" so it never blocks extraction.
+        let docupipeReviewId: string | undefined
         try {
-          const review = await getVisualReview(standardizationId)
-          visualReviewUrl = review?.url
+          const review = await createVisualReview(standardizationId)
+          docupipeReviewId = review?.reviewIds[0]
         } catch (err) {
-          console.warn('[docupipe webhook] visual review failed', err)
+          console.warn('[docupipe webhook] visual review create failed', err)
         }
 
-        // Egnyte promotion: Incoming/ → Classified/<DocType>/<renamed>.
-        const promotion = await promoteInEgnyte({
+        // Assign the standardized filing name + destination path, but do NOT
+        // file to Egnyte yet — the move is gated behind the confirmation page
+        // (see fileSubmissionToEgnyte). The document lands in `ready`.
+        const plan = await planFiling({
           stored,
           docType,
           vendorName: extracted.vendorName,
@@ -864,21 +684,18 @@ async function handleEvent(event: BaseEvent): Promise<void> {
           duplicateFlag: duplicate.flag,
           matchedPreviousName: duplicate.matchedPreviousName,
           matchedVerificationRef: duplicate.matchedVerificationRef,
-          custodyState: promotion.custodyState,
-          egnyteClassifiedPath:
-            promotion.classifiedPath ?? stored.egnyteClassifiedPath,
-          egnyteWebUrl: promotion.webUrl ?? stored.egnyteWebUrl,
-          renamedName: promotion.renamedName ?? stored.renamedName,
-          visualReviewUrl,
+          custodyState: plan.custodyState,
+          egnytePlannedPath: plan.plannedPath ?? stored.egnytePlannedPath,
+          renamedName: plan.renamedName ?? stored.renamedName,
+          docupipeReviewId,
           fieldConfidence: result.fieldConfidence,
           lowConfidence,
-          errorMessage: promotion.errorMessage,
+          errorMessage: plan.errorMessage,
         })
         await emitAuditEvents({
           event,
           stored,
           next: persisted,
-          promotion,
         })
         return
       } catch (err) {

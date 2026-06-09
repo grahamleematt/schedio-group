@@ -1,4 +1,6 @@
-import { FileDown } from 'lucide-react'
+import type { KeyboardEvent } from 'react'
+import { useNavigate } from '@tanstack/react-router'
+import { ArrowRight, FileDown } from 'lucide-react'
 import {
   displaySubmissionCycle,
   formatCurrency,
@@ -14,6 +16,9 @@ type VerificationSummaryTableProps = {
   /** Per-submission live overrides (e.g. current draft submitted total
    * derived from the snapshot rather than static configuration). */
   liveSubmitted?: Readonly<Record<string, number>>
+  /** When set, the open/draft row drills into the library for this entity. */
+  clientId?: string
+  openVerificationId?: string
 }
 
 const underReviewLabel = 'Under Review'
@@ -22,8 +27,19 @@ export function VerificationSummaryTable({
   workflow,
   verifications,
   liveSubmitted,
+  clientId,
+  openVerificationId,
 }: VerificationSummaryTableProps) {
   const config = workflowConfigs[workflow]
+  const navigate = useNavigate()
+
+  const openLibrary = (verificationId: string) => {
+    if (!clientId) return
+    void navigate({
+      to: '/library',
+      search: { client: clientId, verification: verificationId },
+    })
+  }
 
   // Sort oldest -> newest so the running total reads naturally.
   const ordered = [...verifications].sort((a, b) => a.number - b.number)
@@ -97,19 +113,48 @@ export function VerificationSummaryTable({
                 v.status === 'approved' && v.costsSubmitted > 0
                   ? (v.costsVerified / v.costsSubmitted) * 100
                   : null
+              const drillable =
+                Boolean(clientId) &&
+                v.id === openVerificationId &&
+                submitted > 0
               return (
                 <tr
                   key={v.id}
-                  className="border-t text-sm"
+                  className={`border-t text-sm${drillable ? ' cursor-pointer transition-colors hover:brightness-[0.97]' : ''}`}
                   style={{
                     borderColor: 'var(--color-border-base)',
                     background: isOpen ? 'rgba(251, 146, 60, 0.08)' : 'white',
                   }}
+                  {...(drillable
+                    ? {
+                        role: 'link',
+                        tabIndex: 0,
+                        onClick: () => openLibrary(v.id),
+                        onKeyDown: (e: KeyboardEvent) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            openLibrary(v.id)
+                          }
+                        },
+                      }
+                    : {})}
                 >
                   <td className="px-5 py-3 font-mono font-semibold text-text-strong">
-                    {isOpen
-                      ? `Draft submission · ${displaySubmissionCycle(v)}`
-                      : `Closed submission ${v.number} · ${displaySubmissionCycle(v)}`}
+                    <span
+                      className={
+                        drillable ? 'inline-flex items-center gap-1.5' : undefined
+                      }
+                    >
+                      {isOpen
+                        ? `Draft submission · ${displaySubmissionCycle(v)}`
+                        : `Closed submission ${v.number} · ${displaySubmissionCycle(v)}`}
+                      {drillable ? (
+                        <ArrowRight
+                          className="size-3.5 text-text-muted"
+                          aria-hidden
+                        />
+                      ) : null}
+                    </span>
                   </td>
                   <td className="px-5 py-3 font-mono text-text-strong">
                     {formatCurrency(submitted)}

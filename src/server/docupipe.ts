@@ -64,9 +64,11 @@ export type StandardizationResult = {
   fieldConfidence: Record<string, number>
 }
 
-export type VisualReviewResult = {
-  url: string
-  thumbnailUrl?: string
+export type CreateReviewResult = {
+  /** Review object IDs that DocuPipe will generate (one per standardization). */
+  reviewIds: ReadonlyArray<string>
+  /** Async job IDs that produce the review objects. */
+  jobIds: ReadonlyArray<string>
 }
 
 /**
@@ -710,33 +712,73 @@ export async function registerWebhookEndpoint(input: {
 }
 
 /**
- * Fetch DocuPipe's "Visual Review" URL for a completed standardization.
- * DocuPipe renders an image with yellow boxes over the regions of the PDF
- * that contributed to each extracted field; we surface that URL on the
- * `/confirmation` page as the engineer's verification artifact.
+ * Kick off a DocuPipe Visual Review for a completed standardization.
+ *
+ * A Review is a *separate object* generated from a standardization: DocuPipe
+ * re-reads the document and ties every extracted value to a page + bounding
+ * box (the yellow-marker overlay) plus a low/medium/high confidence. The job
+ * is asynchronous (≈10s for a one-pager, minutes for long docs), so this only
+ * returns the review IDs that *will* be produced — we persist `reviewIds[0]`
+ * and mint a viewer URL on demand later via `getReviewPresignedUrl`.
+ *
+ * Returns `null` (rather than throwing) when DocuPipe rejects the request,
+ * so a missing review never blocks the extraction pipeline.
+ *
+ * @see https://docs.docupipe.ai/reference/post_review_batch  (POST /review/batch)
  */
-export async function getVisualReview(
+export async function createVisualReview(
   standardizationId: string,
-): Promise<VisualReviewResult | null> {
+): Promise<CreateReviewResult | null> {
   try {
     const body = await dpFetch<{
-      url?: string
-      visual_review_url?: string
-      visualReviewUrl?: string
-      thumbnail_url?: string
-      thumbnailUrl?: string
-    }>(
-      `/standardization/${encodeURIComponent(standardizationId)}/visual-review`,
-    )
-    const url = body.url ?? body.visualReviewUrl ?? body.visual_review_url
-    if (!url) return null
-    return {
-      url,
-      thumbnailUrl: body.thumbnailUrl ?? body.thumbnail_url,
-    }
+      reviewIds?: ReadonlyArray<string>
+      review_ids?: ReadonlyArray<string>
+      jobIds?: ReadonlyArray<string>
+      job_ids?: ReadonlyArray<string>
+    }>('/review/batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ standardizationIds: [standardizationId] }),
+    })
+    const reviewIds = body.reviewIds ?? body.review_ids ?? []
+    const jobIds = body.jobIds ?? body.job_ids ?? []
+    if (reviewIds.length === 0) return null
+    return { reviewIds, jobIds }
   } catch (err) {
-    // Visual review may not be enabled on every workflow; treat any 4xx as
-    // "not available" rather than an error.
+    // Visual review isn't available on every plan/workflow; treat any 4xx as
+    // "not available" rather than a pipeline error.
+    if (err instanceof DocuPipeError && err.status >= 400 && err.status < 500) {
+      return null
+    }
+    throw err
+  }
+}
+
+/**
+ * Mint a short-lived presigned URL to DocuPipe's hosted review viewer for a
+ * single review object. These links carry their own signature + expiry, so we
+ * generate them on demand (never store them) — that keeps the link scoped to
+ * one review and lets it expire.
+ *
+ * Returns `null` when the review doesn't exist yet (the async generation job
+ * is still running) or isn't available.
+ *
+ * @param expiryHours — link validity window; omit for a non-expiring link.
+ * @see https://docs.docupipe.ai/reference/get_presigned_url
+ *   (GET /review/{review_id}/presigned-url)
+ */
+export async function getReviewPresignedUrl(
+  reviewId: string,
+  expiryHours = 24,
+): Promise<string | null> {
+  try {
+    const query =
+      expiryHours > 0 ? `?expiry_hours=${encodeURIComponent(expiryHours)}` : ''
+    const body = await dpFetch<{ url?: string }>(
+      `/review/${encodeURIComponent(reviewId)}/presigned-url${query}`,
+    )
+    return body.url ?? null
+  } catch (err) {
     if (err instanceof DocuPipeError && err.status >= 400 && err.status < 500) {
       return null
     }

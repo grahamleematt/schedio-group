@@ -57,14 +57,17 @@ export type ExtractedFields = {
 }
 
 /**
- * SG DREAM System Constitution document custody lifecycle. Phase 1 of the
- * wiring follow-up produces only `incoming` → `processing` → `classified`;
- * `relied` and `locked` are reserved for the engineer-approval lifecycle
- * that lands in a later phase but exist on the union for forward compat.
+ * SG DREAM System Constitution document custody lifecycle:
+ * `incoming` → `processing` → `ready` → `classified`. `ready` means the
+ * document has been analyzed and assigned its standardized filing name but
+ * the entity owner has not yet committed it to Egnyte (the filing gate on the
+ * confirmation page). `relied` and `locked` are reserved for the
+ * engineer-approval lifecycle that lands in a later phase.
  */
 export type CustodyState =
   | 'incoming'
   | 'processing'
+  | 'ready'
   | 'classified'
   | 'relied'
   | 'locked'
@@ -102,6 +105,12 @@ export type StoredDocument = {
   egnyteIncomingPath?: string
   /** Full Egnyte path after the classifier promoted the file to Classified/. */
   egnyteClassifiedPath?: string
+  /**
+   * Destination Egnyte path computed at analysis time (before filing). Drives
+   * the destination preview on the confirmation gate; once the entity owner
+   * files the submission this becomes `egnyteClassifiedPath`.
+   */
+  egnytePlannedPath?: string
   /** Egnyte GUID (stable across moves / renames). */
   egnyteGuid?: string
   /** Egnyte source path used when the file was imported instead of uploaded. */
@@ -127,8 +136,12 @@ export type StoredDocument = {
   /** Import job that created this row, when the source is Egnyte. */
   importJobId?: string
 
-  /** DocuPipe Visual Review URL (yellow-box overlay image). */
-  visualReviewUrl?: string
+  /**
+   * DocuPipe Review object ID (the yellow-box overlay viewer). Created from
+   * the standardization after extraction; the shareable viewer URL is a
+   * short-lived presigned link minted on demand from this ID, never stored.
+   */
+  docupipeReviewId?: string
   /** Per-scalar-field confidence 0..1, when DocuPipe returns it. */
   fieldConfidence?: Record<string, number>
   /**

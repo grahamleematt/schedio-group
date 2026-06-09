@@ -6,6 +6,8 @@
  * module only supplies stable entity, workflow, and naming configuration.
  */
 
+import type { ExtractedFields } from '#/server/store'
+
 export type Workflow = 'district_dp' | 'developer_reimb'
 
 type WorkflowConfig = {
@@ -216,12 +218,21 @@ export type Document = {
   /** Optional custody + trust metadata, surfaced by the server when available. */
   egnyteWebUrl?: string
   egnyteClassifiedPath?: string
+  /** Destination Egnyte path computed at analysis time, before filing. */
+  egnytePlannedPath?: string
   egnyteSourcePath?: string
   egnyteIncomingPath?: string
   egnyteEntryId?: string
   egnyteGroupId?: string
-  custodyState?: 'incoming' | 'processing' | 'classified' | 'relied' | 'locked'
-  visualReviewUrl?: string
+  custodyState?:
+    | 'incoming'
+    | 'processing'
+    | 'ready'
+    | 'classified'
+    | 'relied'
+    | 'locked'
+  /** DocuPipe Review object ID; powers the on-demand overlay viewer link. */
+  docupipeReviewId?: string
   fieldConfidence?: Record<string, number>
   lowConfidence?: boolean
   /** Lifecycle status mirrored from the server `StoredDocument`. */
@@ -230,6 +241,14 @@ export type Document = {
   errorMessage?: string
   /** ISO timestamp of when the upload landed on the server. */
   uploadedAt?: string
+  /**
+   * The full DocuPipe extraction (vendor, amount, dates, document number,
+   * contract reference, and the PA payment waterfall). Carried through from
+   * the server `StoredDocument` so the processing view can surface the
+   * detail and validate pay-app math rather than showing the headline amount
+   * alone.
+   */
+  extractedFields?: ExtractedFields
 }
 
 const DEFAULT_RENAMED_YEAR = 2026
@@ -442,6 +461,153 @@ export function formatCurrencyPrecise(value: number): string {
 
 export function formatPercent(value: number, digits = 0): string {
   return `${value.toFixed(digits)}%`
+}
+
+/**
+ * Format a DocuPipe `YYYY-MM-DD` date for display. Returns the raw string for
+ * any value that isn't a clean ISO date so we never hide unexpected data.
+ */
+export function formatDocDate(value: string | undefined): string | undefined {
+  if (!value) return undefined
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(value)
+  if (!m) return value
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+  if (Number.isNaN(d.getTime())) return value
+  return d.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  })
+}
+
+// ---- DocuPipe extraction display helpers ----
+
+/**
+ * Client-side mirror of the server's `LOW_CONFIDENCE_THRESHOLD`
+ * (src/server/docupipe.ts). Duplicated as a plain constant so this
+ * client-imported module never pulls in server runtime code.
+ */
+export const LOW_CONFIDENCE_THRESHOLD = 0.85
+
+/**
+ * Human labels for the snake_case field keys DocuPipe returns (and that the
+ * webhook stores in `fieldConfidence`). Used to render which fields tripped
+ * the low-confidence threshold.
+ */
+export const extractedFieldLabels: Record<string, string> = {
+  vendor_name: 'Vendor',
+  vendor_id_guess: 'Vendor ID',
+  document_number: 'Document #',
+  amount: 'Amount',
+  current_payment_due: 'Current payment due',
+  contract_sum_to_date: 'Contract sum to date',
+  completed_and_stored_to_date: 'Completed & stored',
+  retainage: 'Retainage',
+  total_earned_less_retainage: 'Earned less retainage',
+  less_previous_payments: 'Less previous payments',
+  balance_to_finish: 'Balance to finish',
+  currency: 'Currency',
+  document_date: 'Document date',
+  period_start: 'Period start',
+  period_end: 'Period end',
+  contract_reference: 'Contract ref',
+  po_number: 'PO #',
+  line_item_count: 'Line items',
+}
+
+export type LowConfidenceField = {
+  key: string
+  label: string
+  score: number
+}
+
+/**
+ * The extracted fields that scored below the review threshold, lowest first.
+ * Turns the single `lowConfidence` boolean into the actionable "which fields
+ * need a human" list.
+ */
+export function lowConfidenceFields(
+  fieldConfidence: Record<string, number> | undefined,
+  threshold = LOW_CONFIDENCE_THRESHOLD,
+): ReadonlyArray<LowConfidenceField> {
+  if (!fieldConfidence) return []
+  return Object.entries(fieldConfidence)
+    .filter(([, score]) => typeof score === 'number' && score < threshold)
+    .map(([key, score]) => ({
+      key,
+      label: extractedFieldLabels[key] ?? key,
+      score,
+    }))
+    .sort((a, b) => a.score - b.score)
+}
+
+export type PayAppCheck = {
+  /**
+   * - `ok`           — Current Payment Due matches the G702 math within tolerance
+   * - `mismatch`     — the headline amount disagrees with the waterfall
+   * - `unverifiable` — the waterfall lines needed to check are missing
+   */
+  status: 'ok' | 'mismatch' | 'unverifiable'
+  /** Total Earned Less Retainage (Line 6) − Less Previous Payments (Line 7). */
+  expected?: number
+  /** Current Payment Due (Line 11), i.e. the headline `amount`. */
+  actual?: number
+  /** `actual − expected`. */
+  delta?: number
+}
+
+/**
+ * Validate a pay application's headline amount (G702 Line 11, Current Payment
+ * Due) against the rest of the captured waterfall:
+ *
+ *   Current Payment Due = Total Earned Less Retainage − Less Previous Payments
+ *
+ * A missing `lessPreviousPayments` is treated as 0 (the schema returns null
+ * for a first application). Tolerance is the greater of $1 or 0.5% to absorb
+ * rounding in the source document.
+ */
+export function validatePayApp(
+  fields: ExtractedFields | undefined,
+): PayAppCheck {
+  const actual = fields?.amount
+  const earned = fields?.totalEarnedLessRetainage
+  if (typeof actual !== 'number' || typeof earned !== 'number') {
+    return { status: 'unverifiable', actual }
+  }
+  const prev =
+    typeof fields?.lessPreviousPayments === 'number'
+      ? fields.lessPreviousPayments
+      : 0
+  const expected = earned - prev
+  const delta = actual - expected
+  const tolerance = Math.max(1, Math.abs(expected) * 0.005)
+  return {
+    status: Math.abs(delta) <= tolerance ? 'ok' : 'mismatch',
+    expected,
+    actual,
+    delta,
+  }
+}
+
+/**
+ * The captured PA waterfall lines, in G702 order, with only the present
+ * numeric values. Drives the waterfall mini-table on the processing view.
+ */
+export function payAppWaterfall(
+  fields: ExtractedFields | undefined,
+): ReadonlyArray<{ label: string; value: number }> {
+  if (!fields) return []
+  const rows: ReadonlyArray<{ label: string; value: number | undefined }> = [
+    { label: 'Contract sum to date', value: fields.contractSumToDate },
+    { label: 'Completed & stored', value: fields.completedAndStoredToDate },
+    { label: 'Retainage', value: fields.retainage },
+    { label: 'Earned less retainage', value: fields.totalEarnedLessRetainage },
+    { label: 'Less previous payments', value: fields.lessPreviousPayments },
+    { label: 'Balance to finish', value: fields.balanceToFinish },
+  ]
+  return rows.filter(
+    (r): r is { label: string; value: number } => typeof r.value === 'number',
+  )
 }
 
 /**

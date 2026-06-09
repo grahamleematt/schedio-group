@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router'
 import {
   ClipboardList,
   FileBadge,
@@ -26,18 +27,28 @@ const icons: Record<DocType, typeof FileText> = {
 
 type DocumentInventoryTilesProps = {
   summaries: ReadonlyArray<DocTypeSummary>
+  /** When provided, active categories link into the library filtered to that type. */
+  clientId?: string
+  verificationId?: string
 }
 
 export function DocumentInventoryTiles({
   summaries,
+  clientId,
+  verificationId,
 }: DocumentInventoryTilesProps) {
   const totalDocs = summaries.reduce((sum, s) => sum + s.count, 0)
+  const canLink = Boolean(clientId && verificationId)
 
   return (
     <section className="space-y-3">
       <header className="flex items-center justify-between">
         <h2 className="ops-label m-0">Document inventory</h2>
-        <p className="text-xs text-text-muted">Counts by document category.</p>
+        <p className="text-xs text-text-muted">
+          {canLink
+            ? 'Select a category to open it in the library.'
+            : 'Counts by document category.'}
+        </p>
       </header>
       {totalDocs === 0 ? (
         <div
@@ -69,21 +80,22 @@ export function DocumentInventoryTiles({
             const Icon = icons[s.docType]
             const isActive = s.count > 0
             const hasFlag = s.flaggedCount > 0
-            return (
-              <div
-                key={s.docType}
-                className={cn(
-                  'relative flex flex-col gap-2 rounded-2xl border px-4 py-4 transition-colors',
-                  isActive
-                    ? 'bg-white'
-                    : 'bg-(--color-surface-muted) text-text-muted',
-                )}
-                style={{
-                  borderColor: isActive
-                    ? 'var(--wf-border)'
-                    : 'var(--color-border-base)',
-                }}
-              >
+            const linkable = isActive && canLink
+            const className = cn(
+              'relative flex flex-col gap-2 rounded-2xl border px-4 py-4 transition-colors',
+              isActive
+                ? 'bg-white'
+                : 'bg-(--color-surface-muted) text-text-muted',
+              linkable &&
+                'cursor-pointer hover:border-(--wf-base) hover:shadow-sm',
+            )
+            const style = {
+              borderColor: isActive
+                ? 'var(--wf-border)'
+                : 'var(--color-border-base)',
+            }
+            const inner = (
+              <>
                 <div className="flex items-center justify-between">
                   <span
                     className="inline-flex size-9 items-center justify-center rounded-xl"
@@ -119,6 +131,25 @@ export function DocumentInventoryTiles({
                     {s.label}
                   </p>
                 </div>
+              </>
+            )
+            return linkable && clientId && verificationId ? (
+              <Link
+                key={s.docType}
+                to="/library"
+                search={{
+                  client: clientId,
+                  verification: verificationId,
+                  libraryOpen: s.docType,
+                }}
+                className={className}
+                style={style}
+              >
+                {inner}
+              </Link>
+            ) : (
+              <div key={s.docType} className={className} style={style}>
+                {inner}
               </div>
             )
           })}

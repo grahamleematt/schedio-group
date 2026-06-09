@@ -1,13 +1,20 @@
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
-import { useSuspenseQuery } from '@tanstack/react-query'
-import { ArrowRight, FolderOpen } from 'lucide-react'
+import {
+  useMutation,
+  useQueryClient,
+  useSuspenseQuery,
+} from '@tanstack/react-query'
+import { ArrowRight, FolderOpen, Loader2, UploadCloud } from 'lucide-react'
 import { AppShell } from '#/components/sg-dream/AppShell'
 import { DuplicateAlertPanel } from '#/components/sg-dream/DuplicateAlertPanel'
 import {
   clients,
   displayRef,
   displaySubmissionCycle,
+  docTypeLabels,
+  docTypeOrder,
   formatCurrency,
+  formatCurrencyPrecise,
   getClientById,
   getOpenVerification,
   getVerificationById,
@@ -16,6 +23,8 @@ import {
 } from '#/lib/sg-dream'
 import { verificationSnapshotQuery } from '#/lib/queries'
 import { storedListToDisplay } from '#/lib/sg-dream-adapter'
+import { fileSubmissionToEgnyte } from '#/server/fns/fileSubmission'
+import type { DreamSnapshot } from '#/server/store'
 
 type ConfirmationSearch = {
   client: string
@@ -153,13 +162,25 @@ function ConfirmationPage() {
   const verification =
     getVerificationById(verificationId, clientId) ??
     getOpenVerification(clientId)
+  const queryClient = useQueryClient()
   const snapshotQuery = useSuspenseQuery(
     verificationSnapshotQuery(verification.id),
   )
   const snapshot = snapshotQuery.data
+  const snapshotKey = verificationSnapshotQuery(verification.id).queryKey
+
+  const fileMut = useMutation({
+    mutationFn: () =>
+      fileSubmissionToEgnyte({ data: { verificationId: verification.id } }),
+    onSuccess: (next: DreamSnapshot | null) => {
+      queryClient.setQueryData(snapshotKey, next)
+    },
+  })
 
   const storedDocs = snapshot?.verification.documents ?? []
   const docs = storedListToDisplay(storedDocs)
+  const readyDocs = docs.filter((d) => d.custodyState === 'ready')
+  const filedCount = docs.filter((d) => Boolean(d.egnyteClassifiedPath)).length
   const summaries = summarizeDocTypes(docs).filter((s) => s.count > 0)
   const flaggedDocs = docs.filter((d) => d.duplicateFlag !== 'none')
   const flaggedCount = flaggedDocs.length
@@ -180,11 +201,19 @@ function ConfirmationPage() {
   const config = workflowConfigs[client.workflow]
   const reviewCycle = displaySubmissionCycle(verification)
 
-  const classifiedFolder = (() => {
-    const classified = docs.find((d) => d.egnyteClassifiedPath)
-    if (!classified?.egnyteClassifiedPath) return undefined
-    const parts = classified.egnyteClassifiedPath.split('/')
-    return parts.slice(0, -2).join('/') + '/Classified/'
+  // Destination root (`…/Classified/`) for the submission, derived from a
+  // filed path when available, otherwise the planned path computed at
+  // analysis. Drives both the pre-filing preview and the post-filing chip.
+  const destinationRoot = (() => {
+    const sample =
+      docs.find((d) => d.egnyteClassifiedPath)?.egnyteClassifiedPath ??
+      docs.find((d) => d.egnytePlannedPath)?.egnytePlannedPath
+    if (!sample) return undefined
+    const parts = sample.split('/')
+    const idx = parts.lastIndexOf('Classified')
+    return idx >= 0
+      ? `${parts.slice(0, idx + 1).join('/')}/`
+      : `${parts.slice(0, -1).join('/')}/`
   })()
 
   const auditTrail = buildAuditTrail({ docs, flaggedCount, ref, reviewNeeded })
@@ -241,7 +270,7 @@ function ConfirmationPage() {
         </div>
       </section>
 
-      {classifiedFolder ? (
+      {destinationRoot ? (
         <section className="v2-card">
           <header className="v2-card-head">
             <h3>Egnyte location</h3>
@@ -249,11 +278,12 @@ function ConfirmationPage() {
           <div className="v2-card-body">
             <p className="m-0 text-[12.5px] text-ink-2">
               <FolderOpen className="mr-1 inline size-3.5" aria-hidden />
-              <span className="mono break-all">{classifiedFolder}</span>
+              <span className="mono break-all">{destinationRoot}</span>
             </p>
             <p className="text-muted-1 mt-2 m-0 text-[11.5px]">
-              All standardized files were filed under this folder. Originals
-              remain in the upload location.
+              {readyDocs.length > 0
+                ? 'Standardized files will be filed under this folder once you file the submission. Originals remain in the upload location.'
+                : 'All standardized files were filed under this folder. Originals remain in the upload location.'}
             </p>
           </div>
         </section>
@@ -331,18 +361,75 @@ function ConfirmationPage() {
           </div>
         </div>
 
-        {classifiedFolder ? (
+        {readyDocs.length > 0 ? (
+          <div
+            className="mt-4 rounded-xl border p-4"
+            style={{
+              borderColor: 'var(--wf-border)',
+              background: 'var(--wf-softer, var(--color-surface-muted))',
+            }}
+          >
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="m-0 flex items-center gap-2 font-ops text-sm font-semibold text-text-strong">
+                  <UploadCloud
+                    className="size-4"
+                    style={{ color: 'var(--wf-strong)' }}
+                    aria-hidden
+                  />
+                  File {readyDocs.length} document
+                  {readyDocs.length === 1 ? '' : 's'} to Egnyte
+                </p>
+                <p className="text-muted-1 m-0 mt-1 text-[12.5px]">
+                  Review looks good? File the standardized copies into Egnyte.
+                  Originals stay in the upload location.
+                </p>
+                {destinationRoot ? (
+                  <p className="m-0 mt-2 text-[11.5px] text-ink-2">
+                    <FolderOpen
+                      className="mr-1 inline size-3.5"
+                      aria-hidden
+                    />
+                    <span className="mono break-all">{destinationRoot}</span>
+                  </p>
+                ) : null}
+                {fileMut.isError ? (
+                  <p
+                    className="m-0 mt-2 text-[12.5px] text-destructive"
+                    role="alert"
+                  >
+                    Filing didn’t complete. Some documents may still be pending —
+                    try again.
+                  </p>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                className="v2-btn primary shrink-0"
+                disabled={fileMut.isPending}
+                onClick={() => fileMut.mutate()}
+              >
+                {fileMut.isPending ? (
+                  <Loader2 className="size-4 animate-spin" aria-hidden />
+                ) : (
+                  <UploadCloud className="size-4" aria-hidden />
+                )}
+                {fileMut.isPending ? 'Filing…' : 'File to Egnyte'}
+              </button>
+            </div>
+          </div>
+        ) : filedCount > 0 ? (
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <span className="pill pill-green">
               <span className="dot" />
-              Filed to Egnyte · Classified/
+              Filed to Egnyte · {filedCount} document
+              {filedCount === 1 ? '' : 's'}
             </span>
-            <span className="chip mono break-all text-[11px]">
-              {classifiedFolder}
-            </span>
-            <span className="pill pill-ink">
-              DocuPipe · standardization.processed.success
-            </span>
+            {destinationRoot ? (
+              <span className="chip mono break-all text-[11px]">
+                {destinationRoot}
+              </span>
+            ) : null}
           </div>
         ) : null}
 
@@ -387,6 +474,82 @@ function ConfirmationPage() {
             {reviewNeeded ? 'Back to processing' : 'Back to dashboard'}
             <ArrowRight className="size-4" />
           </Link>
+        </div>
+      </section>
+
+      <section className="v2-card mt-4">
+        <header className="v2-card-head flex items-center justify-between gap-3">
+          <h3>Submitted documents</h3>
+          <Link
+            to="/library"
+            search={{ client: client.id, verification: verification.id }}
+            className="text-xs font-semibold text-text-muted underline-offset-4 hover:text-text-strong hover:underline"
+          >
+            Open library
+          </Link>
+        </header>
+        <div className="v2-card-body p-0">
+          {docTypeOrder
+            .map((t) => ({ type: t, items: docs.filter((d) => d.docType === t) }))
+            .filter((g) => g.items.length > 0)
+            .map((group) => {
+              const subtotal = group.items.reduce((sum, d) => sum + d.amount, 0)
+              return (
+                <div key={group.type}>
+                  <div
+                    className="flex items-center justify-between gap-3 px-4 py-2"
+                    style={{ background: 'var(--color-surface-muted)' }}
+                  >
+                    <span className="ops-label m-0">
+                      {docTypeLabels[group.type]} · {group.items.length}
+                    </span>
+                    {subtotal > 0 ? (
+                      <span className="mono text-[12px] text-muted-1">
+                        {formatCurrencyPrecise(subtotal)}
+                      </span>
+                    ) : null}
+                  </div>
+                  {group.items.map((doc) => (
+                    <div
+                      key={doc.id}
+                      className="flex items-center justify-between gap-3 border-b px-4 py-2.5 last:border-b-0"
+                      style={{ borderColor: 'var(--color-line-2)' }}
+                    >
+                      <div className="min-w-0">
+                        <p className="m-0 truncate font-mono text-[12.5px] font-semibold text-ink">
+                          {doc.renamedName}
+                        </p>
+                        <p className="text-muted-1 m-0 truncate text-[11.5px]">
+                          {doc.vendorName}
+                          {doc.extractedFields?.documentNumber
+                            ? ` · #${doc.extractedFields.documentNumber}`
+                            : ''}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        {doc.duplicateFlag !== 'none' ? (
+                          <span
+                            className={`pill ${doc.duplicateFlag === 'exact' ? 'pill-red' : 'pill-amber'}`}
+                          >
+                            {doc.duplicateFlag === 'exact'
+                              ? 'Exact match'
+                              : 'Likely match'}
+                          </span>
+                        ) : null}
+                        {doc.lowConfidence ? (
+                          <span className="pill pill-amber">Low confidence</span>
+                        ) : null}
+                        <span className="mono w-[88px] text-right text-[12.5px] text-ink">
+                          {doc.amount > 0
+                            ? formatCurrencyPrecise(doc.amount)
+                            : '—'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+            })}
         </div>
       </section>
 

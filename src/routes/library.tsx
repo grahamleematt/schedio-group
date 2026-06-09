@@ -8,7 +8,6 @@ import {
 import { Loader2, Trash2 } from 'lucide-react'
 import { AppShell } from '#/components/sg-dream/AppShell'
 import { DocumentLibrary } from '#/components/sg-dream/DocumentLibrary'
-import type { NameDisplay } from '#/components/sg-dream/DocumentLibrary'
 import { Button } from '#/components/ui/button'
 import {
   Dialog,
@@ -40,15 +39,9 @@ type LibrarySearch = {
   verification: string
   libraryQuery?: string
   libraryOpen?: DocType
-  nameDisplay?: NameDisplay
 }
 
 const docTypes = new Set<DocType>(docTypeOrder)
-const nameDisplayValues = new Set<NameDisplay>([
-  'original',
-  'standardized',
-  'both',
-])
 
 export const Route = createFileRoute('/library')({
   validateSearch: (s: Record<string, unknown>): LibrarySearch => ({
@@ -65,11 +58,6 @@ export const Route = createFileRoute('/library')({
       typeof s.libraryOpen === 'string' &&
       docTypes.has(s.libraryOpen as DocType)
         ? (s.libraryOpen as DocType)
-        : undefined,
-    nameDisplay:
-      typeof s.nameDisplay === 'string' &&
-      nameDisplayValues.has(s.nameDisplay as NameDisplay)
-        ? (s.nameDisplay as NameDisplay)
         : undefined,
   }),
   loader: ({ context, location }) => {
@@ -110,7 +98,6 @@ function LibraryPage() {
     verification: verificationId,
     libraryQuery,
     libraryOpen,
-    nameDisplay,
   } = Route.useSearch()
   const client = getClientById(clientId)
   const verification =
@@ -157,18 +144,13 @@ function LibraryPage() {
       : 'Pending'
 
   const queryValue = libraryQuery ?? ''
-  const nameDisplayValue: NameDisplay = nameDisplay ?? 'both'
 
   const baseSearch = {
     client: client.id,
     verification: verification.id,
   }
 
-  const updateLibrary = (next: {
-    query?: string
-    open?: DocType | null
-    nameDisplay?: NameDisplay
-  }) => {
+  const updateLibrary = (next: { query?: string; open?: DocType | null }) => {
     void navigate({
       to: '/library',
       search: {
@@ -181,8 +163,6 @@ function LibraryPage() {
             : libraryQuery,
         libraryOpen:
           next.open !== undefined ? (next.open ?? undefined) : libraryOpen,
-        nameDisplay:
-          next.nameDisplay !== undefined ? next.nameDisplay : nameDisplay,
       },
       resetScroll: false,
     })
@@ -277,9 +257,9 @@ function LibraryPage() {
         <p className="v2-eyebrow">Document library</p>
         <h1 className="v2-h1">All filed documents · {client.name}</h1>
         <p className="v2-lede">
-          Grouped by document type for the current submission. Toggle between
-          original and standardized filenames to match how Schedio Group stores
-          each artifact.
+          Grouped by document type for the current submission. Each file carries
+          its full extracted detail — vendor, amounts, dates, the pay-app
+          waterfall, and any fields flagged for review.
         </p>
       </header>
 
@@ -287,12 +267,11 @@ function LibraryPage() {
         documents={docs}
         query={queryValue}
         openCategory={libraryOpen}
-        nameDisplay={nameDisplayValue}
+        verificationId={verification.id}
         onQueryChange={(q) => updateLibrary({ query: q })}
         onToggleCategory={(t) =>
           updateLibrary({ open: libraryOpen === t ? null : t })
         }
-        onNameDisplayChange={(v) => updateLibrary({ nameDisplay: v })}
         onDelete={(doc) => {
           deleteDocMut.reset()
           setPendingDoc(doc)

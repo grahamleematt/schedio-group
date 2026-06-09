@@ -197,12 +197,18 @@ function CustomerIntakeDashboard() {
       </section>
 
       <div className="mt-4 space-y-4">
-        <DocumentInventoryTiles summaries={summaries} />
+        <DocumentInventoryTiles
+          summaries={summaries}
+          clientId={client.id}
+          verificationId={activeVerification.id}
+        />
 
         <VerificationSummaryTable
           workflow={client.workflow}
           verifications={allVerifications}
           liveSubmitted={{ [activeVerification.id]: liveTotals.costsSubmitted }}
+          clientId={client.id}
+          openVerificationId={activeVerification.id}
         />
 
         <WhatHappensNext

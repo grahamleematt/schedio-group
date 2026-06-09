@@ -66,15 +66,13 @@ function VerificationsPage() {
   const referenceStatus = hasDraftSubmission
     ? 'Assigned after Schedio review'
     : 'Pending first upload'
-  const lowConfidenceFieldCount =
-    snapshot?.verification.documents.reduce((sum, d) => {
-      if (!d.lowConfidence || !d.fieldConfidence) return sum
-      let lowCount = 0
-      for (const v of Object.values(d.fieldConfidence)) {
-        if (v < 0.85) lowCount += 1
-      }
-      return sum + lowCount
-    }, 0) ?? 0
+  // Count documents flagged low-confidence, matching the per-row badge. A doc
+  // is flagged when any extracted field scores below the threshold OR DocuPipe
+  // returned no confidence scores at all (an un-scored extraction is never
+  // silently trusted) — so a field-level count would miss the no-scores case
+  // and read 0 even while badges show.
+  const lowConfidenceDocCount =
+    snapshot?.verification.documents.filter((d) => d.lowConfidence).length ?? 0
 
   const days = daysUntilCutoff(open.cutoffDateISO)
   const daysTone =
@@ -128,10 +126,10 @@ function VerificationsPage() {
           </p>
           <p className="m-0 text-muted-1">
             Engineer review is required when DocuPipe field confidence falls
-            below 85%. The current submission has{' '}
-            <strong className="text-ink">{lowConfidenceFieldCount}</strong>{' '}
-            low-confidence field
-            {lowConfidenceFieldCount === 1 ? '' : 's'} flagged.
+            below 85%, or when no confidence is returned. The current submission
+            has{' '}
+            <strong className="text-ink">{lowConfidenceDocCount}</strong>{' '}
+            document{lowConfidenceDocCount === 1 ? '' : 's'} flagged for review.
           </p>
         </div>
       </section>
@@ -206,9 +204,9 @@ function VerificationsPage() {
               <div className="d">Total authorized to date</div>
             </div>
             <div className="v2-stat">
-              <div className="k">Low-confidence fields</div>
-              <div className="v">{lowConfidenceFieldCount}</div>
-              <div className="d">DocuPipe extraction signal</div>
+              <div className="k">Low-confidence docs</div>
+              <div className="v">{lowConfidenceDocCount}</div>
+              <div className="d">Flagged for engineer review</div>
             </div>
           </div>
           <div className="mt-4 flex flex-wrap gap-2">

@@ -1,19 +1,21 @@
 import { ChevronRight, FileStack, Loader2, Search, Trash2 } from 'lucide-react'
-import { docTypeLabels, docTypeOrder } from '#/lib/sg-dream'
+import {
+  docTypeLabels,
+  docTypeOrder,
+  formatCurrencyPrecise,
+} from '#/lib/sg-dream'
 import type { Document, DocType } from '#/lib/sg-dream'
 import { cn } from '#/lib/utils'
-import { DuplicateFlagPill } from './DuplicateFlag'
-
-export type NameDisplay = 'original' | 'standardized' | 'both'
+import { ExtractedDetail } from './ExtractedDetail'
 
 type DocumentLibraryProps = {
   documents: ReadonlyArray<Document>
   query: string
   openCategory?: DocType
-  nameDisplay: NameDisplay
+  /** Enables on-demand "Generate review overlay" on rows missing a review. */
+  verificationId?: string
   onQueryChange: (query: string) => void
   onToggleCategory: (docType: DocType) => void
-  onNameDisplayChange: (value: NameDisplay) => void
   /**
    * When provided, each row renders a remove control. The parent owns
    * confirmation and the delete mutation; this component stays presentational.
@@ -23,28 +25,37 @@ type DocumentLibraryProps = {
   pendingDeleteId?: string
 }
 
-const nameDisplayOptions: ReadonlyArray<{
-  value: NameDisplay
-  label: string
-}> = [
-  { value: 'original', label: 'Original' },
-  { value: 'standardized', label: 'Standardized' },
-  { value: 'both', label: 'Both' },
-]
+function filedPill(custody: Document['custodyState']) {
+  switch (custody) {
+    case 'classified':
+    case 'relied':
+    case 'locked':
+      return { label: 'Filed', cls: 'pill pill-green' }
+    case 'ready':
+      return { label: 'Ready to file', cls: 'pill pill-brand' }
+    case 'processing':
+      return { label: 'Filing', cls: 'pill pill-amber' }
+    case 'incoming':
+      return { label: 'Received', cls: 'pill pill-brand' }
+    default:
+      return { label: 'Pending', cls: 'pill pill-gray' }
+  }
+}
 
 /**
  * Pure, URL-driven document library. Filtering and "which category is open"
- * are supplied by the parent via props (they live in URL search params),
- * so this component is stateless.
+ * are supplied by the parent via props (they live in URL search params), so
+ * this component is stateless. Each row carries the same analyze-level detail
+ * as the processing view (via the shared `ExtractedDetail`) so the library is
+ * a complete record rather than a filename list.
  */
 export function DocumentLibrary({
   documents,
   query,
   openCategory,
-  nameDisplay,
+  verificationId,
   onQueryChange,
   onToggleCategory,
-  onNameDisplayChange,
   onDelete,
   pendingDeleteId,
 }: DocumentLibraryProps) {
@@ -82,51 +93,19 @@ export function DocumentLibrary({
             All filed documents for this submission
           </h2>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div
-            role="radiogroup"
-            aria-label="File name display"
-            className="inline-flex rounded-full border bg-white p-0.5"
-            style={{ borderColor: 'var(--color-border-base)' }}
-          >
-            {nameDisplayOptions.map((opt) => {
-              const isActive = nameDisplay === opt.value
-              return (
-                <button
-                  key={opt.value}
-                  type="button"
-                  role="radio"
-                  aria-checked={isActive}
-                  onClick={() => onNameDisplayChange(opt.value)}
-                  className={cn(
-                    'inline-flex h-8 items-center rounded-full px-3 text-[0.72rem] font-semibold uppercase tracking-[0.06em] transition-colors',
-                    isActive
-                      ? 'text-(--color-brand-white)'
-                      : 'text-text-muted hover:text-text-strong',
-                  )}
-                  style={
-                    isActive ? { background: 'var(--wf-base)' } : undefined
-                  }
-                >
-                  {opt.label}
-                </button>
-              )
-            })}
-          </div>
-          <label
-            className="flex h-9 items-center gap-2 rounded-full border bg-white px-3 text-sm"
-            style={{ borderColor: 'var(--color-border-base)' }}
-          >
-            <Search className="size-3.5 text-text-muted" />
-            <input
-              type="search"
-              placeholder="Search name, vendor, type"
-              value={query}
-              onChange={(e) => onQueryChange(e.target.value)}
-              className="w-40 border-none bg-transparent text-sm outline-none placeholder:text-text-muted focus:w-56"
-            />
-          </label>
-        </div>
+        <label
+          className="flex h-9 items-center gap-2 rounded-full border bg-white px-3 text-sm"
+          style={{ borderColor: 'var(--color-border-base)' }}
+        >
+          <Search className="size-3.5 text-text-muted" />
+          <input
+            type="search"
+            placeholder="Search name, vendor, type"
+            value={query}
+            onChange={(e) => onQueryChange(e.target.value)}
+            className="w-40 border-none bg-transparent text-sm outline-none placeholder:text-text-muted focus:w-56"
+          />
+        </label>
       </header>
 
       <div>
@@ -148,8 +127,7 @@ export function DocumentLibrary({
               </p>
               <p className="m-0 max-w-sm text-xs text-text-muted">
                 As you upload pay apps, invoices, and supporting files, they’ll
-                be grouped here by document type with both original and
-                standardized filing names.
+                be grouped here by document type with their extracted detail.
               </p>
             </div>
           ) : (
@@ -200,120 +178,132 @@ export function DocumentLibrary({
               </button>
 
               {isOpen ? (
-                <ul
+                <div
                   id={panelId}
-                  className="divide-y border-t"
+                  className="border-t"
                   style={{ borderColor: 'var(--color-border-base)' }}
                 >
-                  {inType.map((doc) => {
-                    const isFlagged = doc.duplicateFlag !== 'none'
-                    const displayedName =
-                      nameDisplay === 'standardized'
-                        ? doc.renamedName
-                        : doc.originalName
-                    return (
-                      <li
-                        key={doc.id}
-                        className="flex items-start gap-3 px-10 py-3"
-                        style={
-                          isFlagged
-                            ? {
-                                background:
-                                  doc.duplicateFlag === 'exact'
-                                    ? 'var(--color-flag-exact-bg)'
-                                    : 'var(--color-flag-likely-bg)',
-                              }
-                            : undefined
-                        }
-                      >
-                        <div className="min-w-0 flex-1 space-y-1">
-                          {nameDisplay === 'both' ? (
-                            <div className="grid gap-2 rounded-md border border-line-2 bg-white/80 p-3 sm:grid-cols-2">
-                              <div className="min-w-0">
-                                <div className="ops-label mb-1">
-                                  Original upload
-                                </div>
-                                <p className="m-0 break-all font-mono text-[12.5px] font-semibold leading-snug text-ink">
-                                  {doc.originalName}
-                                </p>
-                              </div>
-                              <div className="min-w-0">
-                                <div className="ops-label mb-1">
-                                  Standardized filing name
-                                </div>
-                                <p className="m-0 break-all font-mono text-[12.5px] font-semibold leading-snug text-ink">
-                                  {doc.renamedName}
-                                </p>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="m-0 break-all font-mono text-sm font-semibold text-text-strong">
-                                {displayedName}
-                              </p>
-                            </div>
-                          )}
-                          <div className="flex flex-wrap items-center gap-2 text-xs text-text-muted">
-                            <span>{doc.vendorName}</span>
-                            <span aria-hidden>·</span>
-                            <span>{docTypeLabels[doc.docType]}</span>
-                            {isFlagged && doc.duplicateFlag !== 'none' ? (
-                              <DuplicateFlagPill flag={doc.duplicateFlag} />
-                            ) : null}
-                          </div>
-                          {isFlagged && doc.matchedPreviousName ? (
-                            <p className="text-xs text-text-muted">
-                              Matches{' '}
-                              <span className="font-mono">
-                                {doc.matchedPreviousName}
-                              </span>{' '}
-                              in{' '}
-                              <span className="font-mono">
-                                {doc.matchedVerificationRef ?? 'prior filing'}
-                              </span>
-                            </p>
-                          ) : null}
-                          {doc.egnyteWebUrl ? (
-                            <p className="text-xs">
-                              <a
-                                href={doc.egnyteWebUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center gap-1 font-semibold text-text-muted underline-offset-4 hover:text-text-strong hover:underline"
-                              >
-                                Filed in Egnyte
-                              </a>
-                            </p>
-                          ) : null}
-                        </div>
-                        {onDelete ? (
-                          <button
-                            type="button"
-                            onClick={() => onDelete(doc)}
-                            disabled={pendingDeleteId === doc.id}
-                            aria-label={`Remove ${doc.originalName}`}
-                            title="Remove document"
-                            className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-transparent text-text-muted transition-colors hover:border-flag-exact-border hover:bg-flag-exact-bg hover:text-(--color-flag-exact-text) disabled:opacity-50"
-                          >
-                            {pendingDeleteId === doc.id ? (
-                              <Loader2
-                                className="size-4 animate-spin"
-                                aria-hidden
-                              />
-                            ) : (
-                              <Trash2 className="size-4" aria-hidden />
-                            )}
-                          </button>
-                        ) : null}
-                      </li>
-                    )
-                  })}
-                </ul>
+                  {inType.map((doc) => (
+                    <LibraryRow
+                      key={doc.id}
+                      doc={doc}
+                      verificationId={verificationId}
+                      onDelete={onDelete}
+                      pendingDeleteId={pendingDeleteId}
+                    />
+                  ))}
+                </div>
               ) : null}
             </div>
           )
         })}
       </div>
     </section>
+  )
+}
+
+function LibraryRow({
+  doc,
+  verificationId,
+  onDelete,
+  pendingDeleteId,
+}: {
+  doc: Document
+  verificationId?: string
+  onDelete?: (doc: Document) => void
+  pendingDeleteId?: string
+}) {
+  const isFlagged = doc.duplicateFlag !== 'none'
+  const hasStandardizedName = doc.renamedName !== doc.originalName
+  const dupClass =
+    doc.duplicateFlag === 'exact'
+      ? 'pill-red'
+      : doc.duplicateFlag === 'likely'
+        ? 'pill-amber'
+        : null
+  const filed = filedPill(doc.custodyState)
+
+  return (
+    <div
+      className="queue-row"
+      style={
+        isFlagged
+          ? {
+              background:
+                doc.duplicateFlag === 'exact'
+                  ? 'var(--color-flag-exact-bg)'
+                  : 'var(--color-flag-likely-bg)',
+            }
+          : undefined
+      }
+    >
+      <span className="doc-ico" aria-hidden />
+      <div className="qmeta min-w-0">
+        <p className="qtitle">{doc.renamedName}</p>
+        <div className="qdetail">
+          {hasStandardizedName ? (
+            <span className="truncate">Original: {doc.originalName}</span>
+          ) : null}
+          <span>{doc.vendorName}</span>
+          <span>{docTypeLabels[doc.docType]}</span>
+          {dupClass ? (
+            <span className={`pill ${dupClass}`}>
+              {doc.duplicateFlag === 'exact' ? 'Exact match' : 'Likely match'}
+            </span>
+          ) : null}
+          {doc.lowConfidence ? (
+            <span className="pill pill-amber">Low confidence</span>
+          ) : null}
+          <span className={filed.cls}>
+            <span className="dot" />
+            {filed.label}
+          </span>
+        </div>
+
+        {isFlagged && doc.matchedPreviousName ? (
+          <p className="qconf">
+            <span className="qk">Matches:</span>{' '}
+            <span className="mono">{doc.matchedPreviousName}</span> in{' '}
+            <span className="mono">
+              {doc.matchedVerificationRef ?? 'prior filing'}
+            </span>
+          </p>
+        ) : null}
+
+        <ExtractedDetail doc={doc} verificationId={verificationId} />
+
+        {doc.egnyteWebUrl ? (
+          <a
+            href={doc.egnyteWebUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="qlink"
+          >
+            Filed in Egnyte
+          </a>
+        ) : null}
+      </div>
+
+      <span className="queue-amount mono">
+        {doc.amount > 0 ? formatCurrencyPrecise(doc.amount) : '—'}
+      </span>
+
+      {onDelete ? (
+        <button
+          type="button"
+          onClick={() => onDelete(doc)}
+          disabled={pendingDeleteId === doc.id}
+          aria-label={`Remove ${doc.originalName}`}
+          title="Remove document"
+          className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-transparent text-text-muted transition-colors hover:border-flag-exact-border hover:bg-flag-exact-bg hover:text-(--color-flag-exact-text) disabled:opacity-50"
+        >
+          {pendingDeleteId === doc.id ? (
+            <Loader2 className="size-4 animate-spin" aria-hidden />
+          ) : (
+            <Trash2 className="size-4" aria-hidden />
+          )}
+        </button>
+      ) : null}
+    </div>
   )
 }

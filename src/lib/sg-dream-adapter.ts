@@ -40,14 +40,16 @@ export function storedToDisplay(doc: StoredDocument): Document {
     egnyteEntryId: doc.egnyteEntryId,
     egnyteGroupId: doc.egnyteGroupId,
     egnyteClassifiedPath: doc.egnyteClassifiedPath,
+    egnytePlannedPath: doc.egnytePlannedPath,
     egnyteWebUrl: doc.egnyteWebUrl,
     custodyState: doc.custodyState,
-    visualReviewUrl: doc.visualReviewUrl,
+    docupipeReviewId: doc.docupipeReviewId,
     fieldConfidence: doc.fieldConfidence,
     lowConfidence: doc.lowConfidence,
     status: doc.status,
     errorMessage: doc.errorMessage,
     uploadedAt: doc.uploadedAt,
+    extractedFields: doc.extractedFields,
   }
 }
 

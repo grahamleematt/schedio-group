@@ -11,6 +11,7 @@ import {
   getVerificationById,
 } from '#/lib/sg-dream'
 import type { Document } from '#/lib/sg-dream'
+import { ExtractedDetail } from '#/components/sg-dream/ExtractedDetail'
 import { storedListToDisplay } from '#/lib/sg-dream-adapter'
 import { verificationSnapshotQuery } from '#/lib/queries'
 import type { StoredDocument } from '#/server/store'
@@ -96,7 +97,13 @@ function deriveSteps(docs: ReadonlyArray<StoredDocument>): ReadonlyArray<Step> {
     (d) => d.duplicateFlag === 'exact' || d.duplicateFlag === 'likely',
   ).length
   const renamedCount = docs.filter((d) => Boolean(d.renamedName)).length
-  const totalBytes = docs
+  // Sum only the claim amounts (invoices + pay-app current-payment-due) so the
+  // "$X captured" figure matches the dashboard's "Costs submitted" definition.
+  // Proofs of payment and change orders are deliberately excluded — including
+  // them here would double-count claims and could even net negative on a
+  // deductive CO.
+  const capturedTotal = docs
+    .filter((d) => d.docType === 'INV' || d.docType === 'PA')
     .map((d) => d.extractedFields?.amount ?? 0)
     .reduce((a, b) => a + b, 0)
 
@@ -134,7 +141,9 @@ function deriveSteps(docs: ReadonlyArray<StoredDocument>): ReadonlyArray<Step> {
     detail:
       completed === total
         ? `${completed} / ${total} documents checked${
-            totalBytes > 0 ? ` · $${totalBytes.toLocaleString()} captured` : ''
+            capturedTotal > 0
+              ? ` · $${capturedTotal.toLocaleString()} captured`
+              : ''
           }`
         : `${completed} / ${total} documents checked${
             inFlight > 0 ? ` · ${inFlight} in progress` : ''
@@ -206,6 +215,8 @@ function filedStatusPill(custody: StoredDocument['custodyState']) {
     case 'relied':
     case 'locked':
       return { label: 'Filed', cls: 'pill pill-green' }
+    case 'ready':
+      return { label: 'Ready to file', cls: 'pill pill-brand' }
     case 'processing':
       return { label: 'Filing', cls: 'pill pill-amber' }
     case 'incoming':
@@ -362,7 +373,7 @@ function ProcessingPage() {
             Each step updates as submitted documents move toward review.
           </span>
         </header>
-        <ol className="plog">
+        <ol className={`plog${allCompleted ? ' is-static' : ''}`}>
           {steps.map((step, i) => (
             <PlogStep key={i} step={step} />
           ))}
@@ -373,13 +384,19 @@ function ProcessingPage() {
         <header className="v2-card-head">
           <h3>Per-document detail</h3>
           <span className="sub">
-            Standardized filing name, vendor, extracted amount, duplicate and
-            custody status. Original upload names stay visible for auditability.
+            Standardized filing name, vendor, document number, dates, the
+            pay-app waterfall with a Current-Payment-Due math check, and the
+            fields flagged for review. Original upload names stay visible for
+            auditability.
           </span>
         </header>
         <div>
           {displayDocs.map((doc) => (
-            <ProcessingRow key={doc.id} doc={doc} />
+            <ProcessingRow
+              key={doc.id}
+              doc={doc}
+              verificationId={verification.id}
+            />
           ))}
         </div>
       </section>
@@ -391,11 +408,19 @@ function ProcessingPage() {
  * The rich per-file row that streams live while DocuPipe works. This is the
  * canonical processing view: it carries the standardized filing name (with the
  * original kept beneath for audit), source, classified type · vendor, the
- * extracted amount, duplicate flag, low-confidence badge, Egnyte custody
- * status, and any error — everything the old upload queue surfaced, plus
- * custody and confidence.
+ * extracted amount, duplicate flag, Egnyte custody status, and any error, plus
+ * the deeper DocuPipe detail — document number, dates, billing period and
+ * contract reference; the AIA G702 pay-application waterfall with an automatic
+ * Current-Payment-Due math check; the specific fields that scored
+ * low-confidence; and a link to DocuPipe's Visual Review overlay.
  */
-function ProcessingRow({ doc }: { doc: Document }) {
+function ProcessingRow({
+  doc,
+  verificationId,
+}: {
+  doc: Document
+  verificationId: string
+}) {
   const status = doc.status
     ? statusPill(doc.status)
     : { label: 'Queued', cls: 'pill pill-gray' }
@@ -438,6 +463,9 @@ function ProcessingRow({ doc }: { doc: Document }) {
             {filed.label}
           </span>
         </div>
+
+        <ExtractedDetail doc={doc} verificationId={verificationId} />
+
         {doc.errorMessage ? <p className="qerror">{doc.errorMessage}</p> : null}
       </div>
       <span className="queue-amount mono">
