@@ -29,6 +29,7 @@ import { Route as IntelligenceRelationshipsRouteImport } from './routes/intellig
 import { Route as ApiUploadsRouteImport } from './routes/api/uploads'
 import { Route as ApiDeterminationsRouteImport } from './routes/api/determinations'
 import { Route as ApiDeterminationDocumentsRouteImport } from './routes/api/determination-documents'
+import { Route as ApiBlobTokenRouteImport } from './routes/api/blob-token'
 import { Route as ApiIntelligenceLearningsRouteImport } from './routes/api/intelligence/learnings'
 import { Route as ApiIntelligenceImportsRouteImport } from './routes/api/intelligence/imports'
 import { Route as ApiIntelligenceFindingsRouteImport } from './routes/api/intelligence/findings'
@@ -141,6 +142,11 @@ const ApiDeterminationDocumentsRoute =
     path: '/api/determination-documents',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiBlobTokenRoute = ApiBlobTokenRouteImport.update({
+  id: '/api/blob-token',
+  path: '/api/blob-token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiIntelligenceLearningsRoute =
   ApiIntelligenceLearningsRouteImport.update({
     id: '/api/intelligence/learnings',
@@ -206,6 +212,7 @@ export interface FileRoutesByFullPath {
   '/upload': typeof UploadRoute
   '/users': typeof UsersRoute
   '/verifications': typeof VerificationsRoute
+  '/api/blob-token': typeof ApiBlobTokenRoute
   '/api/determination-documents': typeof ApiDeterminationDocumentsRoute
   '/api/determinations': typeof ApiDeterminationsRoute
   '/api/uploads': typeof ApiUploadsRoute
@@ -237,6 +244,7 @@ export interface FileRoutesByTo {
   '/upload': typeof UploadRoute
   '/users': typeof UsersRoute
   '/verifications': typeof VerificationsRoute
+  '/api/blob-token': typeof ApiBlobTokenRoute
   '/api/determination-documents': typeof ApiDeterminationDocumentsRoute
   '/api/determinations': typeof ApiDeterminationsRoute
   '/api/uploads': typeof ApiUploadsRoute
@@ -269,6 +277,7 @@ export interface FileRoutesById {
   '/upload': typeof UploadRoute
   '/users': typeof UsersRoute
   '/verifications': typeof VerificationsRoute
+  '/api/blob-token': typeof ApiBlobTokenRoute
   '/api/determination-documents': typeof ApiDeterminationDocumentsRoute
   '/api/determinations': typeof ApiDeterminationsRoute
   '/api/uploads': typeof ApiUploadsRoute
@@ -302,6 +311,7 @@ export interface FileRouteTypes {
     | '/upload'
     | '/users'
     | '/verifications'
+    | '/api/blob-token'
     | '/api/determination-documents'
     | '/api/determinations'
     | '/api/uploads'
@@ -333,6 +343,7 @@ export interface FileRouteTypes {
     | '/upload'
     | '/users'
     | '/verifications'
+    | '/api/blob-token'
     | '/api/determination-documents'
     | '/api/determinations'
     | '/api/uploads'
@@ -364,6 +375,7 @@ export interface FileRouteTypes {
     | '/upload'
     | '/users'
     | '/verifications'
+    | '/api/blob-token'
     | '/api/determination-documents'
     | '/api/determinations'
     | '/api/uploads'
@@ -396,6 +408,7 @@ export interface RootRouteChildren {
   UploadRoute: typeof UploadRoute
   UsersRoute: typeof UsersRoute
   VerificationsRoute: typeof VerificationsRoute
+  ApiBlobTokenRoute: typeof ApiBlobTokenRoute
   ApiDeterminationDocumentsRoute: typeof ApiDeterminationDocumentsRoute
   ApiDeterminationsRoute: typeof ApiDeterminationsRoute
   ApiUploadsRoute: typeof ApiUploadsRoute
@@ -553,6 +566,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDeterminationDocumentsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/blob-token': {
+      id: '/api/blob-token'
+      path: '/api/blob-token'
+      fullPath: '/api/blob-token'
+      preLoaderRoute: typeof ApiBlobTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/intelligence/learnings': {
       id: '/api/intelligence/learnings'
       path: '/api/intelligence/learnings'
@@ -636,6 +656,7 @@ const rootRouteChildren: RootRouteChildren = {
   UploadRoute: UploadRoute,
   UsersRoute: UsersRoute,
   VerificationsRoute: VerificationsRoute,
+  ApiBlobTokenRoute: ApiBlobTokenRoute,
   ApiDeterminationDocumentsRoute: ApiDeterminationDocumentsRoute,
   ApiDeterminationsRoute: ApiDeterminationsRoute,
   ApiUploadsRoute: ApiUploadsRoute,

@@ -202,8 +202,8 @@ export function isEgnyteConfigured(): boolean {
 export function isEgnyteAppConfigured(): boolean {
   return Boolean(
     readOptional('EGNYTE_DOMAIN') &&
-      readOptional('EGNYTE_CLIENT_ID') &&
-      readOptional('EGNYTE_CLIENT_SECRET'),
+    readOptional('EGNYTE_CLIENT_ID') &&
+    readOptional('EGNYTE_CLIENT_SECRET'),
   )
 }
 
@@ -232,6 +232,18 @@ export function isKvConfigured(): boolean {
 
 export function isVercel(): boolean {
   return Boolean(process.env.VERCEL)
+}
+
+/**
+ * Vercel Blob is the escape hatch for documents larger than the ~4.5 MB
+ * serverless request-body cap: the browser uploads them directly to Blob, then
+ * our server fetches + ingests them. The read-write token is auto-injected when
+ * a Blob store is linked to the project; locally, pull it with `vercel env
+ * pull`. Without it, large-file uploads fall back to a clear error + the Egnyte
+ * import path.
+ */
+export function isBlobConfigured(): boolean {
+  return Boolean(readOptional('BLOB_READ_WRITE_TOKEN'))
 }
 
 /**

@@ -28,6 +28,7 @@
     "@tanstack/react-router-ssr-query": "latest",
     "@tanstack/react-start": "latest",
     "@tanstack/router-plugin": "^1.132.0",
+    "@vercel/blob": "^2.4.0",
     "@vercel/kv": "^3.0.0",
     "@workos-inc/node": "^9.3.1",
     "@workos/authkit-tanstack-react-start": "^0.8.3",

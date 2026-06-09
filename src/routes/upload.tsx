@@ -145,25 +145,143 @@ function UploadPage() {
 
   const mutation = useMutation({
     mutationFn: async (files: File[]) => {
-      const fd = new FormData()
-      fd.set('verificationId', verificationId)
-      fd.set('clientId', client.id)
-      for (const file of files) fd.append('files', file)
-      const res = await fetch('/api/uploads', { method: 'POST', body: fd })
-      if (!res.ok) {
-        let message = `upload failed (${res.status})`
-        try {
-          const data = (await res.json()) as { error?: string }
-          if (data.error) message = data.error
-        } catch {
-          // non-JSON response; keep default message
+      // Vercel caps a serverless function's request body at ~4.5 MB, so files
+      // can't all ride the same multipart POST. We split the drop two ways:
+      //   - Small files (< 4 MB) are greedily packed into ~4 MB multipart
+      //     batches and POSTed normally — fast, no extra round-trips.
+      //   - Large files (>= 4 MB) are uploaded straight to Vercel Blob from the
+      //     browser (bypassing the request-body cap), then handed to the server
+      //     as blob URLs to fetch + ingest. This handles documents of any size.
+      // Tim still just drops the whole submission at once.
+      const LARGE_FILE_THRESHOLD = 4 * 1024 * 1024
+      const smallFiles = files.filter((f) => f.size < LARGE_FILE_THRESHOLD)
+      const largeFiles = files.filter((f) => f.size >= LARGE_FILE_THRESHOLD)
+
+      const uploaded: Array<unknown> = []
+      const failures: Array<string> = []
+
+      const BATCH_BUDGET = 4 * 1024 * 1024
+      const batches: Array<Array<File>> = []
+      let current: Array<File> = []
+      let currentSize = 0
+      for (const file of smallFiles) {
+        if (current.length > 0 && currentSize + file.size > BATCH_BUDGET) {
+          batches.push(current)
+          current = []
+          currentSize = 0
         }
-        throw new Error(message)
+        current.push(file)
+        currentSize += file.size
       }
-      return (await res.json()) as { uploaded: Array<unknown> }
+      if (current.length > 0) batches.push(current)
+
+      for (const batch of batches) {
+        const fd = new FormData()
+        fd.set('verificationId', verificationId)
+        fd.set('clientId', client.id)
+        for (const file of batch) fd.append('files', file)
+
+        const label = batch.map((f) => f.name).join(', ')
+        let res: Response
+        try {
+          res = await fetch('/api/uploads', { method: 'POST', body: fd })
+        } catch {
+          failures.push(`${label}: network error`)
+          continue
+        }
+        if (!res.ok) {
+          let message = `upload failed (${res.status})`
+          if (res.status !== 413) {
+            try {
+              const data = (await res.json()) as { error?: string }
+              if (data.error) message = data.error
+            } catch {
+              // non-JSON response; keep default message
+            }
+          }
+          failures.push(`${label}: ${message}`)
+          continue
+        }
+        const data = (await res.json()) as { uploaded: Array<unknown> }
+        uploaded.push(...data.uploaded)
+      }
+
+      // Large files: direct-to-Blob, then ingest via blob URL.
+      if (largeFiles.length > 0) {
+        const { upload } = await import('@vercel/blob/client')
+        const blobs: Array<{
+          url: string
+          filename: string
+          contentType?: string
+          sizeBytes: number
+        }> = []
+        for (const file of largeFiles) {
+          try {
+            const result = await upload(file.name, file, {
+              access: 'public',
+              handleUploadUrl: '/api/blob-token',
+              contentType: file.type || undefined,
+              clientPayload: JSON.stringify({
+                clientId: client.id,
+                verificationId,
+              }),
+            })
+            blobs.push({
+              url: result.url,
+              filename: file.name,
+              contentType: file.type || undefined,
+              sizeBytes: file.size,
+            })
+          } catch (err) {
+            const reason =
+              err instanceof Error ? err.message : 'direct upload failed'
+            failures.push(`${file.name}: ${reason}`)
+          }
+        }
+
+        if (blobs.length > 0) {
+          const label = blobs.map((b) => b.filename).join(', ')
+          try {
+            const res = await fetch('/api/uploads', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                verificationId,
+                clientId: client.id,
+                blobs,
+              }),
+            })
+            if (!res.ok) {
+              let message = `upload failed (${res.status})`
+              try {
+                const data = (await res.json()) as { error?: string }
+                if (data.error) message = data.error
+              } catch {
+                // keep default
+              }
+              failures.push(`${label}: ${message}`)
+            } else {
+              const data = (await res.json()) as { uploaded: Array<unknown> }
+              uploaded.push(...data.uploaded)
+            }
+          } catch {
+            failures.push(`${label}: network error`)
+          }
+        }
+      }
+
+      // Whole submission failed — surface the combined reason via onError.
+      if (uploaded.length === 0 && failures.length > 0) {
+        throw new Error(failures.join('; '))
+      }
+      return { uploaded, failures }
     },
-    onSuccess: () => {
-      setUploadError(null)
+    onSuccess: (result) => {
+      setUploadError(
+        result.failures.length > 0
+          ? `Some files were not uploaded — ${result.failures.join('; ')}`
+          : null,
+      )
       void queryClient.invalidateQueries({
         queryKey: ['verification', verificationId],
       })

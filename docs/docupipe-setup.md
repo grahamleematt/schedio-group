@@ -200,3 +200,12 @@ Never ship any of these to the browser; only `src/server/**` reads them.
   Acceptable for the testing demo, revisit if cost or latency change.
 - Webhook retries are handled by DocuPipe; we swallow unknown `documentId`s
   with a `200` so out-of-order deliveries don't crash the handler.
+- Upload size handling (Vercel ~4.5 MB request-body cap): the client splits a
+  drop into small files (< 4 MB, packed into ~4 MB multipart batches) and large
+  files (≥ 4 MB). Large files upload directly to Vercel Blob from the browser
+  (`/api/blob-token` mints a scoped, auth-gated client token), then the server
+  fetches each blob, ingests it, and deletes it (JSON branch of
+  `/api/uploads`). Requires `BLOB_READ_WRITE_TOKEN` (auto-set when a Blob store
+  is linked). Without it, large single files fail with a clear message — drop
+  them in the entity's Egnyte Incoming folder and use **Import from Egnyte**,
+  which pulls bytes server-side and bypasses the cap entirely.
