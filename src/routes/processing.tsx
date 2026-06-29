@@ -2,6 +2,7 @@ import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { ArrowRight, FileQuestion, UploadCloud } from 'lucide-react'
 import { AppShell } from '#/components/sg-dream/AppShell'
+import { WorkflowBanner } from '#/components/sg-dream/WorkflowBanner'
 import {
   clients,
   docTypeLabels,
@@ -24,7 +25,7 @@ type ProcessingSearch = {
 
 export const Route = createFileRoute('/processing')({
   validateSearch: (s: Record<string, unknown>): ProcessingSearch => ({
-    client: typeof s.client === 'string' ? s.client : 'dawson-trails-md1',
+    client: typeof s.client === 'string' ? s.client : '',
     verification:
       typeof s.verification === 'string'
         ? s.verification
@@ -32,15 +33,9 @@ export const Route = createFileRoute('/processing')({
   }),
   loader: ({ context, location }) => {
     const search = location.search as ProcessingSearch
-    const requestedClient =
-      typeof search.client === 'string' ? search.client : 'dawson-trails-md1'
-    const knownClient = clients.find((c) => c.id === requestedClient)
+    const knownClient = clients.find((c) => c.id === search.client)
     if (!knownClient) {
-      const open = getOpenVerification('dawson-trails-md1')
-      throw redirect({
-        to: '/processing',
-        search: { client: 'dawson-trails-md1', verification: open.id },
-      })
+      throw redirect({ to: '/clients' })
     }
     const clientId = knownClient.id
     const requested =
@@ -252,6 +247,7 @@ function ProcessingPage() {
   if (isEmpty) {
     return (
       <AppShell active="submit" crumbs={[{ label: 'Processing' }]}>
+        <WorkflowBanner workflow={client.workflow} />
         <header className="mb-4">
           <p className="v2-eyebrow">Step 4 · Analyzing documents</p>
           <h1 className="v2-h1">Nothing to analyze yet</h1>
@@ -291,6 +287,7 @@ function ProcessingPage() {
 
   return (
     <AppShell active="submit" crumbs={[{ label: 'Processing' }]}>
+      <WorkflowBanner workflow={client.workflow} />
       <header className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="v2-eyebrow">Step 4 · Analyzing documents</p>

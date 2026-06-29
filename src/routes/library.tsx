@@ -45,7 +45,7 @@ const docTypes = new Set<DocType>(docTypeOrder)
 
 export const Route = createFileRoute('/library')({
   validateSearch: (s: Record<string, unknown>): LibrarySearch => ({
-    client: typeof s.client === 'string' ? s.client : 'dawson-trails-md1',
+    client: typeof s.client === 'string' ? s.client : '',
     verification:
       typeof s.verification === 'string'
         ? s.verification
@@ -62,15 +62,9 @@ export const Route = createFileRoute('/library')({
   }),
   loader: ({ context, location }) => {
     const search = location.search as LibrarySearch
-    const requestedClient =
-      typeof search.client === 'string' ? search.client : 'dawson-trails-md1'
-    const knownClient = clients.find((c) => c.id === requestedClient)
+    const knownClient = clients.find((c) => c.id === search.client)
     if (!knownClient) {
-      const open = getOpenVerification('dawson-trails-md1')
-      throw redirect({
-        to: '/library',
-        search: { client: 'dawson-trails-md1', verification: open.id },
-      })
+      throw redirect({ to: '/clients' })
     }
     const clientId = knownClient.id
     const requested =

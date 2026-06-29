@@ -157,7 +157,6 @@ export type Verification = {
   docsCount: number
   costsSubmitted: number
   costsVerified: number // 0 until approved
-  workAuthValue: number
   seq: number // last-used doc sequence used for ref generation
 }
 
@@ -174,7 +173,6 @@ const verificationSeeds: ReadonlyArray<Verification> = [
     docsCount: 0,
     costsSubmitted: 0,
     costsVerified: 0,
-    workAuthValue: 0,
     seq: 1,
   },
   {
@@ -189,7 +187,6 @@ const verificationSeeds: ReadonlyArray<Verification> = [
     docsCount: 0,
     costsSubmitted: 0,
     costsVerified: 0,
-    workAuthValue: 0,
     seq: 1,
   },
 ]
@@ -302,14 +299,58 @@ export type Vendor = {
   code: string
   name: string
   clientId: string
+  /**
+   * Contract authorization ceiling (SG-entered from the executed MSA). This is
+   * not derivable from DocuPipe — it comes from the contract itself — so it
+   * stays configured. Spend is computed live from filed documents; see
+   * `liveSpendByVendor`.
+   */
   authorized: number
-  spent: number
   contract?: ContractMSA
   taskOrders?: ReadonlyArray<TaskOrder>
   changeOrders?: ReadonlyArray<ChangeOrder>
 }
 
-export const vendors: ReadonlyArray<Vendor> = []
+/**
+ * Vendor contract authorizations for the District Direct Pay entity (DT1).
+ *
+ * Vendor identities and `code` here match the live DocuPipe extractions on
+ * DT1's filed documents (Classic SRJ pay apps, A.G. Wassenaar task orders),
+ * so spend computed from those documents attributes to the right contract.
+ * `code` must equal `vendorCode(extractedFields.vendorName)` — the same 4-char
+ * derivation the adapter applies — for the live join to land.
+ *
+ * `authorized` is the configured MSA ceiling; `spent` is NOT stored here — it
+ * is summed live from each vendor's invoices + pay-apps. Developer
+ * Reimbursement (DTD) carries no vendor contracts; its dashboard renders the
+ * single-column layout.
+ */
+export const vendors: ReadonlyArray<Vendor> = [
+  {
+    id: 'dt1-classic',
+    code: 'CLAS',
+    name: 'Classic SRJ, LLC',
+    clientId: 'dawson-trails-md1',
+    authorized: 1_350_000,
+    contract: {
+      refName: 'MSA-2024-CLAS',
+      executedOn: 'Jan 12, 2024',
+      value: 1_350_000,
+    },
+  },
+  {
+    id: 'dt1-wassenaar',
+    code: 'AGWA',
+    name: 'A.G. Wassenaar, Inc.',
+    clientId: 'dawson-trails-md1',
+    authorized: 850_000,
+    contract: {
+      refName: 'MSA-2024-AGWA',
+      executedOn: 'Mar 03, 2024',
+      value: 850_000,
+    },
+  },
+]
 
 // ---- Helpers ----
 
@@ -383,23 +424,46 @@ function getUtilizationBand(pct: number): UtilizationBand {
   return 'healthy'
 }
 
-export function computeVendorUtilization(vendor: Vendor) {
-  const remaining = Math.max(0, vendor.authorized - vendor.spent)
+/**
+ * Sum live contract spend per 4-char vendor code from filed documents. Only
+ * invoices (`INV`) and pay-apps (`PA`) are claim dollars drawn against a
+ * contract; task orders, change orders, contracts, proofs of payment, and
+ * lien waivers are authorization or evidence, not spend — matching the same
+ * rule `liveVerificationTotals` uses so contract spend and "costs submitted"
+ * stay consistent.
+ */
+export function liveSpendByVendor(
+  docs: ReadonlyArray<Document>,
+): Map<string, number> {
+  const byCode = new Map<string, number>()
+  for (const doc of docs) {
+    if (doc.docType !== 'INV' && doc.docType !== 'PA') continue
+    const amount = doc.amount
+    if (!amount) continue
+    byCode.set(doc.vendor, (byCode.get(doc.vendor) ?? 0) + amount)
+  }
+  return byCode
+}
+
+export function computeVendorUtilization(vendor: Vendor, spent: number) {
+  const remaining = Math.max(0, vendor.authorized - spent)
   const pct =
-    vendor.authorized > 0
-      ? Math.min(100, (vendor.spent / vendor.authorized) * 100)
-      : 0
+    vendor.authorized > 0 ? Math.min(100, (spent / vendor.authorized) * 100) : 0
   return {
+    spent,
     remaining,
     pct,
     band: getUtilizationBand(pct),
   }
 }
 
-export function computeContractSummary(clientId: string) {
+export function computeContractSummary(
+  clientId: string,
+  spendByVendor: Map<string, number>,
+) {
   const v = getVendorsByClient(clientId)
   const authorized = v.reduce((s, x) => s + x.authorized, 0)
-  const spent = v.reduce((s, x) => s + x.spent, 0)
+  const spent = v.reduce((s, x) => s + (spendByVendor.get(x.code) ?? 0), 0)
   const remaining = Math.max(0, authorized - spent)
   const pct = authorized > 0 ? (spent / authorized) * 100 : 0
   return { authorized, spent, remaining, pct }

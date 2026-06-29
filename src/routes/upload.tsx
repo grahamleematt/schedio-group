@@ -16,6 +16,7 @@ import { useRef, useState } from 'react'
 import type { DragEvent } from 'react'
 import { AppShell } from '#/components/sg-dream/AppShell'
 import { RenameTransform } from '#/components/sg-dream/RenameTransform'
+import { WorkflowBanner } from '#/components/sg-dream/WorkflowBanner'
 import {
   clients,
   displaySubmissionCycle,
@@ -79,7 +80,7 @@ function formatBytes(bytes: number): string {
 
 export const Route = createFileRoute('/upload')({
   validateSearch: (s: Record<string, unknown>): UploadSearch => ({
-    client: typeof s.client === 'string' ? s.client : 'dawson-trails-md1',
+    client: typeof s.client === 'string' ? s.client : '',
     verification:
       typeof s.verification === 'string'
         ? s.verification
@@ -91,15 +92,9 @@ export const Route = createFileRoute('/upload')({
   }),
   loader: ({ context, location }) => {
     const search = location.search as UploadSearch
-    const requestedClient =
-      typeof search.client === 'string' ? search.client : 'dawson-trails-md1'
-    const knownClient = clients.find((c) => c.id === requestedClient)
+    const knownClient = clients.find((c) => c.id === search.client)
     if (!knownClient) {
-      const open = getOpenVerification('dawson-trails-md1')
-      throw redirect({
-        to: '/upload',
-        search: { client: 'dawson-trails-md1', verification: open.id },
-      })
+      throw redirect({ to: '/clients' })
     }
     const clientId = knownClient.id
     const requested =
@@ -534,6 +529,7 @@ function UploadPage() {
       crumbs={[{ label: 'Submit Documents' }]}
       rail={rail}
     >
+      <WorkflowBanner workflow={client.workflow} />
       <header className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="v2-eyebrow">

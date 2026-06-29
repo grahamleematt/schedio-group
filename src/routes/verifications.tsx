@@ -2,8 +2,10 @@ import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowRight, UploadCloud } from 'lucide-react'
 import { AppShell } from '#/components/sg-dream/AppShell'
+import { WorkflowBanner } from '#/components/sg-dream/WorkflowBanner'
 import {
   clients,
+  computeContractSummary,
   daysUntilCutoff,
   displayRef,
   displaySubmissionCycle,
@@ -12,9 +14,13 @@ import {
   getOpenVerification,
   getStatusLabel,
   getVerificationsByClient,
+  liveSpendByVendor,
 } from '#/lib/sg-dream'
 import { verificationSnapshotQuery } from '#/lib/queries'
-import { liveVerificationTotals } from '#/lib/sg-dream-adapter'
+import {
+  liveVerificationTotals,
+  storedListToDisplay,
+} from '#/lib/sg-dream-adapter'
 
 type VerificationsSearch = {
   client: string
@@ -22,18 +28,13 @@ type VerificationsSearch = {
 
 export const Route = createFileRoute('/verifications')({
   validateSearch: (s: Record<string, unknown>): VerificationsSearch => ({
-    client: typeof s.client === 'string' ? s.client : 'dawson-trails-md1',
+    client: typeof s.client === 'string' ? s.client : '',
   }),
   loader: ({ context, location }) => {
     const search = location.search as VerificationsSearch
-    const requested =
-      typeof search.client === 'string' ? search.client : 'dawson-trails-md1'
-    const known = clients.find((c) => c.id === requested)
+    const known = clients.find((c) => c.id === search.client)
     if (!known) {
-      throw redirect({
-        to: '/verifications',
-        search: { client: 'dawson-trails-md1' },
-      })
+      throw redirect({ to: '/clients' })
     }
     const open = getOpenVerification(known.id)
     return context.queryClient.ensureQueryData(
@@ -52,6 +53,13 @@ function VerificationsPage() {
   const previous = all.filter((v) => v.id !== open.id)
   const snapshotQuery = useQuery(verificationSnapshotQuery(open.id))
   const snapshot = snapshotQuery.data
+  const contractSummary = computeContractSummary(
+    client.id,
+    liveSpendByVendor(
+      storedListToDisplay(snapshot?.verification.documents ?? []),
+    ),
+  )
+  const hasContracts = contractSummary.authorized > 0
   const liveTotals = liveVerificationTotals({
     snapshot,
     fallbackDocsCount: open.docsCount,
@@ -142,6 +150,7 @@ function VerificationsPage() {
       crumbs={[{ label: 'Submissions' }]}
       rail={rail}
     >
+      <WorkflowBanner workflow={client.workflow} />
       <header className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="v2-eyebrow">Step 2 · Submissions</p>
@@ -198,11 +207,15 @@ function VerificationsPage() {
                   : 'Awaiting extracted invoice + pay-app amounts'}
               </div>
             </div>
-            <div className="v2-stat">
-              <div className="k">Work authorization</div>
-              <div className="v">{formatCurrency(open.workAuthValue)}</div>
-              <div className="d">Total authorized to date</div>
-            </div>
+            {hasContracts ? (
+              <div className="v2-stat">
+                <div className="k">Authorization value</div>
+                <div className="v">
+                  {formatCurrency(contractSummary.authorized)}
+                </div>
+                <div className="d">Total authorized across vendor contracts</div>
+              </div>
+            ) : null}
             <div className="v2-stat">
               <div className="k">Low-confidence docs</div>
               <div className="v">{lowConfidenceDocCount}</div>

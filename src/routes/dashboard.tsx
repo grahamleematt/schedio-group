@@ -7,6 +7,9 @@ import { VerificationSummaryTable } from '#/components/sg-dream/VerificationSumm
 import { WhatHappensNext } from '#/components/sg-dream/WhatHappensNext'
 import { DashboardActions } from '#/components/sg-dream/DashboardActions'
 import {
+  computeContractSummary,
+  computeVendorUtilization,
+  liveSpendByVendor,
   daysUntilCutoff,
   displaySubmissionCycle,
   formatCurrency,
@@ -14,6 +17,7 @@ import {
   getKnownClientById,
   getDuplicateCounts,
   getOpenVerification,
+  getVendorsByClient,
   getVerificationById,
   getVerificationsByClient,
   summarizeDocTypes,
@@ -32,21 +36,15 @@ type DashboardSearch = {
 
 export const Route = createFileRoute('/dashboard')({
   validateSearch: (s: Record<string, unknown>): DashboardSearch => ({
-    client: typeof s.client === 'string' ? s.client : 'dawson-trails-md1',
+    client: typeof s.client === 'string' ? s.client : '',
     verification:
       typeof s.verification === 'string' ? s.verification : undefined,
   }),
   loader: ({ context, location }) => {
     const search = location.search as DashboardSearch
-    const requestedClient =
-      typeof search.client === 'string' ? search.client : 'dawson-trails-md1'
-    const knownClient = getKnownClientById(requestedClient)
+    const knownClient = getKnownClientById(search.client)
     if (!knownClient) {
-      const open = getOpenVerification('dawson-trails-md1')
-      throw redirect({
-        to: '/dashboard',
-        search: { client: 'dawson-trails-md1', verification: open.id },
-      })
+      throw redirect({ to: '/clients' })
     }
     const clientId = knownClient.id
     const requested =
@@ -108,6 +106,19 @@ function CustomerIntakeDashboard() {
     days <= 3 ? 'pill-red' : days <= 14 ? 'pill-amber' : 'pill-green'
 
   const config = workflowConfigs[client.workflow]
+
+  // Contract tracking is a stacked-dashboard (District Direct Pay) concern.
+  // The single-column (Developer Reimbursement) dashboard omits it, which also
+  // avoids surfacing a $0 "Authorization value" when no vendor contracts exist.
+  const isStacked = config.dashboardKind === 'stacked'
+  const spendByVendor = liveSpendByVendor(docs)
+  const contractSummary = computeContractSummary(client.id, spendByVendor)
+  const hasContracts = contractSummary.authorized > 0
+  const amendCount = getVendorsByClient(client.id).filter(
+    (v) =>
+      computeVendorUtilization(v, spendByVendor.get(v.code) ?? 0).band ===
+      'amend',
+  ).length
 
   return (
     <AppShell active="dashboard" crumbs={[{ label: 'Dashboard' }]}>
@@ -178,13 +189,18 @@ function CustomerIntakeDashboard() {
                   : 'Awaiting extracted invoice + pay-app amounts'}
               </div>
             </div>
-            <div className="v2-stat">
-              <div className="k">Authorization value</div>
-              <div className="v">
-                {formatCurrency(activeVerification.workAuthValue)}
+            {hasContracts ? (
+              <div className="v2-stat">
+                <div className="k">Authorization value</div>
+                <div className="v">
+                  {formatCurrency(contractSummary.authorized)}
+                </div>
+                <div className="d">
+                  {Math.round(contractSummary.pct)}% committed across vendor
+                  contracts
+                </div>
               </div>
-              <div className="d">Configured for this workflow</div>
-            </div>
+            ) : null}
             <div className="v2-stat">
               <div className="k">Flagged</div>
               <div className="v">{duplicateCounts.total}</div>
@@ -202,6 +218,61 @@ function CustomerIntakeDashboard() {
           clientId={client.id}
           verificationId={activeVerification.id}
         />
+
+        {isStacked && hasContracts ? (
+          <section className="v2-card" aria-label="Contract tracking">
+            <header className="v2-card-head">
+              <h3>Contract tracking</h3>
+              {amendCount > 0 ? (
+                <span className="pill pill-red ml-auto">
+                  <span className="dot" />
+                  {amendCount} amendment{amendCount === 1 ? '' : 's'} likely
+                </span>
+              ) : (
+                <span className="pill pill-green ml-auto">
+                  <span className="dot" />
+                  All contracts healthy
+                </span>
+              )}
+            </header>
+            <div className="v2-card-body">
+              <div className="v2-stats">
+                <div className="v2-stat">
+                  <div className="k">Authorized</div>
+                  <div className="v mono">
+                    {formatCurrency(contractSummary.authorized)}
+                  </div>
+                  <div className="d">across active vendor contracts</div>
+                </div>
+                <div className="v2-stat">
+                  <div className="k">Spent to date</div>
+                  <div className="v mono">
+                    {formatCurrency(contractSummary.spent)}
+                  </div>
+                  <div className="d">
+                    {Math.round(contractSummary.pct)}% of authorized
+                  </div>
+                </div>
+                <div className="v2-stat">
+                  <div className="k">Remaining</div>
+                  <div className="v mono">
+                    {formatCurrency(contractSummary.remaining)}
+                  </div>
+                  <div className="d">runway against open authorizations</div>
+                </div>
+              </div>
+              <div className="mt-4">
+                <Link
+                  to="/contracts"
+                  search={{ client: client.id }}
+                  className="v2-btn"
+                >
+                  Open contract tracking
+                </Link>
+              </div>
+            </div>
+          </section>
+        ) : null}
 
         <VerificationSummaryTable
           workflow={client.workflow}

@@ -13,6 +13,7 @@ import { Link } from '@tanstack/react-router'
 import {
   ChevronsUpDown,
   ClipboardList,
+  FileSignature,
   FileStack,
   LayoutDashboard,
   LogOut,
@@ -107,6 +108,18 @@ export function Sidebar({
       count: counts.library,
       preserveVerification: true,
     },
+    // Contract tracking is a stacked-dashboard (District Direct Pay) surface;
+    // it only appears for workflows that carry vendor contract authorizations.
+    ...(config.dashboardKind === 'stacked'
+      ? [
+          {
+            id: 'contracts' as const,
+            label: 'Contract tracking',
+            icon: FileSignature,
+            to: '/contracts',
+          },
+        ]
+      : []),
   ]
 
   return (

@@ -10,9 +10,11 @@ import {
   getClientById,
   getOpenVerification,
   getVendorsByClient,
+  liveSpendByVendor,
 } from '#/lib/sg-dream'
 import type { Vendor } from '#/lib/sg-dream'
 import { verificationSnapshotQuery } from '#/lib/queries'
+import { storedListToDisplay } from '#/lib/sg-dream-adapter'
 
 type ContractsSearch = {
   client: string
@@ -20,18 +22,13 @@ type ContractsSearch = {
 
 export const Route = createFileRoute('/contracts')({
   validateSearch: (s: Record<string, unknown>): ContractsSearch => ({
-    client: typeof s.client === 'string' ? s.client : 'dawson-trails-md1',
+    client: typeof s.client === 'string' ? s.client : '',
   }),
   loader: ({ context, location }) => {
     const search = location.search as ContractsSearch
-    const requested =
-      typeof search.client === 'string' ? search.client : 'dawson-trails-md1'
-    const known = clients.find((c) => c.id === requested)
+    const known = clients.find((c) => c.id === search.client)
     if (!known) {
-      throw redirect({
-        to: '/contracts',
-        search: { client: 'dawson-trails-md1' },
-      })
+      throw redirect({ to: '/clients' })
     }
     const open = getOpenVerification(known.id)
     return context.queryClient.ensureQueryData(
@@ -58,15 +55,23 @@ function ContractsPage() {
   const { client: clientId } = Route.useSearch()
   const client = getClientById(clientId)
   const vendors = getVendorsByClient(client.id)
-  const summary = computeContractSummary(client.id)
   const open = getOpenVerification(client.id)
-  // Keep the snapshot query warm for the AppShell sidebar counts.
-  useQuery(verificationSnapshotQuery(open.id))
+  // Spend is summed live from the open submission's filed invoices + pay-apps;
+  // the query is already warmed by the loader and also feeds sidebar counts.
+  const snapshotQuery = useQuery(verificationSnapshotQuery(open.id))
+  const docs = storedListToDisplay(
+    snapshotQuery.data?.verification.documents ?? [],
+  )
+  const spendByVendor = liveSpendByVendor(docs)
+  const summary = computeContractSummary(client.id, spendByVendor)
 
   const ranked: ReadonlyArray<
     Vendor & ReturnType<typeof computeVendorUtilization>
   > = vendors
-    .map((v) => ({ ...v, ...computeVendorUtilization(v) }))
+    .map((v) => ({
+      ...v,
+      ...computeVendorUtilization(v, spendByVendor.get(v.code) ?? 0),
+    }))
     .slice()
     .sort((a, b) => b.pct - a.pct)
 

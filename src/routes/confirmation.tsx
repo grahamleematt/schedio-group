@@ -7,6 +7,7 @@ import {
 import { ArrowRight, FolderOpen, Loader2, UploadCloud } from 'lucide-react'
 import { AppShell } from '#/components/sg-dream/AppShell'
 import { DuplicateAlertPanel } from '#/components/sg-dream/DuplicateAlertPanel'
+import { WorkflowBanner } from '#/components/sg-dream/WorkflowBanner'
 import {
   clients,
   displayRef,
@@ -34,7 +35,7 @@ type ConfirmationSearch = {
 
 export const Route = createFileRoute('/confirmation')({
   validateSearch: (s: Record<string, unknown>): ConfirmationSearch => ({
-    client: typeof s.client === 'string' ? s.client : 'dawson-trails-md1',
+    client: typeof s.client === 'string' ? s.client : '',
     verification:
       typeof s.verification === 'string'
         ? s.verification
@@ -46,15 +47,9 @@ export const Route = createFileRoute('/confirmation')({
   }),
   loader: ({ context, location }) => {
     const search = location.search as ConfirmationSearch
-    const requestedClient =
-      typeof search.client === 'string' ? search.client : 'dawson-trails-md1'
-    const knownClient = clients.find((c) => c.id === requestedClient)
+    const knownClient = clients.find((c) => c.id === search.client)
     if (!knownClient) {
-      const open = getOpenVerification('dawson-trails-md1')
-      throw redirect({
-        to: '/confirmation',
-        search: { client: 'dawson-trails-md1', verification: open.id },
-      })
+      throw redirect({ to: '/clients' })
     }
     const clientId = knownClient.id
     const requested =
@@ -293,6 +288,7 @@ function ConfirmationPage() {
 
   return (
     <AppShell active="submit" crumbs={[{ label: 'Submitted' }]} rail={rail}>
+      <WorkflowBanner workflow={client.workflow} />
       <header className="mb-3">
         <p className="v2-eyebrow">
           Touch Point 3 · {reviewNeeded ? 'Review needed' : 'Submitted'}
@@ -580,22 +576,45 @@ function ConfirmationPage() {
                   : 'You, the Schedio PM, and your Entity Owner receive the reference and this summary.'}
               </p>
             </li>
-            <li className="step">
-              <span className="n">Within 5 days</span>
-              <h5>Schedio verifies</h5>
-              <p>
-                SG reviews invoices against contracts and posts verified amounts
-                to your dashboard.
-              </p>
-            </li>
-            <li className="step">
-              <span className="n">Within 10 days</span>
-              <h5>Funds released</h5>
-              <p>
-                Approved vendors receive direct payment per the program's
-                disbursement policy.
-              </p>
-            </li>
+            {client.workflow === 'developer_reimb' ? (
+              <>
+                <li className="step">
+                  <span className="n">Within 7 days</span>
+                  <h5>Public cost review</h5>
+                  <p>
+                    SG verifies costs against contracts and task orders and
+                    issues an Engineer's Report for the district.
+                  </p>
+                </li>
+                <li className="step">
+                  <span className="n">After the report</span>
+                  <h5>District reimbursement</h5>
+                  <p>
+                    SG forwards the approved amount to the district for public
+                    reimbursement processing.
+                  </p>
+                </li>
+              </>
+            ) : (
+              <>
+                <li className="step">
+                  <span className="n">Within 5 days</span>
+                  <h5>Schedio verifies</h5>
+                  <p>
+                    SG reviews pay apps and invoices against contracts and posts
+                    verified amounts to your dashboard.
+                  </p>
+                </li>
+                <li className="step">
+                  <span className="n">Within 10 days</span>
+                  <h5>Funds released</h5>
+                  <p>
+                    Approved vendors receive direct payment per the program's
+                    disbursement policy.
+                  </p>
+                </li>
+              </>
+            )}
           </ol>
         </div>
       </section>
