@@ -15,6 +15,7 @@ import {
 import { useRef, useState } from 'react'
 import type { DragEvent } from 'react'
 import { AppShell } from '#/components/sg-dream/AppShell'
+import { RenameTransform } from '#/components/sg-dream/RenameTransform'
 import {
   clients,
   displaySubmissionCycle,
@@ -683,7 +684,13 @@ function UploadPage() {
               <div className="queue-row" key={staged.id}>
                 <span className="doc-ico" aria-hidden />
                 <div className="qmeta min-w-0">
-                  <p className="qtitle truncate">{staged.file.name}</p>
+                  <RenameTransform
+                    mode="preview"
+                    originalName={staged.file.name}
+                    entityCode={client.code}
+                    verificationNumber={verification.number}
+                    year={verification.year}
+                  />
                   <div className="qdetail">
                     <span>{formatBytes(staged.file.size)}</span>
                     <span>Staged — analysis pending</span>

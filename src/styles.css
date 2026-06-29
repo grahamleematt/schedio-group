@@ -1021,6 +1021,103 @@ pre code {
     color: var(--color-red-base);
   }
 
+  /* ——— Rename transform (original → standardized filing name) ——— */
+  .rnm {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+  }
+  .rnm-orig-line {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+  }
+  .rnm-tag {
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-muted-1);
+  }
+  .rnm-orig {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--color-muted-1);
+    text-decoration: line-through;
+    text-decoration-color: var(--color-line);
+    overflow-wrap: anywhere;
+  }
+  .rnm-conn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--wf-strong);
+  }
+  .rnm-conn svg {
+    color: var(--wf-strong);
+    opacity: 0.8;
+  }
+  .rnm-final {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-ink);
+    overflow-wrap: anywhere;
+  }
+  .rnm-final-ghost {
+    color: var(--color-muted-1);
+  }
+  .rnm-segs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 1px;
+  }
+  .rnm-seg {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 3px 7px;
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-2);
+    background: #fff;
+    line-height: 1.15;
+  }
+  .rnm-seg .k {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-muted-1);
+  }
+  .rnm-seg .v {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--color-ink);
+  }
+  .rnm-seg.accent {
+    background: var(--wf-soft);
+    border-color: var(--wf-border);
+  }
+  .rnm-seg.accent .v {
+    color: var(--wf-strong);
+  }
+  .rnm-seg.ghost .v {
+    color: var(--color-muted-1);
+    font-weight: 500;
+  }
+
   /* ——— Per-document extracted detail (processing + library) ——— */
   .qk {
     color: var(--color-muted-1);

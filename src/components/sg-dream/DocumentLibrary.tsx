@@ -7,6 +7,7 @@ import {
 import type { Document, DocType } from '#/lib/sg-dream'
 import { cn } from '#/lib/utils'
 import { ExtractedDetail } from './ExtractedDetail'
+import { RenameTransform } from './RenameTransform'
 
 type DocumentLibraryProps = {
   documents: ReadonlyArray<Document>
@@ -239,11 +240,16 @@ function LibraryRow({
     >
       <span className="doc-ico" aria-hidden />
       <div className="qmeta min-w-0">
-        <p className="qtitle">{doc.renamedName}</p>
+        {hasStandardizedName ? (
+          <RenameTransform
+            mode="applied"
+            originalName={doc.originalName}
+            renamedName={doc.renamedName}
+          />
+        ) : (
+          <p className="qtitle">{doc.renamedName}</p>
+        )}
         <div className="qdetail">
-          {hasStandardizedName ? (
-            <span className="truncate">Original: {doc.originalName}</span>
-          ) : null}
           <span>{doc.vendorName}</span>
           <span>{docTypeLabels[doc.docType]}</span>
           {dupClass ? (

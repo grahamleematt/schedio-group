@@ -12,6 +12,7 @@ import {
 } from '#/lib/sg-dream'
 import type { Document } from '#/lib/sg-dream'
 import { ExtractedDetail } from '#/components/sg-dream/ExtractedDetail'
+import { RenameTransform } from '#/components/sg-dream/RenameTransform'
 import { storedListToDisplay } from '#/lib/sg-dream-adapter'
 import { verificationSnapshotQuery } from '#/lib/queries'
 import type { StoredDocument } from '#/server/store'
@@ -443,12 +444,17 @@ function ProcessingRow({
     <div className="queue-row">
       <span className="doc-ico" aria-hidden />
       <div className="qmeta min-w-0">
-        <p className="qtitle truncate">{displayName}</p>
+        {hasStandardizedName ? (
+          <RenameTransform
+            mode="applied"
+            originalName={doc.originalName}
+            renamedName={doc.renamedName}
+          />
+        ) : (
+          <p className="qtitle truncate">{displayName}</p>
+        )}
         <div className="qdetail">
           <span>{sourceLabel}</span>
-          {hasStandardizedName ? (
-            <span className="truncate">Original: {doc.originalName}</span>
-          ) : null}
           {typeAndVendor ? <span>{typeAndVendor}</span> : null}
           {dupClass ? (
             <span className={`pill ${dupClass}`}>
