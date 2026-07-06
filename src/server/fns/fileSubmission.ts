@@ -15,12 +15,10 @@ import { randomUUID } from 'node:crypto'
 
 import { createServerFn } from '@tanstack/react-start'
 
-import {
-  clients as configuredClients,
-  verifications as configuredVerifications,
-} from '#/lib/sg-dream'
+import { clients as configuredClients } from '#/lib/sg-dream'
 import { assertClientAccess } from '#/server/authz'
 import { fileDocumentToEgnyte } from '#/server/intake/filing'
+import { getVerificationConfigById } from '#/server/portalConfig'
 import { getStore } from '#/server/store'
 import type {
   DreamSnapshot,
@@ -28,10 +26,10 @@ import type {
   StoredDocument,
 } from '#/server/store'
 
-function clientIdForVerification(verificationId: string): string | undefined {
-  const verification = configuredVerifications.find(
-    (v) => v.id === verificationId,
-  )
+async function clientIdForVerification(
+  verificationId: string,
+): Promise<string | undefined> {
+  const verification = await getVerificationConfigById(verificationId)
   if (!verification) return undefined
   return configuredClients.find((c) => c.id === verification.clientId)?.id
 }
@@ -44,8 +42,14 @@ function filedAuditEvent(input: {
   classifiedPath: string
   simulated: boolean
 }): StoredAuditEvent {
-  const { actor, clientId, verificationId, document, classifiedPath, simulated } =
-    input
+  const {
+    actor,
+    clientId,
+    verificationId,
+    document,
+    classifiedPath,
+    simulated,
+  } = input
   return {
     id: randomUUID(),
     ts: new Date().toISOString(),
@@ -67,7 +71,7 @@ export const fileSubmissionToEgnyte = createServerFn({ method: 'POST' })
   .handler(async ({ data }): Promise<DreamSnapshot | null> => {
     const store = getStore()
     const clientId =
-      clientIdForVerification(data.verificationId) ??
+      (await clientIdForVerification(data.verificationId)) ??
       (await store.getSnapshot(data.verificationId))?.verification.clientId
     if (!clientId) return null
 

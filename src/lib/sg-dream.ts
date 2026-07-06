@@ -2,8 +2,11 @@
  * SG DREAM — customer intake configuration.
  *
  * The customer-facing app is intentionally Dawson-only for Tim's first real
- * test. Uploaded files and pipeline state come from the server store; this
- * module only supplies stable entity, workflow, and naming configuration.
+ * test. Uploaded files and pipeline state come from the server store, and the
+ * verification schedule + vendor contract authorizations live in Postgres
+ * (loaded through `getPortalConfig`). This module supplies stable entity,
+ * workflow, and naming configuration, the `default*` seeds used when no
+ * database is configured, and the pure helpers shared by client and server.
  */
 
 import type { ExtractedFields } from '#/server/store'
@@ -160,15 +163,21 @@ export type Verification = {
   seq: number // last-used doc sequence used for ref generation
 }
 
-const verificationSeeds: ReadonlyArray<Verification> = [
+/**
+ * Seed verification schedule. The live schedule is stored in Postgres
+ * (`dream_verifications` config columns) and edited there as cycles open and
+ * close; these rows are the first-boot seed and the fallback when no database
+ * is configured (local dev / tests).
+ */
+export const defaultVerifications: ReadonlyArray<Verification> = [
   {
     id: 'dawson-trails-md1-v1',
     clientId: 'dawson-trails-md1',
     number: 1,
     year: 2026,
     period: 'Verification No. 01',
-    cutoffDate: 'May 04, 2026',
-    cutoffDateISO: '2026-05-04',
+    cutoffDate: 'Aug 03, 2026',
+    cutoffDateISO: '2026-08-03',
     status: 'open',
     docsCount: 0,
     costsSubmitted: 0,
@@ -181,8 +190,8 @@ const verificationSeeds: ReadonlyArray<Verification> = [
     number: 1,
     year: 2026,
     period: 'Developer Reimbursement No. 01',
-    cutoffDate: 'May 04, 2026',
-    cutoffDateISO: '2026-05-04',
+    cutoffDate: 'Aug 03, 2026',
+    cutoffDateISO: '2026-08-03',
     status: 'open',
     docsCount: 0,
     costsSubmitted: 0,
@@ -190,11 +199,6 @@ const verificationSeeds: ReadonlyArray<Verification> = [
     seq: 1,
   },
 ]
-
-export const verifications: ReadonlyArray<Verification> =
-  verificationSeeds.filter((verification) =>
-    currentUser.permittedClientIds.includes(verification.clientId),
-  )
 
 export type DuplicateFlag = 'none' | 'exact' | 'likely'
 
@@ -274,22 +278,9 @@ export function renamed(
 
 export const documents: ReadonlyArray<Document> = []
 
-export type TaskOrder = {
-  id: string
-  phase: string
-  number: string // e.g., 'WO 05', 'WO01'
-  value: number
-  referencedByInvoice?: boolean
-}
-
-export type ChangeOrder = {
-  id: string
-  number: string // e.g., 'CO-001'
-  value: number
-}
-
 type ContractMSA = {
   refName: string
+  /** ISO `YYYY-MM-DD` execution date; format with `formatCutoffLabel`. */
   executedOn: string
   value: number
 }
@@ -307,12 +298,13 @@ export type Vendor = {
    */
   authorized: number
   contract?: ContractMSA
-  taskOrders?: ReadonlyArray<TaskOrder>
-  changeOrders?: ReadonlyArray<ChangeOrder>
 }
 
 /**
- * Vendor contract authorizations for the District Direct Pay entity (DT1).
+ * Seed vendor contract authorizations for the District Direct Pay entity
+ * (DT1). The live rows are stored in Postgres (`dream_vendors`) and edited
+ * there as contracts are executed or amended; this list is the first-boot
+ * seed and the fallback when no database is configured.
  *
  * Vendor identities and `code` here match the live DocuPipe extractions on
  * DT1's filed documents (Classic SRJ pay apps, A.G. Wassenaar task orders),
@@ -325,7 +317,7 @@ export type Vendor = {
  * Reimbursement (DTD) carries no vendor contracts; its dashboard renders the
  * single-column layout.
  */
-export const vendors: ReadonlyArray<Vendor> = [
+export const defaultVendors: ReadonlyArray<Vendor> = [
   {
     id: 'dt1-classic',
     code: 'CLAS',
@@ -334,7 +326,7 @@ export const vendors: ReadonlyArray<Vendor> = [
     authorized: 1_350_000,
     contract: {
       refName: 'MSA-2024-CLAS',
-      executedOn: 'Jan 12, 2024',
+      executedOn: '2024-01-12',
       value: 1_350_000,
     },
   },
@@ -346,7 +338,7 @@ export const vendors: ReadonlyArray<Vendor> = [
     authorized: 850_000,
     contract: {
       refName: 'MSA-2024-AGWA',
-      executedOn: 'Mar 03, 2024',
+      executedOn: '2024-03-03',
       value: 850_000,
     },
   },
@@ -364,14 +356,20 @@ export function getKnownClientById(
   return clients.find((c) => c.id === clientId) ?? null
 }
 
-export function getVerificationsByClient(clientId: string) {
+export function getVerificationsByClient(
+  verifications: ReadonlyArray<Verification>,
+  clientId: string,
+) {
   return verifications
     .filter((v) => v.clientId === clientId)
     .sort((a, b) => b.number - a.number)
 }
 
-export function getOpenVerification(clientId: string): Verification {
-  const all = getVerificationsByClient(clientId)
+export function getOpenVerification(
+  verifications: ReadonlyArray<Verification>,
+  clientId: string,
+): Verification {
+  const all = getVerificationsByClient(verifications, clientId)
   return all.find((v) => v.status === 'open') ?? all[0]
 }
 
@@ -382,10 +380,11 @@ export function getOpenVerification(clientId: string): Verification {
  * redirecting to the requested client's open verification.
  *
  * Without `clientId`, this is the legacy lookup that just falls back to
- * `verifications[0]` — kept for the few internal callers (e.g. the upload
- * server fn) that already know the client out-of-band.
+ * `verifications[0]` — kept for the few internal callers that already know
+ * the client out-of-band.
  */
 export function getVerificationById(
+  verifications: ReadonlyArray<Verification>,
   verificationId: string | undefined,
   clientId?: string,
 ): Verification | null {
@@ -397,16 +396,10 @@ export function getVerificationById(
   return found
 }
 
-export function getDocumentsByVerification(verificationId: string) {
-  return documents.filter((d) => d.verificationId === verificationId)
-}
-
-export function getDocumentById(documentId: string | undefined) {
-  if (!documentId) return undefined
-  return documents.find((d) => d.id === documentId)
-}
-
-export function getVendorsByClient(clientId: string) {
+export function getVendorsByClient(
+  vendors: ReadonlyArray<Vendor>,
+  clientId: string,
+) {
   return vendors.filter((v) => v.clientId === clientId)
 }
 
@@ -458,10 +451,11 @@ export function computeVendorUtilization(vendor: Vendor, spent: number) {
 }
 
 export function computeContractSummary(
+  vendors: ReadonlyArray<Vendor>,
   clientId: string,
   spendByVendor: Map<string, number>,
 ) {
-  const v = getVendorsByClient(clientId)
+  const v = getVendorsByClient(vendors, clientId)
   const authorized = v.reduce((s, x) => s + x.authorized, 0)
   const spent = v.reduce((s, x) => s + (spendByVendor.get(x.code) ?? 0), 0)
   const remaining = Math.max(0, authorized - spent)
@@ -727,9 +721,9 @@ export function summarizeDocTypes(
 
 // ---- Countdown helpers ----
 // `daysUntilCutoff` powers the cutoff "days left" pills on /dashboard and
-// /verifications.
-
-const MOCKUP_TODAY_ISO = '2026-04-16'
+// /verifications. `todayISO` is required and comes from the portal config
+// (computed once server-side in the entity's timezone) so SSR and hydration
+// agree on the same "today" instead of each racing its own clock.
 
 function isoDateToUtcMs(iso: string): number {
   const [year, month, day] = iso.split('-').map(Number)
@@ -739,7 +733,7 @@ function isoDateToUtcMs(iso: string): number {
 
 export function daysUntilCutoff(
   cutoffDateISO: string,
-  todayISO = MOCKUP_TODAY_ISO,
+  todayISO: string,
 ): number {
   const target = isoDateToUtcMs(cutoffDateISO)
   const today = isoDateToUtcMs(todayISO)
@@ -747,54 +741,20 @@ export function daysUntilCutoff(
   return Math.round((target - today) / (1000 * 60 * 60 * 24))
 }
 
-// ---- Task-order / change-order helpers ----
-
-type PhaseGroup = {
-  phase: string
-  taskOrders: ReadonlyArray<TaskOrder>
-  total: number
-}
-
-export function groupTaskOrdersByPhase(
-  taskOrders: ReadonlyArray<TaskOrder>,
-): ReadonlyArray<PhaseGroup> {
-  const byPhase = new Map<string, Array<TaskOrder>>()
-  for (const to of taskOrders) {
-    const existing = byPhase.get(to.phase)
-    if (existing) existing.push(to)
-    else byPhase.set(to.phase, [to])
-  }
-  const phaseOrder: ReadonlyArray<string> = [
-    'F2',
-    'F3',
-    'F3B',
-    'F4A',
-    'F5',
-    'F6',
-    'F7',
-    'FG',
-  ]
-  const entries = [...byPhase.entries()].sort((a, b) => {
-    const ia = phaseOrder.indexOf(a[0])
-    const ib = phaseOrder.indexOf(b[0])
-    if (ia === -1 && ib === -1) return a[0].localeCompare(b[0])
-    if (ia === -1) return 1
-    if (ib === -1) return -1
-    return ia - ib
+/**
+ * Format an ISO `YYYY-MM-DD` cutoff into the display label used across the
+ * schedule surfaces (e.g. `Aug 03, 2026`). UTC-parsed so the label never
+ * shifts a day across timezones.
+ */
+export function formatCutoffLabel(iso: string): string {
+  const ms = isoDateToUtcMs(iso)
+  if (Number.isNaN(ms)) return iso
+  return new Date(ms).toLocaleDateString('en-US', {
+    month: 'short',
+    day: '2-digit',
+    year: 'numeric',
+    timeZone: 'UTC',
   })
-  return entries.map(([phase, orders]) => ({
-    phase,
-    taskOrders: orders,
-    total: orders.reduce((s, to) => s + to.value, 0),
-  }))
-}
-
-export function sumTaskOrders(taskOrders?: ReadonlyArray<TaskOrder>) {
-  return (taskOrders ?? []).reduce((s, to) => s + to.value, 0)
-}
-
-export function sumChangeOrders(changeOrders?: ReadonlyArray<ChangeOrder>) {
-  return (changeOrders ?? []).reduce((s, co) => s + co.value, 0)
 }
 
 /* ───────────────────────────── Users & access ───────────────────────────── */

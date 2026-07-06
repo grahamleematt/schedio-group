@@ -7,6 +7,12 @@
  * intentionally independent so the intake portal can stand on its own.
  */
 
+import {
+  clients as configuredClients,
+  defaultVendors,
+  defaultVerifications,
+  formatRef,
+} from '#/lib/sg-dream'
 import { dbQuery } from '#/server/database'
 
 import { buildSeedState } from './seed'
@@ -178,6 +184,36 @@ async function ensureSchema(): Promise<void> {
       updated_at timestamptz not null default now()
     );
 
+    -- Additive migration: verification schedule config (number, cutoff,
+    -- status, …) lives on the row so Schedio manages cycles in SQL. Mirrors
+    -- db/intelligence/006_verification_vendor_config.sql.
+    alter table dream_verifications
+      add column if not exists number integer,
+      add column if not exists year integer,
+      add column if not exists period text,
+      add column if not exists cutoff_date date,
+      add column if not exists status text not null default 'open',
+      add column if not exists docs_count integer not null default 0,
+      add column if not exists costs_submitted numeric not null default 0,
+      add column if not exists costs_verified numeric not null default 0,
+      add column if not exists ref_seq integer not null default 1;
+
+    create table if not exists dream_vendors (
+      id text primary key,
+      client_id text not null,
+      code text not null,
+      name text not null,
+      authorized numeric not null default 0,
+      contract_ref text,
+      contract_executed_on date,
+      contract_value numeric,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now()
+    );
+
+    create index if not exists dream_vendors_client_idx
+      on dream_vendors (client_id, code);
+
     create table if not exists dream_documents (
       id text primary key,
       client_id text not null,
@@ -273,6 +309,82 @@ async function ensureSchema(): Promise<void> {
     create index if not exists dream_audit_scope_idx
       on dream_audit_events (client_id, verification_id, ts desc);
   `)
+}
+
+/**
+ * Seed the verification schedule + vendor contract config from the static
+ * defaults. Gated by its own meta key (separate from the document seed) so
+ * databases created before the config columns existed still get seeded.
+ * `coalesce` in the upsert keeps any operator-edited values.
+ */
+async function seedPortalConfig(): Promise<void> {
+  const inserted = await dbQuery<{ key: string }>(
+    `
+      insert into dream_store_meta (key, value)
+      values ('config_seed', '{"version": 1}'::jsonb)
+      on conflict (key) do nothing
+      returning key
+    `,
+  )
+  if (inserted.rowCount === 0) return
+
+  for (const v of defaultVerifications) {
+    const workflow =
+      configuredClients.find((c) => c.id === v.clientId)?.workflow ??
+      'district_dp'
+    const ref = formatRef({
+      workflow,
+      number: v.number,
+      year: v.year,
+      seq: v.seq,
+    })
+    await dbQuery(
+      `
+        insert into dream_verifications
+          (id, client_id, ref, number, year, period, cutoff_date, status, ref_seq)
+        values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        on conflict (id) do update set
+          number = coalesce(dream_verifications.number, excluded.number),
+          year = coalesce(dream_verifications.year, excluded.year),
+          period = coalesce(dream_verifications.period, excluded.period),
+          cutoff_date = coalesce(dream_verifications.cutoff_date, excluded.cutoff_date),
+          updated_at = now()
+      `,
+      [
+        v.id,
+        v.clientId,
+        ref,
+        v.number,
+        v.year,
+        v.period,
+        v.cutoffDateISO,
+        v.status,
+        v.seq,
+      ],
+    )
+  }
+
+  for (const vendor of defaultVendors) {
+    await dbQuery(
+      `
+        insert into dream_vendors
+          (id, client_id, code, name, authorized, contract_ref,
+           contract_executed_on, contract_value)
+        values ($1, $2, $3, $4, $5, $6, $7, $8)
+        on conflict (id) do nothing
+      `,
+      [
+        vendor.id,
+        vendor.clientId,
+        vendor.code,
+        vendor.name,
+        vendor.authorized,
+        vendor.contract?.refName ?? null,
+        vendor.contract?.executedOn ?? null,
+        vendor.contract?.value ?? null,
+      ],
+    )
+  }
 }
 
 async function insertSeedState(): Promise<void> {
@@ -453,7 +565,7 @@ class PostgresStore implements DreamStore {
 
   async init(): Promise<void> {
     if (!this.ready) {
-      this.ready = ensureSchema().then(insertSeedState)
+      this.ready = ensureSchema().then(insertSeedState).then(seedPortalConfig)
     }
     await this.ready
   }

@@ -9,7 +9,8 @@ This repo does not use component-level `useEffect`.
 
 ## Rules
 
-- Derive values from props, mock data, and pure helpers.
+- Derive values from props, loader/query data, and pure helpers.
+- For server data, use React Query via the factories in `src/lib/queries.ts` (warmed in loaders) instead of fetching in effects. Polling belongs in query options (`refetchInterval`), not in effects.
 - Do not mirror props into local state.
 - Use controlled `value` when the selection is driven by URL search params or other external state that can change after mount. Use `defaultValue` only for truly static initial values.
 - Use `useMemo` only when there is a real recomputation cost.

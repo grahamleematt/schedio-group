@@ -1,10 +1,7 @@
-import {
-  clients as configuredClients,
-  formatRef,
-  verifications as configuredVerifications,
-} from '#/lib/sg-dream'
+import { clients as configuredClients, formatRef } from '#/lib/sg-dream'
 import type { Client, Verification } from '#/lib/sg-dream'
 import { getEgnyteEnv } from '#/server/env'
+import { getVerificationConfigById } from '#/server/portalConfig'
 
 export type IntakeContext = {
   client: Client
@@ -15,13 +12,11 @@ export type IntakeContext = {
   incomingFolder: string
 }
 
-export function resolveIntakeContext(input: {
+export async function resolveIntakeContext(input: {
   clientId?: string
   verificationId: string
-}): IntakeContext | null {
-  const verification = configuredVerifications.find(
-    (v) => v.id === input.verificationId,
-  )
+}): Promise<IntakeContext | null> {
+  const verification = await getVerificationConfigById(input.verificationId)
   if (!verification) return null
   const client = configuredClients.find(
     (c) => c.id === (input.clientId || verification.clientId),

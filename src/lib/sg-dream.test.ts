@@ -1,10 +1,38 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  daysUntilCutoff,
+  formatCutoffLabel,
   lowConfidenceFields,
   payAppWaterfall,
   validatePayApp,
 } from '#/lib/sg-dream'
+
+describe('daysUntilCutoff', () => {
+  it('counts calendar days between today and the cutoff', () => {
+    expect(daysUntilCutoff('2026-08-03', '2026-07-06')).toBe(28)
+    expect(daysUntilCutoff('2026-08-03', '2026-08-03')).toBe(0)
+  })
+
+  it('goes negative once the cutoff has passed', () => {
+    expect(daysUntilCutoff('2026-05-04', '2026-07-06')).toBe(-63)
+  })
+
+  it('returns 0 for malformed dates instead of NaN', () => {
+    expect(daysUntilCutoff('not-a-date', '2026-07-06')).toBe(0)
+    expect(daysUntilCutoff('2026-08-03', '')).toBe(0)
+  })
+})
+
+describe('formatCutoffLabel', () => {
+  it('formats an ISO date as the schedule display label', () => {
+    expect(formatCutoffLabel('2026-08-03')).toBe('Aug 03, 2026')
+  })
+
+  it('passes through values that are not clean ISO dates', () => {
+    expect(formatCutoffLabel('TBD')).toBe('TBD')
+  })
+})
 
 describe('validatePayApp', () => {
   it('passes when current payment due matches earned-less-retainage minus previous', () => {

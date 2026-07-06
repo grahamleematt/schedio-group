@@ -20,8 +20,8 @@
  *   yarn tsx --env-file=.env.local scripts/intake/backfill-renames.ts
  */
 import { getDatabasePool } from '../../src/server/database'
-import { verifications } from '../../src/lib/sg-dream'
 import { planFiling } from '../../src/server/intake/filing'
+import { listVerificationConfigs } from '../../src/server/portalConfig'
 import { getStore } from '../../src/server/store'
 
 /** SG DREAM filing-name shape: SG-<entity>-V<NNN>-<type>-<vendor>-<year>-<seq>.<ext> */
@@ -37,6 +37,7 @@ async function main() {
   let skippedNoVendor = 0
   let skippedNoPlan = 0
 
+  const verifications = await listVerificationConfigs()
   for (const v of verifications) {
     const snapshot = await store.getSnapshot(v.id)
     if (!snapshot) continue

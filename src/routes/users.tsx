@@ -9,7 +9,12 @@ import {
   getOpenVerification,
   pendingUsers,
 } from '#/lib/sg-dream'
-import { userDirectoryQuery, verificationSnapshotQuery } from '#/lib/queries'
+import {
+  portalConfigQuery,
+  userDirectoryQuery,
+  verificationSnapshotQuery,
+} from '#/lib/queries'
+import { usePortalConfig } from '#/lib/session'
 
 type UsersSearch = {
   client: string
@@ -19,7 +24,7 @@ export const Route = createFileRoute('/users')({
   validateSearch: (s: Record<string, unknown>): UsersSearch => ({
     client: typeof s.client === 'string' ? s.client : 'dawson-trails-md1',
   }),
-  loader: ({ context, location }) => {
+  loader: async ({ context, location }) => {
     const search = location.search as UsersSearch
     const requested =
       typeof search.client === 'string' ? search.client : 'dawson-trails-md1'
@@ -27,7 +32,9 @@ export const Route = createFileRoute('/users')({
     if (!known) {
       throw redirect({ to: '/users', search: { client: 'dawson-trails-md1' } })
     }
-    const open = getOpenVerification(known.id)
+    const { verifications } =
+      await context.queryClient.ensureQueryData(portalConfigQuery())
+    const open = getOpenVerification(verifications, known.id)
     return Promise.all([
       context.queryClient.ensureQueryData(verificationSnapshotQuery(open.id)),
       context.queryClient.ensureQueryData(userDirectoryQuery()),
@@ -39,8 +46,9 @@ export const Route = createFileRoute('/users')({
 
 function UsersPage() {
   const { client: clientId } = Route.useSearch()
+  const config = usePortalConfig()
   const client = getClientById(clientId)
-  const open = getOpenVerification(client.id)
+  const open = getOpenVerification(config.verifications, client.id)
   useQuery(verificationSnapshotQuery(open.id))
 
   // The active-users table is the real WorkOS organization roster (membership,

@@ -23,7 +23,8 @@ import {
   summarizeDocTypes,
   workflowConfigs,
 } from '#/lib/sg-dream'
-import { verificationSnapshotQuery } from '#/lib/queries'
+import { portalConfigQuery, verificationSnapshotQuery } from '#/lib/queries'
+import { usePortalConfig } from '#/lib/session'
 import {
   liveVerificationTotals,
   storedListToDisplay,
@@ -40,19 +41,25 @@ export const Route = createFileRoute('/dashboard')({
     verification:
       typeof s.verification === 'string' ? s.verification : undefined,
   }),
-  loader: ({ context, location }) => {
+  loader: async ({ context, location }) => {
     const search = location.search as DashboardSearch
     const knownClient = getKnownClientById(search.client)
     if (!knownClient) {
       throw redirect({ to: '/clients' })
     }
     const clientId = knownClient.id
+    const { verifications } =
+      await context.queryClient.ensureQueryData(portalConfigQuery())
     const requested =
       typeof search.verification === 'string' ? search.verification : ''
     if (requested) {
-      const verification = getVerificationById(requested, clientId)
+      const verification = getVerificationById(
+        verifications,
+        requested,
+        clientId,
+      )
       if (!verification) {
-        const open = getOpenVerification(clientId)
+        const open = getOpenVerification(verifications, clientId)
         throw redirect({
           to: '/dashboard',
           search: { client: clientId, verification: open.id },
@@ -62,7 +69,7 @@ export const Route = createFileRoute('/dashboard')({
         verificationSnapshotQuery(verification.id),
       )
     }
-    const open = getOpenVerification(clientId)
+    const open = getOpenVerification(verifications, clientId)
     return context.queryClient.ensureQueryData(
       verificationSnapshotQuery(open.id),
     )
@@ -78,17 +85,22 @@ function DashboardPage() {
 function CustomerIntakeDashboard() {
   const { client: clientId, verification: verificationId } = Route.useSearch()
 
+  const config = usePortalConfig()
   const client = getClientById(clientId)
   const activeVerification =
-    (verificationId ? getVerificationById(verificationId, client.id) : null) ??
-    getOpenVerification(client.id)
+    (verificationId
+      ? getVerificationById(config.verifications, verificationId, client.id)
+      : null) ?? getOpenVerification(config.verifications, client.id)
 
   const snapshotQuery = useSuspenseQuery(
     verificationSnapshotQuery(activeVerification.id),
   )
   const snapshot = snapshotQuery.data
 
-  const allVerifications = getVerificationsByClient(client.id)
+  const allVerifications = getVerificationsByClient(
+    config.verifications,
+    client.id,
+  )
   const storedDocs = snapshot?.verification.documents ?? []
   const docs = storedListToDisplay(storedDocs)
   const summaries = summarizeDocTypes(docs)
@@ -101,20 +113,27 @@ function CustomerIntakeDashboard() {
   })
   const hasDraftSubmission = liveTotals.docsCount > 0
   const reviewCycle = displaySubmissionCycle(activeVerification)
-  const days = daysUntilCutoff(activeVerification.cutoffDateISO)
+  const days = daysUntilCutoff(
+    activeVerification.cutoffDateISO,
+    config.todayISO,
+  )
   const daysTone =
     days <= 3 ? 'pill-red' : days <= 14 ? 'pill-amber' : 'pill-green'
 
-  const config = workflowConfigs[client.workflow]
+  const workflowConfig = workflowConfigs[client.workflow]
 
   // Contract tracking is a stacked-dashboard (District Direct Pay) concern.
   // The single-column (Developer Reimbursement) dashboard omits it, which also
   // avoids surfacing a $0 "Authorization value" when no vendor contracts exist.
-  const isStacked = config.dashboardKind === 'stacked'
+  const isStacked = workflowConfig.dashboardKind === 'stacked'
   const spendByVendor = liveSpendByVendor(docs)
-  const contractSummary = computeContractSummary(client.id, spendByVendor)
+  const contractSummary = computeContractSummary(
+    config.vendors,
+    client.id,
+    spendByVendor,
+  )
   const hasContracts = contractSummary.authorized > 0
-  const amendCount = getVendorsByClient(client.id).filter(
+  const amendCount = getVendorsByClient(config.vendors, client.id).filter(
     (v) =>
       computeVendorUtilization(v, spendByVendor.get(v.code) ?? 0).band ===
       'amend',
@@ -127,8 +146,8 @@ function CustomerIntakeDashboard() {
           <p className="v2-eyebrow">Entity dashboard</p>
           <h1 className="v2-h1">{client.name}</h1>
           <p className="v2-lede">
-            {config.label}. Live document inventory, intake status, and Schedio
-            review progress for this entity.
+            {workflowConfig.label}. Live document inventory, intake status, and
+            Schedio review progress for this entity.
           </p>
         </div>
         <Link

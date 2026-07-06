@@ -23,7 +23,7 @@ import { Topbar } from '#/components/sg-dream/Topbar'
 import type { Crumb } from '#/components/sg-dream/Topbar'
 import { useActiveEntity, deriveSidebarCounts } from '#/lib/session'
 import { verificationSnapshotQuery } from '#/lib/queries'
-import { workflowConfigs } from '#/lib/sg-dream'
+import { getVendorsByClient, workflowConfigs } from '#/lib/sg-dream'
 
 type AppShellProps = {
   active: ActiveSection
@@ -46,14 +46,14 @@ export function AppShell({
   pendingUsers,
   recentAuditEvents,
 }: AppShellProps) {
-  const { client, user, activeVerification } = useActiveEntity()
+  const { client, user, config, activeVerification } = useActiveEntity()
   const snapshotQuery = useSuspenseQuery(
     verificationSnapshotQuery(activeVerification.id),
   )
   const snapshot = snapshotQuery.data
   const counts = deriveSidebarCounts({
-    client,
     snapshot,
+    vendorsCount: getVendorsByClient(config.vendors, client.id).length,
     pendingUsers,
     recentAuditEvents,
   })

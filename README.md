@@ -1,89 +1,95 @@
 # Schedio Group AI
 
-Static TanStack Start mock for SG DREAM — the Schedio Group Document Review, Evaluation, and Monitoring client portal. This pass implements the **green flow (District Direct Pay) end to end**, with every shared screen built workflow-aware so the blue flow (Developer Reimbursement) can be turned on later by flipping one value.
+SG DREAM — the Schedio Group Document Review, Evaluation, and Monitoring client portal. A live TanStack Start app where an entity owner signs in through WorkOS, picks an entity, and submits verification documents. Files are staged in Egnyte, extracted and classified by DocuPipe, and tracked in Postgres; the dashboard shows live intake state (documents, extracted dollars, categories, duplicate flags, processing status).
 
 ## Commands
 
 ```bash
 yarn install
-yarn dev
-yarn lint
-yarn build
+yarn dev                        # vite dev server on :3000
+yarn test                       # vitest
+yarn lint                       # eslint
+yarn format                     # prettier --check
+yarn build                      # production build (Nitro / Vercel preset)
+
+yarn db:intelligence:migrate    # run db/intelligence/*.sql against DATABASE_URL
+yarn db:intelligence:preflight  # verify database readiness
+yarn check:docupipe             # diff local DocuPipe spec against the live workspace
+yarn sync:docupipe              # push the local DocuPipe spec to the live workspace
+yarn egnyte:mint-refresh-token  # interactive helper for the shared Egnyte token
 ```
 
-## Route Map
+Server scripts read env from `.env.local` via `tsx --env-file`.
 
-The green flow is seven screens long and reads like a real client journey:
+## How the intake flow works
 
-- `/login` — Screen 1. Email + password, invitation-only. `?error=bad_creds` shows the error state. Submit links to `/clients`.
-- `/clients` — Screen 2. Lists only entities the signed-in user has access to. Continue is disabled until a client is selected; selection is kept in `?selected=`.
-- `/verifications` — Screen 3. Primary card is the currently open verification. Past verifications are listed below with status + amounts. Requires `?client=…`.
-- `/upload` — Screen 4. Touch Point 1. Drag-and-drop zone, file queue with inline `exact` / `likely` duplicate flags, orange summary bar. `?clean=1` previews the non-flagged variant. Analyze CTA routes to `/processing`.
-- `/processing` — Screen 5. Touch Point 2. CSS-only six-step animated log. Step 5 amber branch when `?dupes>0`. CTA to `/confirmation`.
-- `/confirmation` — Screen 6. Touch Point 3. Shows the generated reference number (`SGD-DP-V4-2026-0011`), client / workflow strip, `DuplicateAlertPanel` when applicable, CTAs to Notify Schedio or continue to dashboard.
-- `/dashboard` — Screens 7 + 9. District Direct Pay stacked view: verification card → document inventory tiles → verification summary table → contract tracking table → document library → what happens next → actions.
+1. The user signs in through WorkOS (`/api/auth/*`). Postgres maps their WorkOS identity to permitted entities.
+2. `/clients` lists only the entities that user can access; selection carries through the flow as `?client=`.
+3. `/upload` accepts drag-and-drop files (large files go browser → Vercel Blob → server) or an Egnyte folder import.
+4. The server stages each file in the entity's Egnyte intake folder, then posts it to DocuPipe for extraction and classification. DocuPipe calls back on `/api/docupipe/webhook`.
+5. `/processing`, `/confirmation`, and `/dashboard` show live state from Postgres: standardized names, categories, extracted dollars, duplicate flags, and audit events. In-flight verifications poll every 2 seconds via React Query.
 
-`/` simply redirects to `/login` so the app has a single entry point.
+## Route map
 
-## Theming
+- `/login` — WorkOS sign-in entry. `/` redirects here.
+- `/clients` — entity picker, scoped to the signed-in user's access.
+- `/verifications` — open verification card plus history for the selected entity.
+- `/upload` → `/processing` → `/confirmation` — the three intake touch points.
+- `/dashboard` — verification card, document inventory, summary table, contract tracking, document library, next steps.
+- `/library`, `/contracts`, `/audit`, `/users`, `/settings` — supporting portal surfaces. Settings includes the per-user Egnyte connection flow.
+- `/intelligence`, `/intelligence/relationships`, `/determinations` — internal Schedio surfaces, hidden unless `INTELLIGENCE_PREVIEW_ENABLED=true`.
+- `/blocked` — shown to authenticated users with no entity access.
 
-Workflows are driven by a `data-workflow="district_dp" | "developer_reimb"` attribute on the page root. The attribute rebinds `--wf-*` CSS variables, and every shared surface (banner, buttons, tables, pills) consumes those variables rather than a hard-coded color. Switching a screen from green to blue is a one-line change.
+## Data layer
 
-- District Direct Pay (green) → `--wf-base: #1B5E20`
-- Developer Reimbursement (blue) → `--wf-base: var(--color-brand-blue)` (#003DA6)
+`src/server/store/index.ts` selects the store at first access:
 
-See `docs/brand-system.md` for the full token map.
+- **Postgres** when `DATABASE_URL` is set — the real path. Schema lives in `db/intelligence/*.sql`; the store also ensures schema and seeds idempotently at init.
+- **Vercel KV** as a legacy preview fallback, **JSON file** (`.data/dream.json`) for local dev without a database, **memory** as a last resort on Vercel.
+- `SG_DREAM_STRICT_MODE=true` fails closed: Postgres and WorkOS become required and fallbacks are refused.
 
-## Scenario Seed
+Verification schedules and vendor contract data are also database-driven (`dream_verifications`, `dream_vendors`, migration `006`). The server loads them in `src/server/portalConfig.ts` and exposes them through the `getPortalConfig` server function / `portalConfigQuery`; static defaults in `src/lib/sg-dream.ts` act only as seeds and no-database fallbacks. "Days until cutoff" is computed from the real date in `America/Denver` — there is no frozen mock clock. Editing a cutoff or adding a verification is a database row change, not a deploy.
 
-The seed lives in `src/lib/sg-dream.ts`. It models:
+## Environment
 
-- **Amy Lee** — entity owner with access to three District Direct Pay clients: Highlands Creek Authority (`HCA`), SR Metro District (`SRM`), Downtown BID (`DBI`).
-- Multiple verifications per client in mixed statuses (`approved`, `under_review`, `open`).
-- A queue of 11 realistic documents on HCA V4 including two exact duplicates and one likely duplicate — enough to exercise every flagged branch through the flow.
-- Per-vendor authorized / spent / remaining numbers covering the healthy, monitor, and amendment-likely utilization bands.
+Grouped by integration (see `src/server/env.ts` for the full reader):
 
-See `docs/scenario-matrix.md` for the explicit list.
+- **Database**: `DATABASE_URL`, `DATABASE_SSL`
+- **WorkOS**: `WORKOS_API_KEY`, `WORKOS_CLIENT_ID`, `WORKOS_COOKIE_PASSWORD`, `WORKOS_REDIRECT_URI`
+- **Egnyte**: `EGNYTE_DOMAIN`, `EGNYTE_CLIENT_ID`, `EGNYTE_CLIENT_SECRET`, `EGNYTE_REFRESH_TOKEN`, `EGNYTE_ROOT_PATH`, `EGNYTE_TOKEN_ENC_KEY`
+- **DocuPipe**: `DOCUPIPE_API_KEY`, `DOCUPIPE_WORKFLOW_ID`, `DOCUPIPE_WEBHOOK_SECRET`, `DOCUPIPE_BASE_URL`
+- **Uploads**: `BLOB_READ_WRITE_TOKEN` (Vercel Blob, for files over the ~4.5 MB serverless body cap)
+- **Flags**: `SG_DREAM_STRICT_MODE`, `INTAKE_PIPELINE_ENABLED` (master switch for real Egnyte/DocuPipe calls), `INTELLIGENCE_PREVIEW_ENABLED`
+
+Every integration degrades gracefully when unconfigured (outside strict mode), so `yarn dev` works with an empty env for UI work.
 
 ## Stack
 
-- TanStack Start (file routes, search-param state)
-- React 19
-- Tailwind CSS v4
-- shadcn/ui primitives
-- TypeScript
+- TanStack Start + TanStack Router (file routes, loaders, server functions)
+- React 19 + React Query
+- Postgres (`pg`), WorkOS AuthKit, Egnyte, DocuPipe, Vercel Blob
+- Tailwind CSS v4 + shadcn/ui primitives
+- TypeScript, Vitest, Nitro (Vercel preset)
 
-## Design Notes
+## Design notes
 
-- All base tokens, `.page-wrap`, `.brand-panel`, `.nav-pill`, `.data-table-*` primitives live in `src/styles.css`.
-- Workflow-specific primitives live under `src/components/sg-dream/`.
-- State is either URL-driven (search params) or derived. No component-level `useEffect`. The Screen 5 log uses CSS keyframes with staggered `animation-delay`; advancement to `/confirmation` is a user-clicked `Link`.
-
-## Gaps left for later
-
-The PDF handoff also lists work outside this pass. Noted here so the repo is honest about what is and isn't built:
-
-- Blue flow dashboard (Screen 7) — tokens are in place, component is not.
-- Schedio internal portal, admin console, account settings.
-- Email templates, session timeout UX, Terms of Service, historical onboarding.
-- Real error and empty states beyond the login `?error=bad_creds` variant.
+- Base tokens and shared primitives (`.page-wrap`, `.brand-panel`, `.nav-pill`, `.data-table-*`) live in `src/styles.css`. Workflow theming is driven by `data-workflow="district_dp" | "developer_reimb"` rebinding `--wf-*` variables — green for District Direct Pay, blue for Developer Reimbursement.
+- No component-level `useEffect`. State is URL-driven, loader/query-driven, or derived.
+- Portal components live under `src/components/sg-dream/`, shadcn primitives under `src/components/ui/`.
 
 ## Docs
 
-- [docs/meeting-confirmed-details.md](./docs/meeting-confirmed-details.md)
-- [docs/brand-system.md](./docs/brand-system.md)
-- [docs/mockup-brief.md](./docs/mockup-brief.md)
-- [docs/scenario-matrix.md](./docs/scenario-matrix.md)
-- [docs/agent-instruction-map.md](./docs/agent-instruction-map.md)
+- [docs/mockup-brief.md](./docs/mockup-brief.md) — customer intake brief (current product scope)
+- [docs/scenario-matrix.md](./docs/scenario-matrix.md) — current review scope: Tim McCarley, Dawson Trails entities
+- [docs/meeting-confirmed-details.md](./docs/meeting-confirmed-details.md) — confirmed direction from the March 30 meeting
+- [docs/brand-system.md](./docs/brand-system.md) — token map and visual language
+- [docs/workos-setup.md](./docs/workos-setup.md), [docs/egnyte-setup.md](./docs/egnyte-setup.md), [docs/docupipe-setup.md](./docs/docupipe-setup.md), [docs/intelligence-setup.md](./docs/intelligence-setup.md) — integration setup
+- [docs/determination-pipeline.md](./docs/determination-pipeline.md), [docs/docupipe-alignment.md](./docs/docupipe-alignment.md) — internal pipelines
+- [docs/agent-instruction-map.md](./docs/agent-instruction-map.md) — how agent rules stay in sync
 
-## Agent Instructions
+## Agent instructions
 
 - Cursor is the canonical source of truth for repo-local rules and skills.
-- Claude and Codex each have mirrored rule and skill folders so the repo works cleanly across all three agents.
-- Edit `.cursor` first, then keep `.claude` and `.codex` aligned.
+- Claude and Codex have mirrored rule and skill folders; edit `.cursor` first, then keep `.claude` and `.codex` aligned.
 
-Entry points:
-
-- `./.cursor/rules/director.mdc`
-- `./CLAUDE.md`
-- `./AGENTS.md`
+Entry points: `./.cursor/rules/director.mdc`, `./CLAUDE.md`, `./AGENTS.md`

@@ -20,12 +20,9 @@ import { randomUUID } from 'node:crypto'
 
 import { createServerFn } from '@tanstack/react-start'
 
-import {
-  clients as configuredClients,
-  verifications as configuredVerifications,
-  formatRef,
-} from '#/lib/sg-dream'
+import { clients as configuredClients, formatRef } from '#/lib/sg-dream'
 import { assertClientAccess } from '#/server/authz'
+import { getVerificationConfigById } from '#/server/portalConfig'
 import { getStore } from '#/server/store'
 import type {
   DreamSnapshot,
@@ -33,12 +30,10 @@ import type {
   StoredDocument,
 } from '#/server/store'
 
-function seedMetadata(
+async function seedMetadata(
   verificationId: string,
-): { clientId: string; ref: string } | null {
-  const verification = configuredVerifications.find(
-    (v) => v.id === verificationId,
-  )
+): Promise<{ clientId: string; ref: string } | null> {
+  const verification = await getVerificationConfigById(verificationId)
   if (!verification) return null
   const client = configuredClients.find((c) => c.id === verification.clientId)
   if (!client) return null
@@ -88,7 +83,7 @@ export const deleteSubmissionDocument = createServerFn({ method: 'POST' })
   )
   .handler(async ({ data }): Promise<DreamSnapshot | null> => {
     const store = getStore()
-    const metadata = seedMetadata(data.verificationId)
+    const metadata = await seedMetadata(data.verificationId)
     const clientId =
       metadata?.clientId ??
       (await store.getSnapshot(data.verificationId))?.verification.clientId
@@ -122,7 +117,7 @@ export const clearSubmission = createServerFn({ method: 'POST' })
   .inputValidator((data: { verificationId: string }) => data)
   .handler(async ({ data }): Promise<DreamSnapshot | null> => {
     const store = getStore()
-    const metadata = seedMetadata(data.verificationId)
+    const metadata = await seedMetadata(data.verificationId)
     const clientId =
       metadata?.clientId ??
       (await store.getSnapshot(data.verificationId))?.verification.clientId

@@ -22,7 +22,8 @@ import {
   summarizeDocTypes,
   workflowConfigs,
 } from '#/lib/sg-dream'
-import { verificationSnapshotQuery } from '#/lib/queries'
+import { portalConfigQuery, verificationSnapshotQuery } from '#/lib/queries'
+import { usePortalConfig } from '#/lib/session'
 import { storedListToDisplay } from '#/lib/sg-dream-adapter'
 import { fileSubmissionToEgnyte } from '#/server/fns/fileSubmission'
 import type { DreamSnapshot } from '#/server/store'
@@ -45,18 +46,20 @@ export const Route = createFileRoute('/confirmation')({
         ? s.compare
         : undefined,
   }),
-  loader: ({ context, location }) => {
+  loader: async ({ context, location }) => {
     const search = location.search as ConfirmationSearch
     const knownClient = clients.find((c) => c.id === search.client)
     if (!knownClient) {
       throw redirect({ to: '/clients' })
     }
     const clientId = knownClient.id
+    const { verifications } =
+      await context.queryClient.ensureQueryData(portalConfigQuery())
     const requested =
       typeof search.verification === 'string' ? search.verification : ''
-    const verification = getVerificationById(requested, clientId)
+    const verification = getVerificationById(verifications, requested, clientId)
     if (!verification) {
-      const open = getOpenVerification(clientId)
+      const open = getOpenVerification(verifications, clientId)
       throw redirect({
         to: '/confirmation',
         search: { client: clientId, verification: open.id },
@@ -153,10 +156,11 @@ function buildAuditTrail(input: {
 
 function ConfirmationPage() {
   const { client: clientId, verification: verificationId } = Route.useSearch()
+  const portalConfig = usePortalConfig()
   const client = getClientById(clientId)
   const verification =
-    getVerificationById(verificationId, clientId) ??
-    getOpenVerification(clientId)
+    getVerificationById(portalConfig.verifications, verificationId, clientId) ??
+    getOpenVerification(portalConfig.verifications, clientId)
   const queryClient = useQueryClient()
   const snapshotQuery = useSuspenseQuery(
     verificationSnapshotQuery(verification.id),
@@ -382,10 +386,7 @@ function ConfirmationPage() {
                 </p>
                 {destinationRoot ? (
                   <p className="m-0 mt-2 text-[11.5px] text-ink-2">
-                    <FolderOpen
-                      className="mr-1 inline size-3.5"
-                      aria-hidden
-                    />
+                    <FolderOpen className="mr-1 inline size-3.5" aria-hidden />
                     <span className="mono break-all">{destinationRoot}</span>
                   </p>
                 ) : null}
@@ -394,8 +395,8 @@ function ConfirmationPage() {
                     className="m-0 mt-2 text-[12.5px] text-destructive"
                     role="alert"
                   >
-                    Filing didn’t complete. Some documents may still be pending —
-                    try again.
+                    Filing didn’t complete. Some documents may still be pending
+                    — try again.
                   </p>
                 ) : null}
               </div>
@@ -486,7 +487,10 @@ function ConfirmationPage() {
         </header>
         <div className="v2-card-body p-0">
           {docTypeOrder
-            .map((t) => ({ type: t, items: docs.filter((d) => d.docType === t) }))
+            .map((t) => ({
+              type: t,
+              items: docs.filter((d) => d.docType === t),
+            }))
             .filter((g) => g.items.length > 0)
             .map((group) => {
               const subtotal = group.items.reduce((sum, d) => sum + d.amount, 0)
@@ -533,7 +537,9 @@ function ConfirmationPage() {
                           </span>
                         ) : null}
                         {doc.lowConfidence ? (
-                          <span className="pill pill-amber">Low confidence</span>
+                          <span className="pill pill-amber">
+                            Low confidence
+                          </span>
                         ) : null}
                         <span className="mono w-[88px] text-right text-[12.5px] text-ink">
                           {doc.amount > 0

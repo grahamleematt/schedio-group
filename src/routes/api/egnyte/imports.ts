@@ -133,14 +133,14 @@ async function resolveRequest(
   request: Request,
   body?: ImportRequest,
 ): Promise<{
-  context: NonNullable<ReturnType<typeof resolveIntakeContext>>
+  context: NonNullable<Awaited<ReturnType<typeof resolveIntakeContext>>>
   sourcePath: string
 }> {
   const url = new URL(request.url)
   const verificationId =
     body?.verificationId ?? url.searchParams.get('verificationId') ?? ''
   const clientId = body?.clientId ?? url.searchParams.get('clientId') ?? ''
-  const context = resolveIntakeContext({ clientId, verificationId })
+  const context = await resolveIntakeContext({ clientId, verificationId })
   if (!context) {
     throw new Response(
       JSON.stringify({ error: 'unknown client or verification' }),

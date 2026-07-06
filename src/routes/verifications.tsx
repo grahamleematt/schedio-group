@@ -16,7 +16,8 @@ import {
   getVerificationsByClient,
   liveSpendByVendor,
 } from '#/lib/sg-dream'
-import { verificationSnapshotQuery } from '#/lib/queries'
+import { portalConfigQuery, verificationSnapshotQuery } from '#/lib/queries'
+import { usePortalConfig } from '#/lib/session'
 import {
   liveVerificationTotals,
   storedListToDisplay,
@@ -30,13 +31,15 @@ export const Route = createFileRoute('/verifications')({
   validateSearch: (s: Record<string, unknown>): VerificationsSearch => ({
     client: typeof s.client === 'string' ? s.client : '',
   }),
-  loader: ({ context, location }) => {
+  loader: async ({ context, location }) => {
     const search = location.search as VerificationsSearch
     const known = clients.find((c) => c.id === search.client)
     if (!known) {
       throw redirect({ to: '/clients' })
     }
-    const open = getOpenVerification(known.id)
+    const { verifications } =
+      await context.queryClient.ensureQueryData(portalConfigQuery())
+    const open = getOpenVerification(verifications, known.id)
     return context.queryClient.ensureQueryData(
       verificationSnapshotQuery(open.id),
     )
@@ -47,13 +50,15 @@ export const Route = createFileRoute('/verifications')({
 
 function VerificationsPage() {
   const { client: clientId } = Route.useSearch()
+  const config = usePortalConfig()
   const client = getClientById(clientId)
-  const all = getVerificationsByClient(client.id)
-  const open = getOpenVerification(client.id)
+  const all = getVerificationsByClient(config.verifications, client.id)
+  const open = getOpenVerification(config.verifications, client.id)
   const previous = all.filter((v) => v.id !== open.id)
   const snapshotQuery = useQuery(verificationSnapshotQuery(open.id))
   const snapshot = snapshotQuery.data
   const contractSummary = computeContractSummary(
+    config.vendors,
     client.id,
     liveSpendByVendor(
       storedListToDisplay(snapshot?.verification.documents ?? []),
@@ -82,7 +87,7 @@ function VerificationsPage() {
   const lowConfidenceDocCount =
     snapshot?.verification.documents.filter((d) => d.lowConfidence).length ?? 0
 
-  const days = daysUntilCutoff(open.cutoffDateISO)
+  const days = daysUntilCutoff(open.cutoffDateISO, config.todayISO)
   const daysTone =
     days <= 3 ? 'pill-red' : days <= 14 ? 'pill-amber' : 'pill-green'
 
@@ -135,8 +140,7 @@ function VerificationsPage() {
           <p className="m-0 text-muted-1">
             Engineer review is required when DocuPipe field confidence falls
             below 85%, or when no confidence is returned. The current submission
-            has{' '}
-            <strong className="text-ink">{lowConfidenceDocCount}</strong>{' '}
+            has <strong className="text-ink">{lowConfidenceDocCount}</strong>{' '}
             document{lowConfidenceDocCount === 1 ? '' : 's'} flagged for review.
           </p>
         </div>
@@ -213,7 +217,9 @@ function VerificationsPage() {
                 <div className="v">
                   {formatCurrency(contractSummary.authorized)}
                 </div>
-                <div className="d">Total authorized across vendor contracts</div>
+                <div className="d">
+                  Total authorized across vendor contracts
+                </div>
               </div>
             ) : null}
             <div className="v2-stat">

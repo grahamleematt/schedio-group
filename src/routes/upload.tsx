@@ -24,7 +24,8 @@ import {
   getOpenVerification,
   getVerificationById,
 } from '#/lib/sg-dream'
-import { verificationSnapshotQuery } from '#/lib/queries'
+import { portalConfigQuery, verificationSnapshotQuery } from '#/lib/queries'
+import { usePortalConfig } from '#/lib/session'
 import { storedListToDisplay } from '#/lib/sg-dream-adapter'
 
 type UploadState = 'normal' | 'empty' | 'error'
@@ -90,18 +91,20 @@ export const Route = createFileRoute('/upload')({
         ? (s.state as UploadState)
         : undefined,
   }),
-  loader: ({ context, location }) => {
+  loader: async ({ context, location }) => {
     const search = location.search as UploadSearch
     const knownClient = clients.find((c) => c.id === search.client)
     if (!knownClient) {
       throw redirect({ to: '/clients' })
     }
     const clientId = knownClient.id
+    const { verifications } =
+      await context.queryClient.ensureQueryData(portalConfigQuery())
     const requested =
       typeof search.verification === 'string' ? search.verification : ''
-    const verification = getVerificationById(requested, clientId)
+    const verification = getVerificationById(verifications, requested, clientId)
     if (!verification) {
-      const open = getOpenVerification(clientId)
+      const open = getOpenVerification(verifications, clientId)
       throw redirect({
         to: '/upload',
         search: { client: clientId, verification: open.id },
@@ -121,10 +124,11 @@ function UploadPage() {
     verification: verificationId,
     state: variant = 'normal',
   } = Route.useSearch()
+  const config = usePortalConfig()
   const client = getClientById(clientId)
   const verification =
-    getVerificationById(verificationId, clientId) ??
-    getOpenVerification(clientId)
+    getVerificationById(config.verifications, verificationId, clientId) ??
+    getOpenVerification(config.verifications, clientId)
   const snapshotQuery = useSuspenseQuery(
     verificationSnapshotQuery(verification.id),
   )
@@ -707,7 +711,6 @@ function UploadPage() {
           </div>
         </section>
       ) : null}
-
     </AppShell>
   )
 }

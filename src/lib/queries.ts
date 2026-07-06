@@ -13,6 +13,8 @@ import { queryOptions } from '@tanstack/react-query'
 
 import { getVerificationSnapshot } from '#/server/fns/getVerificationSnapshot'
 import { getAuditLog } from '#/server/fns/getAuditLog'
+import { getPortalConfig } from '#/server/fns/getPortalConfig'
+import type { PortalConfig } from '#/server/fns/getPortalConfig'
 import { getDeterminationWorkspace } from '#/server/fns/getDeterminationWorkspace'
 import { getIntelligenceWorkspace } from '#/server/fns/getIntelligenceWorkspace'
 import { getSessionUser } from '#/server/fns/getSessionUser'
@@ -38,6 +40,22 @@ export function sessionUserQuery() {
     queryKey: ['session-user'] as const,
     queryFn: () => getSessionUser(),
     staleTime: 5 * 60 * 1000,
+  })
+}
+
+export type PortalConfigData = PortalConfig
+
+/**
+ * Verification schedule + vendor contracts for the session user's entities,
+ * plus the server-side "today" for cutoff math. Warmed by the root loader;
+ * a short staleTime keeps schedule edits (cutoff moves, status changes)
+ * visible without a reload while avoiding a refetch per navigation.
+ */
+export function portalConfigQuery() {
+  return queryOptions({
+    queryKey: ['portal-config'] as const,
+    queryFn: () => getPortalConfig(),
+    staleTime: 60_000,
   })
 }
 

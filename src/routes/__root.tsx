@@ -11,7 +11,7 @@ import type { QueryClient } from '@tanstack/react-query'
 import Footer from '../components/Footer'
 import Header from '../components/Header'
 
-import { sessionUserQuery } from '#/lib/queries'
+import { portalConfigQuery, sessionUserQuery } from '#/lib/queries'
 
 import appCss from '../styles.css?url'
 
@@ -66,7 +66,10 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
     ],
   }),
   loader: ({ context }) =>
-    context.queryClient.ensureQueryData(sessionUserQuery()),
+    Promise.all([
+      context.queryClient.ensureQueryData(sessionUserQuery()),
+      context.queryClient.ensureQueryData(portalConfigQuery()),
+    ]),
   shellComponent: RootDocument,
 })
 

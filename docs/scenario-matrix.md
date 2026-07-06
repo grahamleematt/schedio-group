@@ -26,8 +26,13 @@ DocuPipe callbacks, or Egnyte imports.
 
 | Entity | Verification | Period                         | Cutoff       | Status |
 | ------ | ------------ | ------------------------------ | ------------ | ------ |
-| `DT1`  | `V1`         | Verification No. 01            | May 04, 2026 | Open   |
-| `DTD`  | `V1`         | Developer Reimbursement No. 01 | May 04, 2026 | Open   |
+| `DT1`  | `V1`         | Verification No. 01            | Aug 03, 2026 | Open   |
+| `DTD`  | `V1`         | Developer Reimbursement No. 01 | Aug 03, 2026 | Open   |
+
+Verification schedules live in Postgres (`dream_verifications`, seeded by
+`db/intelligence/006_verification_vendor_config.sql`). The dates above are the
+seed values; the live cutoff is whatever the database row says, and the
+days-until-cutoff countdown is computed from the real date in America/Denver.
 
 ## Access Rule
 

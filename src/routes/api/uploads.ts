@@ -102,7 +102,7 @@ async function resolveTarget(
       response: jsonResponse({ error: 'missing verificationId' }, 400),
     }
   }
-  const context = resolveIntakeContext({
+  const context = await resolveIntakeContext({
     clientId: clientIdInput,
     verificationId,
   })

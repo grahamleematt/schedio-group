@@ -7,13 +7,15 @@ import {
   computeContractSummary,
   computeVendorUtilization,
   formatCurrency,
+  formatCutoffLabel,
   getClientById,
   getOpenVerification,
   getVendorsByClient,
   liveSpendByVendor,
 } from '#/lib/sg-dream'
 import type { Vendor } from '#/lib/sg-dream'
-import { verificationSnapshotQuery } from '#/lib/queries'
+import { portalConfigQuery, verificationSnapshotQuery } from '#/lib/queries'
+import { usePortalConfig } from '#/lib/session'
 import { storedListToDisplay } from '#/lib/sg-dream-adapter'
 
 type ContractsSearch = {
@@ -24,13 +26,15 @@ export const Route = createFileRoute('/contracts')({
   validateSearch: (s: Record<string, unknown>): ContractsSearch => ({
     client: typeof s.client === 'string' ? s.client : '',
   }),
-  loader: ({ context, location }) => {
+  loader: async ({ context, location }) => {
     const search = location.search as ContractsSearch
     const known = clients.find((c) => c.id === search.client)
     if (!known) {
       throw redirect({ to: '/clients' })
     }
-    const open = getOpenVerification(known.id)
+    const { verifications } =
+      await context.queryClient.ensureQueryData(portalConfigQuery())
+    const open = getOpenVerification(verifications, known.id)
     return context.queryClient.ensureQueryData(
       verificationSnapshotQuery(open.id),
     )
@@ -53,9 +57,10 @@ function bandPill(band: 'healthy' | 'monitor' | 'amend'): string {
 
 function ContractsPage() {
   const { client: clientId } = Route.useSearch()
+  const config = usePortalConfig()
   const client = getClientById(clientId)
-  const vendors = getVendorsByClient(client.id)
-  const open = getOpenVerification(client.id)
+  const vendors = getVendorsByClient(config.vendors, client.id)
+  const open = getOpenVerification(config.verifications, client.id)
   // Spend is summed live from the open submission's filed invoices + pay-apps;
   // the query is already warmed by the loader and also feeds sidebar counts.
   const snapshotQuery = useQuery(verificationSnapshotQuery(open.id))
@@ -63,7 +68,11 @@ function ContractsPage() {
     snapshotQuery.data?.verification.documents ?? [],
   )
   const spendByVendor = liveSpendByVendor(docs)
-  const summary = computeContractSummary(client.id, spendByVendor)
+  const summary = computeContractSummary(
+    config.vendors,
+    client.id,
+    spendByVendor,
+  )
 
   const ranked: ReadonlyArray<
     Vendor & ReturnType<typeof computeVendorUtilization>
@@ -226,7 +235,7 @@ function ContractsPage() {
                       {v.contract?.refName ?? '—'}
                       {v.contract ? (
                         <div className="text-muted-1 text-[11px]">
-                          Executed {v.contract.executedOn}
+                          Executed {formatCutoffLabel(v.contract.executedOn)}
                         </div>
                       ) : null}
                     </td>

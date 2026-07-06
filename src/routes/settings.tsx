@@ -28,7 +28,11 @@ import {
 } from '#/components/ui/dialog'
 import { Input } from '#/components/ui/input'
 import { clients, getOpenVerification, pendingUsers } from '#/lib/sg-dream'
-import { egnyteConnectionQuery, verificationSnapshotQuery } from '#/lib/queries'
+import {
+  egnyteConnectionQuery,
+  portalConfigQuery,
+  verificationSnapshotQuery,
+} from '#/lib/queries'
 import { connectEgnyte } from '#/server/fns/connectEgnyte'
 import { disconnectEgnyte } from '#/server/fns/disconnectEgnyte'
 
@@ -42,7 +46,7 @@ export const Route = createFileRoute('/settings')({
   validateSearch: (s: Record<string, unknown>): SettingsSearch => ({
     client: typeof s.client === 'string' ? s.client : DEFAULT_CLIENT,
   }),
-  loader: ({ context, location }) => {
+  loader: async ({ context, location }) => {
     const search = location.search as SettingsSearch
     const requested =
       typeof search.client === 'string' ? search.client : DEFAULT_CLIENT
@@ -50,7 +54,9 @@ export const Route = createFileRoute('/settings')({
     if (!known) {
       throw redirect({ to: '/settings', search: { client: DEFAULT_CLIENT } })
     }
-    const open = getOpenVerification(known.id)
+    const { verifications } =
+      await context.queryClient.ensureQueryData(portalConfigQuery())
+    const open = getOpenVerification(verifications, known.id)
     return Promise.all([
       context.queryClient.ensureQueryData(verificationSnapshotQuery(open.id)),
       context.queryClient.ensureQueryData(egnyteConnectionQuery()),

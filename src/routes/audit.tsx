@@ -7,7 +7,11 @@ import {
   getOpenVerification,
   pendingUsers,
 } from '#/lib/sg-dream'
-import { auditLogQuery, verificationSnapshotQuery } from '#/lib/queries'
+import {
+  auditLogQuery,
+  portalConfigQuery,
+  verificationSnapshotQuery,
+} from '#/lib/queries'
 import type { AuditLogEntry } from '#/server/fns/getAuditLog'
 
 type AuditFilter = 'all' | AuditLogEntry['category']
@@ -51,7 +55,7 @@ export const Route = createFileRoute('/audit')({
         ? (s.filter as AuditFilter)
         : undefined,
   }),
-  loader: ({ context, location }) => {
+  loader: async ({ context, location }) => {
     const search = location.search as AuditSearch
     const requested =
       typeof search.client === 'string' ? search.client : 'dawson-trails-md1'
@@ -59,7 +63,9 @@ export const Route = createFileRoute('/audit')({
     if (!known) {
       throw redirect({ to: '/audit', search: { client: 'dawson-trails-md1' } })
     }
-    const open = getOpenVerification(known.id)
+    const { verifications } =
+      await context.queryClient.ensureQueryData(portalConfigQuery())
+    const open = getOpenVerification(verifications, known.id)
     return Promise.all([
       context.queryClient.ensureQueryData(verificationSnapshotQuery(open.id)),
       context.queryClient.ensureQueryData(auditLogQuery(known.id)),

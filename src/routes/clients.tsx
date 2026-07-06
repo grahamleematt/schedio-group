@@ -13,8 +13,12 @@ import {
   workflowConfigs,
 } from '#/lib/sg-dream'
 import type { Client } from '#/lib/sg-dream'
-import { sessionUserQuery, verificationSnapshotQuery } from '#/lib/queries'
-import { useSessionUser } from '#/lib/session'
+import {
+  portalConfigQuery,
+  sessionUserQuery,
+  verificationSnapshotQuery,
+} from '#/lib/queries'
+import { usePortalConfig, useSessionUser } from '#/lib/session'
 import { liveVerificationTotals } from '#/lib/sg-dream-adapter'
 
 type ClientsSearch = {
@@ -35,13 +39,17 @@ export const Route = createFileRoute('/clients')({
     if (!user) {
       throw redirect({ to: '/login' })
     }
+    const config =
+      await context.queryClient.ensureQueryData(portalConfigQuery())
     const permitted = clients.filter((c) =>
       user.permittedClientIds.includes(c.id),
     )
     return Promise.all(
       permitted.map((c) =>
         context.queryClient.ensureQueryData(
-          verificationSnapshotQuery(getOpenVerification(c.id).id),
+          verificationSnapshotQuery(
+            getOpenVerification(config.verifications, c.id).id,
+          ),
         ),
       ),
     )
@@ -58,6 +66,7 @@ function ClientsPage() {
   const { selected } = Route.useSearch()
   const navigate = useNavigate()
   const currentUser = useSessionUser()
+  const config = usePortalConfig()
 
   // Only entities the logged-in user is granted access to (doc §2 isolation rule).
   const permitted = clients.filter((c) =>
@@ -66,7 +75,9 @@ function ClientsPage() {
 
   // Read the live snapshot for each entity's open verification so we can show
   // real queue depth on every card.
-  const opens = permitted.map((c) => getOpenVerification(c.id))
+  const opens = permitted.map((c) =>
+    getOpenVerification(config.verifications, c.id),
+  )
   const snapshotResults = useQueries({
     queries: opens.map((open) => verificationSnapshotQuery(open.id)),
   })
@@ -91,7 +102,10 @@ function ClientsPage() {
   const continueSearch = selectedClient
     ? {
         client: selectedClient.id,
-        verification: getOpenVerification(selectedClient.id).id,
+        verification: getOpenVerification(
+          config.verifications,
+          selectedClient.id,
+        ).id,
       }
     : undefined
 
@@ -139,7 +153,7 @@ function ClientsPage() {
         <div className="ent-grid mt-4">
           {permitted.map((c) => {
             const workflow = workflowConfigs[c.workflow]
-            const open = getOpenVerification(c.id)
+            const open = getOpenVerification(config.verifications, c.id)
             const live = liveByClient.get(c.id)
             const docsCount = live?.docsCount ?? open.docsCount
             const submissionState =

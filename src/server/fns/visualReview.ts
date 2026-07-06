@@ -12,29 +12,29 @@
 
 import { createServerFn } from '@tanstack/react-start'
 
-import {
-  clients as configuredClients,
-  verifications as configuredVerifications,
-} from '#/lib/sg-dream'
+import { clients as configuredClients } from '#/lib/sg-dream'
 import { assertClientAccess } from '#/server/authz'
 import { createVisualReview } from '#/server/docupipe'
+import { getVerificationConfigById } from '#/server/portalConfig'
 import { getStore } from '#/server/store'
 import type { DreamSnapshot } from '#/server/store'
 
-function clientIdForVerification(verificationId: string): string | undefined {
-  const verification = configuredVerifications.find(
-    (v) => v.id === verificationId,
-  )
+async function clientIdForVerification(
+  verificationId: string,
+): Promise<string | undefined> {
+  const verification = await getVerificationConfigById(verificationId)
   if (!verification) return undefined
   return configuredClients.find((c) => c.id === verification.clientId)?.id
 }
 
 export const generateVisualReview = createServerFn({ method: 'POST' })
-  .inputValidator((data: { verificationId: string; documentId: string }) => data)
+  .inputValidator(
+    (data: { verificationId: string; documentId: string }) => data,
+  )
   .handler(async ({ data }): Promise<DreamSnapshot | null> => {
     const store = getStore()
     const clientId =
-      clientIdForVerification(data.verificationId) ??
+      (await clientIdForVerification(data.verificationId)) ??
       (await store.getSnapshot(data.verificationId))?.verification.clientId
     if (!clientId) return null
 

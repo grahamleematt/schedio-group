@@ -26,7 +26,8 @@ import {
   getVerificationById,
 } from '#/lib/sg-dream'
 import type { Document, DocType } from '#/lib/sg-dream'
-import { verificationSnapshotQuery } from '#/lib/queries'
+import { portalConfigQuery, verificationSnapshotQuery } from '#/lib/queries'
+import { usePortalConfig } from '#/lib/session'
 import { storedListToDisplay } from '#/lib/sg-dream-adapter'
 import {
   clearSubmission,
@@ -60,18 +61,20 @@ export const Route = createFileRoute('/library')({
         ? (s.libraryOpen as DocType)
         : undefined,
   }),
-  loader: ({ context, location }) => {
+  loader: async ({ context, location }) => {
     const search = location.search as LibrarySearch
     const knownClient = clients.find((c) => c.id === search.client)
     if (!knownClient) {
       throw redirect({ to: '/clients' })
     }
     const clientId = knownClient.id
+    const { verifications } =
+      await context.queryClient.ensureQueryData(portalConfigQuery())
     const requested =
       typeof search.verification === 'string' ? search.verification : ''
-    const verification = getVerificationById(requested, clientId)
+    const verification = getVerificationById(verifications, requested, clientId)
     if (!verification) {
-      const open = getOpenVerification(clientId)
+      const open = getOpenVerification(verifications, clientId)
       throw redirect({
         to: '/library',
         search: { client: clientId, verification: open.id },
@@ -93,10 +96,11 @@ function LibraryPage() {
     libraryQuery,
     libraryOpen,
   } = Route.useSearch()
+  const config = usePortalConfig()
   const client = getClientById(clientId)
   const verification =
-    getVerificationById(verificationId, clientId) ??
-    getOpenVerification(clientId)
+    getVerificationById(config.verifications, verificationId, clientId) ??
+    getOpenVerification(config.verifications, clientId)
 
   const queryClient = useQueryClient()
   const snapshotQuery = useSuspenseQuery(

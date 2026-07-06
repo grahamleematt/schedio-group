@@ -7,8 +7,8 @@
 import {
   clients,
   documents as configuredDocuments,
+  defaultVerifications,
   formatRef,
-  verifications,
 } from '#/lib/sg-dream'
 import type { Document, Verification } from '#/lib/sg-dream'
 
@@ -60,8 +60,8 @@ function storedFrom(
 
 function verificationClientId(document: Document): string {
   return (
-    verifications.find((v) => v.id === document.verificationId)?.clientId ??
-    'dawson-trails-md1'
+    defaultVerifications.find((v) => v.id === document.verificationId)
+      ?.clientId ?? 'dawson-trails-md1'
   )
 }
 
@@ -76,7 +76,7 @@ function buildPriorFilingDocs(): Array<StoredDocument> {
   const prior: Array<StoredDocument> = []
   for (const d of configuredDocuments) {
     if (!d.matchedVerificationRef || !d.matchedPreviousName) continue
-    const priorVerification = verifications.find(
+    const priorVerification = defaultVerifications.find(
       (v) => verificationRef(v) === d.matchedVerificationRef,
     )
     if (!priorVerification) continue
@@ -116,7 +116,7 @@ export function buildSeedState(): DreamStoreState {
     seeded: true,
   }
 
-  for (const v of verifications) {
+  for (const v of defaultVerifications) {
     state.verifications[v.id] = {
       id: v.id,
       clientId: v.clientId,

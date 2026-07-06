@@ -6,8 +6,8 @@ import {
 } from './context'
 
 describe('resolveIntakeContext', () => {
-  it('uses a draft entity intake folder before Schedio assigns a public reference', () => {
-    const context = resolveIntakeContext({
+  it('uses a draft entity intake folder before Schedio assigns a public reference', async () => {
+    const context = await resolveIntakeContext({
       clientId: 'dawson-trails-md1',
       verificationId: 'dawson-trails-md1-v1',
     })

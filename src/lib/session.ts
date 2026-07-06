@@ -1,13 +1,15 @@
 /**
  * Local account context for the SG DREAM client portal.
  *
- * WorkOS owns identity. Until the live WorkOS user lookup is wired into every
- * route, the local fallback is Tim scoped to his Dawson entities. The active
- * entity is sourced from `?client=` with a fallback to `clients[0]`.
+ * WorkOS owns identity; the verification schedule and vendor contracts come
+ * from Postgres through `portalConfigQuery` (warmed by the root loader). The
+ * active entity is sourced from `?client=` with a fallback to `clients[0]`.
  *
  * Exposes:
- *   - useActiveEntity()  — current `Client` + open verification, scoped to URL
- *   - useSidebarCounts() — live nav badge counts for AppShell sidebar
+ *   - useSessionUser()   — the authenticated portal user
+ *   - usePortalConfig()  — verification schedule + vendors + server "today"
+ *   - useActiveEntity()  — current `Client` + verifications, scoped to URL
+ *   - deriveSidebarCounts() — live nav badge counts for AppShell sidebar
  */
 
 import { useSuspenseQuery } from '@tanstack/react-query'
@@ -16,12 +18,12 @@ import {
   clients,
   getClientById,
   getOpenVerification,
-  getVendorsByClient,
   getVerificationById,
   currentUser,
 } from '#/lib/sg-dream'
 import type { Client, User, Verification } from '#/lib/sg-dream'
-import { sessionUserQuery } from '#/lib/queries'
+import { portalConfigQuery, sessionUserQuery } from '#/lib/queries'
+import type { PortalConfigData } from '#/lib/queries'
 import type { DreamSnapshot } from '#/server/store'
 
 /**
@@ -35,9 +37,19 @@ export function useSessionUser(): User {
   return data ?? currentUser
 }
 
+/**
+ * The session-scoped portal config: verification schedule, vendor contracts,
+ * and the server-computed `todayISO` for cutoff countdowns.
+ */
+export function usePortalConfig(): PortalConfigData {
+  const { data } = useSuspenseQuery(portalConfigQuery())
+  return data
+}
+
 type ActiveEntity = {
   client: Client
   user: User
+  config: PortalConfigData
   openVerification: Verification
   /** The verification currently in URL focus, falling back to the open one. */
   activeVerification: Verification
@@ -63,16 +75,18 @@ export function useActiveEntity(): ActiveEntity {
   })
 
   const user = useSessionUser()
+  const config = usePortalConfig()
   const client = getClientById(clientId)
-  const openVerification = getOpenVerification(client.id)
+  const openVerification = getOpenVerification(config.verifications, client.id)
   const requested = verificationId
-    ? getVerificationById(verificationId, client.id)
+    ? getVerificationById(config.verifications, verificationId, client.id)
     : null
   const activeVerification = requested ?? openVerification
 
   return {
     client,
     user,
+    config,
     openVerification,
     activeVerification,
   }
@@ -94,13 +108,14 @@ export type SidebarCounts = {
  * drops the badge when the value is undefined or 0.
  */
 export function deriveSidebarCounts(input: {
-  client: Client
   snapshot: DreamSnapshot | null | undefined
+  /** Number of vendor contracts configured for the active entity. */
+  vendorsCount: number
   /** Optional seeds for the new admin routes (Phase C5/C6); 0 means no badge. */
   pendingUsers?: number
   recentAuditEvents?: number
 }): SidebarCounts {
-  const { client, snapshot } = input
+  const { snapshot, vendorsCount } = input
   const docs = snapshot?.verification.documents ?? []
   const inFlight = docs.filter(
     (d) =>
@@ -108,8 +123,6 @@ export function deriveSidebarCounts(input: {
       d.status === 'classifying' ||
       d.status === 'standardizing',
   ).length
-
-  const vendorsCount = getVendorsByClient(client.id).length
 
   return {
     verifications: undefined,

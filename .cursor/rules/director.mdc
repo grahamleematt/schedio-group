@@ -1,12 +1,12 @@
 ---
-description: Routes work in this repo to the correct local skills and keeps implementation aligned with the Schedio mockup brief.
+description: Routes work in this repo to the correct local skills and keeps implementation aligned with the SG DREAM portal architecture.
 globs:
 alwaysApply: true
 ---
 
 # Director
 
-You are working in Schedio Group AI, a TanStack Start mockup repo for the March 30 follow-up with Tim.
+You are working in Schedio Group AI, the SG DREAM client intake portal: a live TanStack Start app with WorkOS auth, Postgres persistence, Egnyte file custody, and DocuPipe extraction. The current review scope is Tim McCarley's Dawson Trails entities.
 
 ## Defaults
 
@@ -14,8 +14,10 @@ You are working in Schedio Group AI, a TanStack Start mockup repo for the March 
 2. Use `yarn` for package and script commands.
 3. Ask at most 3 high-signal clarifying questions per round when a decision is truly ambiguous.
 4. No TODOs, placeholders, fake completion, or half-built screens.
-5. Keep the repo mockup-first and static unless the user explicitly expands scope.
-6. Do not introduce component-level `useEffect`.
+5. This is a live portal, not a static mockup. Postgres is the source of truth for documents, access, verification schedules, and vendor contracts; static data in `src/lib/sg-dream.ts` exists only as seeds and no-database fallbacks. Do not reintroduce hardcoded config or a frozen clock.
+6. Server-only code (env access, store, integrations) stays under `src/server/**`; never import it from components or client loaders.
+7. Do not introduce component-level `useEffect`.
+8. Keep integrations degradable: outside `SG_DREAM_STRICT_MODE`, missing env vars should downgrade features, not crash the app.
 
 ## Routing
 
@@ -23,15 +25,16 @@ Read the relevant skill before editing:
 
 | Intent | Skill |
 | --- | --- |
-| TanStack Start route structure, file routes, loaders, route metadata | [tanstack-start-foundation](mdc:.cursor/skills/tanstack-start-foundation/SKILL.md) |
+| TanStack Start routes, loaders, server functions, API routes, project structure | [tanstack-start-foundation](mdc:.cursor/skills/tanstack-start-foundation/SKILL.md) |
 | Tailwind v4 token work, color system, brand styling | [tailwind-v4-brand-system](mdc:.cursor/skills/tailwind-v4-brand-system/SKILL.md) |
 | shadcn/ui setup, component installation, composition | [shadcn-ui-composition](mdc:.cursor/skills/shadcn-ui-composition/SKILL.md) |
 | React component work, state shaping, avoiding `useEffect` | [react-no-use-effect](mdc:.cursor/skills/react-no-use-effect/SKILL.md) |
-| Mockup composition, visual direction, route distinctness | [schedio-mockup-design-direction](mdc:.cursor/skills/schedio-mockup-design-direction/SKILL.md) |
+| Portal composition, visual direction, route distinctness | [schedio-portal-design-direction](mdc:.cursor/skills/schedio-portal-design-direction/SKILL.md) |
 
 ## Project Anchors
 
-- Product brief: [docs/meeting-confirmed-details.md](mdc:docs/meeting-confirmed-details.md)
+- Product scope: [docs/mockup-brief.md](mdc:docs/mockup-brief.md) (customer intake brief)
+- Review scope: [docs/scenario-matrix.md](mdc:docs/scenario-matrix.md)
+- Meeting direction: [docs/meeting-confirmed-details.md](mdc:docs/meeting-confirmed-details.md)
 - Brand system: [docs/brand-system.md](mdc:docs/brand-system.md)
-- Route goals: [docs/mockup-brief.md](mdc:docs/mockup-brief.md)
 - Agent sync rules: [docs/agent-instruction-map.md](mdc:docs/agent-instruction-map.md)

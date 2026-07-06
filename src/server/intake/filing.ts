@@ -18,13 +18,10 @@
  * is demoable end-to-end without a live Egnyte tenant.
  */
 
-import {
-  clients as configuredClients,
-  renamed,
-  verifications as configuredVerifications,
-} from '#/lib/sg-dream'
+import { clients as configuredClients, renamed } from '#/lib/sg-dream'
 import type { Client, DocType, Verification } from '#/lib/sg-dream'
 import { isEgnyteConfigured } from '#/server/env'
+import { getVerificationConfigById } from '#/server/portalConfig'
 import {
   createFolderIfMissing,
   egnyteWebUrl,
@@ -52,11 +49,11 @@ function vendorCodeFrom(name: string | undefined): string {
  * real Incoming/ path; falls back to the intake context and finally a static
  * convention so the planned path is always shown, even without Egnyte env.
  */
-function plannedDir(
+async function plannedDir(
   stored: StoredDocument,
   docType: DocType,
   client: Client,
-): string {
+): Promise<string> {
   if (stored.egnyteIncomingPath) {
     return classifiedFolderFromIncomingPath({
       incomingPath: stored.egnyteIncomingPath,
@@ -64,7 +61,7 @@ function plannedDir(
     })
   }
   try {
-    const ctx = resolveIntakeContext({
+    const ctx = await resolveIntakeContext({
       clientId: stored.clientId,
       verificationId: stored.verificationId,
     })
@@ -104,8 +101,8 @@ export async function planFiling(input: {
   }
 
   const client = configuredClients.find((c) => c.id === stored.clientId)
-  const verification: Verification | undefined = configuredVerifications.find(
-    (v) => v.id === stored.verificationId,
+  const verification: Verification | null = await getVerificationConfigById(
+    stored.verificationId,
   )
   if (!client || !verification) {
     return {
@@ -127,7 +124,7 @@ export async function planFiling(input: {
     seq,
     verification.year,
   )
-  const plannedPath = `${plannedDir(stored, docType, client)}/${renamedName}`
+  const plannedPath = `${await plannedDir(stored, docType, client)}/${renamedName}`
 
   return { custodyState: 'ready', renamedName, plannedPath }
 }
@@ -159,7 +156,7 @@ export async function fileDocumentToEgnyte(
   const dest =
     stored.egnytePlannedPath ??
     (renamedName
-      ? `${plannedDir(stored, stored.docType, client)}/${renamedName}`
+      ? `${await plannedDir(stored, stored.docType, client)}/${renamedName}`
       : undefined)
   if (!renamedName || !dest) {
     return { custodyState: 'ready', errorMessage: 'document not yet named' }
@@ -175,7 +172,8 @@ export async function fileDocumentToEgnyte(
     }
   }
 
-  const canFileForReal = isEgnyteConfigured() && Boolean(stored.egnyteIncomingPath)
+  const canFileForReal =
+    isEgnyteConfigured() && Boolean(stored.egnyteIncomingPath)
   if (!canFileForReal) {
     return {
       custodyState: 'classified',
