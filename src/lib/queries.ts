@@ -19,6 +19,8 @@ import { getDeterminationWorkspace } from '#/server/fns/getDeterminationWorkspac
 import { getIntelligenceWorkspace } from '#/server/fns/getIntelligenceWorkspace'
 import { getSessionUser } from '#/server/fns/getSessionUser'
 import type { SessionUser } from '#/server/fns/getSessionUser'
+import { getExtractionOverlay } from '#/server/fns/extractionOverlay'
+import type { ExtractionOverlay } from '#/server/fns/extractionOverlay'
 import { getEgnyteConnection } from '#/server/fns/getEgnyteConnection'
 import type { EgnyteConnectionStatus } from '#/server/egnyteConnections'
 import { getUserDirectory } from '#/server/fns/getUserDirectory'
@@ -84,6 +86,27 @@ export function userDirectoryQuery() {
     queryKey: ['user-directory'] as const,
     queryFn: () => getUserDirectory(),
     staleTime: 60_000,
+  })
+}
+
+export type ExtractionOverlayData = ExtractionOverlay | null
+
+/**
+ * DocuPipe review fields (page + bounding box per extracted value) for one
+ * document — the payload behind the in-app extraction overlay dialog. Fetched
+ * only when the dialog opens. Review data changes only through corrections
+ * (which invalidate this query explicitly), so a long staleTime avoids
+ * refetching per open.
+ */
+export function extractionOverlayQuery(
+  verificationId: string,
+  documentId: string,
+) {
+  return queryOptions({
+    queryKey: ['extraction-overlay', verificationId, documentId] as const,
+    queryFn: () =>
+      getExtractionOverlay({ data: { verificationId, documentId } }),
+    staleTime: 10 * 60 * 1000,
   })
 }
 

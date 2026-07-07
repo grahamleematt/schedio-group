@@ -12,6 +12,8 @@
 
 import { getEnv } from './env'
 
+import type { ExtractedFields } from './store/types'
+
 export class DocuPipeError extends Error {
   readonly status: number
   readonly body: unknown
@@ -154,6 +156,77 @@ export function computeLowConfidence(
     if (v < threshold) return true
   }
   return false
+}
+
+function fieldString(v: unknown): string | undefined {
+  return typeof v === 'string' && v.length > 0 ? v : undefined
+}
+
+function fieldNumber(v: unknown): number | undefined {
+  if (typeof v === 'number' && Number.isFinite(v)) return v
+  if (typeof v === 'string' && v.trim().length > 0) {
+    const n = Number(v.replace(/[$,\s]/g, ''))
+    return Number.isFinite(n) ? n : undefined
+  }
+  return undefined
+}
+
+/**
+ * Map a raw DocuPipe data payload (standardization data, or an unwrapped
+ * review payload) onto our `ExtractedFields` shape. DocuPipe can return
+ * either primitives (`vendor_name: 'Rusin'`) or objects
+ * (`vendor_name: { value: 'Rusin', confidence: 0.92 }`); both are handled.
+ * Shared by the webhook (standardization success) and the review-corrections
+ * flow (mirroring verified review data back onto the stored document).
+ */
+export function normalizeExtractedFields(
+  raw: Record<string, unknown>,
+): ExtractedFields {
+  const v = (key: string, alt?: string): unknown => {
+    const primary = raw[key]
+    const fallback = alt !== undefined ? raw[alt] : undefined
+    for (const x of [primary, fallback]) {
+      if (x && typeof x === 'object' && 'value' in x) {
+        return (x as { value?: unknown }).value
+      }
+      if (x !== undefined) return x
+    }
+    return undefined
+  }
+  // PA schema pins `amount` to Current Payment Due (G702 Line 11) and emits a
+  // duplicate `current_payment_due` for cross-checking. Prefer the explicit
+  // current-payment-due value when present so the headline figure can never
+  // regress to a different waterfall line.
+  const amount =
+    fieldNumber(v('current_payment_due', 'currentPaymentDue')) ??
+    fieldNumber(v('amount'))
+  return {
+    vendorName: fieldString(v('vendor_name', 'vendorName')),
+    vendorIdGuess: fieldString(v('vendor_id_guess', 'vendorIdGuess')),
+    documentNumber: fieldString(v('document_number', 'documentNumber')),
+    amount,
+    currency: fieldString(v('currency')),
+    documentDate: fieldString(v('document_date', 'documentDate')),
+    periodStart: fieldString(v('period_start', 'periodStart')),
+    periodEnd: fieldString(v('period_end', 'periodEnd')),
+    contractReference: fieldString(
+      v('contract_reference', 'contractReference'),
+    ),
+    contractSumToDate: fieldNumber(
+      v('contract_sum_to_date', 'contractSumToDate'),
+    ),
+    completedAndStoredToDate: fieldNumber(
+      v('completed_and_stored_to_date', 'completedAndStoredToDate'),
+    ),
+    retainage: fieldNumber(v('retainage')),
+    totalEarnedLessRetainage: fieldNumber(
+      v('total_earned_less_retainage', 'totalEarnedLessRetainage'),
+    ),
+    lessPreviousPayments: fieldNumber(
+      v('less_previous_payments', 'lessPreviousPayments'),
+    ),
+    balanceToFinish: fieldNumber(v('balance_to_finish', 'balanceToFinish')),
+  }
 }
 
 function toBase64(buf: ArrayBuffer | Uint8Array): string {
@@ -419,6 +492,10 @@ export type WebhookEvent =
   | 'standardization.processed.error'
   | 'workflow.processed.success'
   | 'workflow.processed.error'
+  // Human-review lifecycle: fired when a reviewer finalizes or rejects a
+  // Review object (hosted editor or our in-app corrections flow).
+  | 'review.verified.success'
+  | 'review.rejected.success'
 
 /** List every class in the workspace. */
 export async function listClasses(): Promise<ReadonlyArray<DocupipeClass>> {
@@ -747,6 +824,323 @@ export async function createVisualReview(
   } catch (err) {
     // Visual review isn't available on every plan/workflow; treat any 4xx as
     // "not available" rather than a pipeline error.
+    if (err instanceof DocuPipeError && err.status >= 400 && err.status < 500) {
+      return null
+    }
+    throw err
+  }
+}
+
+// ============================================================================
+// Review objects (extraction overlay data)
+// ============================================================================
+//
+// A Review is the standardization payload with every leaf value replaced by
+// `{ value, review: { page, confidence, boundingBox } }`. We fetch it raw and
+// flatten it into a list of positioned fields that the in-app overlay viewer
+// renders on top of the original document, so alignment and rotation are under
+// our control instead of DocuPipe's hosted viewer.
+// ============================================================================
+
+/** Normalized 0..1 rectangle on a page, origin top-left. */
+export type OverlayRect = {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export type OverlayField = {
+  /** Dot path into the standardization payload, e.g. `amount`. */
+  path: string
+  /** Extracted value as DocuPipe returned it. */
+  value: string | number | boolean | null
+  /** 1-based page number, when DocuPipe localized the value. */
+  page?: number
+  /** Normalized bounding box on that page, when available. */
+  rect?: OverlayRect
+  /** DocuPipe review confidence — `low` / `medium` / `high` or 0..1. */
+  confidence?: string | number
+}
+
+export type ReviewObject = {
+  reviewId: string
+  standardizationId: string
+  documentId: string
+  reviewState?: string
+  data: Record<string, unknown>
+}
+
+function clamp01(n: number): number {
+  return Math.min(1, Math.max(0, n))
+}
+
+/**
+ * Parse DocuPipe's `boundingBox` into a normalized rect. The docs describe two
+ * shapes: the API reference says `[x1, y1, x2, y2]` corners (top-left +
+ * bottom-right), while sample payloads show `[x, y, width, height]`. Both are
+ * normalized 0..1. We prefer the corners reading and fall back to
+ * width/height when the corners reading is degenerate (x2 <= x1 or y2 <= y1).
+ * Accepts an array of numbers or a comma-separated string.
+ */
+export function parseReviewBoundingBox(raw: unknown): OverlayRect | null {
+  let nums: Array<number> | null = null
+  if (Array.isArray(raw)) {
+    nums = raw.map((v) => Number(v))
+  } else if (typeof raw === 'string') {
+    nums = raw.split(',').map((v) => Number(v.trim()))
+  }
+  if (!nums || nums.length < 4 || nums.some((n) => !Number.isFinite(n))) {
+    return null
+  }
+  const [a, b, c, d] = nums
+  if (c > a && d > b) {
+    // Corners: x1,y1,x2,y2.
+    return {
+      x: clamp01(a),
+      y: clamp01(b),
+      width: clamp01(c - a),
+      height: clamp01(d - b),
+    }
+  }
+  if (c > 0 && d > 0) {
+    // Width/height: x,y,w,h.
+    return {
+      x: clamp01(a),
+      y: clamp01(b),
+      width: clamp01(c),
+      height: clamp01(d),
+    }
+  }
+  return null
+}
+
+function isReviewLeaf(node: Record<string, unknown>): boolean {
+  if (!('value' in node)) return false
+  if ('review' in node) return true
+  // A bare `{ value }` with nothing else is a leaf DocuPipe couldn't localize.
+  return Object.keys(node).every((k) => k === 'value' || k === 'review')
+}
+
+function leafToField(
+  path: string,
+  node: Record<string, unknown>,
+): OverlayField {
+  const value = node.value
+  const review =
+    node.review && typeof node.review === 'object'
+      ? (node.review as Record<string, unknown>)
+      : undefined
+  const pageRaw = review?.page
+  const page =
+    typeof pageRaw === 'number' && Number.isFinite(pageRaw) && pageRaw > 0
+      ? Math.floor(pageRaw)
+      : undefined
+  const boxes = review?.boundingBoxes
+  const rect =
+    parseReviewBoundingBox(review?.boundingBox) ??
+    parseReviewBoundingBox(Array.isArray(boxes) ? boxes[0] : null) ??
+    undefined
+  const confidenceRaw = review?.confidence
+  const confidence =
+    typeof confidenceRaw === 'string' || typeof confidenceRaw === 'number'
+      ? confidenceRaw
+      : undefined
+  return {
+    path,
+    value:
+      typeof value === 'string' ||
+      typeof value === 'number' ||
+      typeof value === 'boolean'
+        ? value
+        : null,
+    page,
+    rect,
+    confidence,
+  }
+}
+
+/**
+ * Walk the reviewed payload and return every localized leaf as a flat,
+ * render-ready field list, ordered by page then vertical position so the
+ * overlay's field rail reads top-to-bottom through the document.
+ */
+export function flattenReviewData(
+  data: Record<string, unknown>,
+): ReadonlyArray<OverlayField> {
+  const out: Array<OverlayField> = []
+  const walk = (node: unknown, path: string) => {
+    if (node === null || node === undefined) return
+    if (Array.isArray(node)) {
+      node.forEach((item, i) => walk(item, path ? `${path}.${i}` : String(i)))
+      return
+    }
+    if (typeof node !== 'object') return
+    const record = node as Record<string, unknown>
+    if (isReviewLeaf(record)) {
+      const field = leafToField(path, record)
+      if (field.value !== null && field.value !== '') out.push(field)
+      return
+    }
+    for (const [key, child] of Object.entries(record)) {
+      walk(child, path ? `${path}.${key}` : key)
+    }
+  }
+  walk(data, '')
+  return out.sort((a, b) => {
+    const pageA = a.page ?? Number.MAX_SAFE_INTEGER
+    const pageB = b.page ?? Number.MAX_SAFE_INTEGER
+    if (pageA !== pageB) return pageA - pageB
+    return (a.rect?.y ?? 1) - (b.rect?.y ?? 1)
+  })
+}
+
+/**
+ * Fetch a review object by ID. Returns `null` when the review doesn't exist
+ * yet (async generation still running) or the plan doesn't support reviews,
+ * mirroring `createVisualReview`'s soft-failure contract.
+ */
+export async function getReview(
+  reviewId: string,
+): Promise<ReviewObject | null> {
+  try {
+    const body = await dpFetch<{
+      reviewId?: string
+      review_id?: string
+      standardizationId?: string
+      standardization_id?: string
+      documentId?: string
+      document_id?: string
+      reviewState?: string
+      review_state?: string
+      data?: Record<string, unknown>
+    }>(`/review?review_id=${encodeURIComponent(reviewId)}`)
+    return {
+      reviewId: body.reviewId ?? body.review_id ?? reviewId,
+      standardizationId:
+        body.standardizationId ?? body.standardization_id ?? '',
+      documentId: body.documentId ?? body.document_id ?? '',
+      reviewState: body.reviewState ?? body.review_state,
+      data: body.data ?? {},
+    }
+  } catch (err) {
+    if (err instanceof DocuPipeError && err.status >= 400 && err.status < 500) {
+      return null
+    }
+    throw err
+  }
+}
+
+/**
+ * Collapse a review payload back into plain standardization-shaped data:
+ * every `{ value, review }` leaf becomes its bare `value`. The result can be
+ * fed to `normalizeExtractedFields` to mirror reviewer-corrected values onto
+ * the stored document.
+ */
+export function unwrapReviewData(
+  data: Record<string, unknown>,
+): Record<string, unknown> {
+  const unwrap = (node: unknown): unknown => {
+    if (node === null || node === undefined) return node
+    if (Array.isArray(node)) return node.map(unwrap)
+    if (typeof node !== 'object') return node
+    const record = node as Record<string, unknown>
+    if (isReviewLeaf(record)) return record.value
+    const out: Record<string, unknown> = {}
+    for (const [key, child] of Object.entries(record)) {
+      out[key] = unwrap(child)
+    }
+    return out
+  }
+  return unwrap(data) as Record<string, unknown>
+}
+
+export type ReviewEdit = {
+  /** Dot path into the review payload, as produced by `flattenReviewData`. */
+  path: string
+  value: string | number | boolean | null
+}
+
+/**
+ * Apply in-app corrections to a review payload without disturbing its
+ * localization metadata: each edit walks to the `{ value, review }` leaf at
+ * `path` and replaces only `value`, keeping page/box/confidence intact so the
+ * overlay still points at where the original was read. Unknown paths are
+ * skipped (the review may have regenerated since the client loaded it);
+ * returns the new payload plus the paths that actually applied.
+ */
+export function applyReviewEdits(
+  data: Record<string, unknown>,
+  edits: ReadonlyArray<ReviewEdit>,
+): { data: Record<string, unknown>; appliedPaths: ReadonlyArray<string> } {
+  const next = structuredClone(data)
+  const applied: Array<string> = []
+  for (const edit of edits) {
+    const segments = edit.path.split('.')
+    let node: unknown = next
+    let ok = true
+    for (const segment of segments) {
+      if (Array.isArray(node)) {
+        node = node[Number(segment)]
+      } else if (node && typeof node === 'object') {
+        node = (node as Record<string, unknown>)[segment]
+      } else {
+        ok = false
+        break
+      }
+    }
+    if (!ok || !node || typeof node !== 'object' || Array.isArray(node)) {
+      continue
+    }
+    const leaf = node as Record<string, unknown>
+    if (!isReviewLeaf(leaf)) continue
+    leaf.value = edit.value
+    applied.push(edit.path)
+  }
+  return { data: next, appliedPaths: applied }
+}
+
+export type ReviewStatus = 'unverified' | 'verified' | 'rejected'
+
+/**
+ * Update a review object: replace its data (optional) and set its lifecycle
+ * status. This is the entire write surface behind DocuPipe's hosted editor —
+ * finalize maps to `reviewStatus: 'verified'`, reject to `'rejected'`.
+ * Reviews are forks: updating one never mutates the parent standardization,
+ * so callers must mirror accepted values into the store themselves.
+ *
+ * @see https://docs.docupipe.ai/reference/update_review
+ *   (POST /review/{review_id}/update)
+ */
+export async function updateReview(
+  reviewId: string,
+  input: { data?: Record<string, unknown>; reviewStatus: ReviewStatus },
+): Promise<void> {
+  await dpFetch(`/review/${encodeURIComponent(reviewId)}/update`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ...(input.data !== undefined ? { data: input.data } : {}),
+      reviewStatus: input.reviewStatus,
+    }),
+  })
+}
+
+/**
+ * Presigned URL for a document's original file bytes — the exact rendition
+ * DocuPipe extracted from (converted PDF for HTML/Word/TIFF uploads), which
+ * makes it the ideal source for the in-app overlay: box coordinates and page
+ * geometry are guaranteed to match. Returns `null` when the document is gone.
+ */
+export async function getOriginalFileUrl(
+  documentId: string,
+): Promise<string | null> {
+  try {
+    const body = await dpFetch<{ url?: string; data?: { url?: string } }>(
+      `/document/${encodeURIComponent(documentId)}/download/original-url`,
+    )
+    return body.url ?? body.data?.url ?? null
+  } catch (err) {
     if (err instanceof DocuPipeError && err.status >= 400 && err.status < 500) {
       return null
     }

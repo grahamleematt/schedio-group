@@ -211,6 +211,18 @@ export function isDatabaseConfigured(): boolean {
   return Boolean(readOptional('DATABASE_URL'))
 }
 
+/**
+ * True when DocuPipe API credentials exist. Read-only DocuPipe calls (review
+ * objects for the extraction overlay) gate on this rather than
+ * `isIntakePipelineEnabled` — the pipeline switch exists to prevent accidental
+ * extractions, not to block viewing data that already exists.
+ */
+export function isDocupipeConfigured(): boolean {
+  return Boolean(
+    readOptional('DOCUPIPE_API_KEY') && readOptional('DOCUPIPE_WORKFLOW_ID'),
+  )
+}
+
 export function isWorkOsConfigured(): boolean {
   return Boolean(
     readOptional('WORKOS_API_KEY') &&

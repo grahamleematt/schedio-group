@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  extractReviewId,
   resolveStandardizedDocType,
+  reviewStateFromEventType,
   stableAuditEventId,
   statusFromEvent,
   toDocType,
@@ -75,8 +77,70 @@ describe('statusFromEvent', () => {
     expect(statusFromEvent('workflow.processed.error', row())).toBe('error')
   })
 
+  it('never lets review events touch document status — including review errors', () => {
+    // A failed review generation must not flip a completed extraction to
+    // error; the review layer is optional on top of the pipeline.
+    expect(statusFromEvent('review.processed.error', row())).toBeNull()
+    expect(statusFromEvent('review.processed.success', row())).toBeNull()
+    expect(statusFromEvent('review.verified.success', row())).toBeNull()
+    expect(statusFromEvent('review.rejected.success', row())).toBeNull()
+  })
+
   it('returns null for unrecognized event types', () => {
     expect(statusFromEvent('something.else', row())).toBeNull()
+  })
+})
+
+describe('reviewStateFromEventType', () => {
+  it('maps verified/rejected review events to their states', () => {
+    expect(reviewStateFromEventType('review.verified.success')).toBe(
+      'verified',
+    )
+    expect(reviewStateFromEventType('review.rejected.success')).toBe(
+      'rejected',
+    )
+  })
+
+  it('treats a generic review success (review generated) as unverified', () => {
+    expect(reviewStateFromEventType('review.processed.success')).toBe(
+      'unverified',
+    )
+  })
+
+  it('returns undefined for non-review or error events', () => {
+    expect(reviewStateFromEventType('review.processed.error')).toBeUndefined()
+    expect(
+      reviewStateFromEventType('standardization.processed.success'),
+    ).toBeUndefined()
+  })
+})
+
+describe('extractReviewId', () => {
+  it('prefers explicit reviewId keys on any event', () => {
+    expect(
+      extractReviewId({
+        eventType: 'review.verified.success',
+        reviewId: 'rev-1',
+      }),
+    ).toBe('rev-1')
+    expect(
+      extractReviewId({
+        eventType: 'review.verified.success',
+        data: { review_id: 'rev-2' },
+      }),
+    ).toBe('rev-2')
+  })
+
+  it('honors a bare root id only for review events', () => {
+    expect(
+      extractReviewId({ eventType: 'review.rejected.success', id: 'rev-3' }),
+    ).toBe('rev-3')
+    expect(
+      extractReviewId({
+        eventType: 'standardization.processed.success',
+        id: 'std-1',
+      }),
+    ).toBeUndefined()
   })
 })
 

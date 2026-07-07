@@ -16,8 +16,11 @@ import {
   computeLowConfidence,
   createVisualReview,
   getClassMap,
+  getReview,
   getStandardization,
   getWorkflow,
+  normalizeExtractedFields,
+  unwrapReviewData,
 } from '#/server/docupipe'
 import { SPEC_CLASS_NAMES } from '#/server/docupipe-spec'
 import { getStore } from '#/server/store'
@@ -28,7 +31,7 @@ import type {
   AuditCategory,
   AuditResult,
   DocumentStatus,
-  ExtractedFields,
+  ReviewState,
   StoredAuditEvent,
   StoredDocument,
 } from '#/server/store'
@@ -52,15 +55,6 @@ type BaseEvent = {
 
 function asString(v: unknown): string | undefined {
   return typeof v === 'string' && v.length > 0 ? v : undefined
-}
-
-function asNumber(v: unknown): number | undefined {
-  if (typeof v === 'number' && Number.isFinite(v)) return v
-  if (typeof v === 'string' && v.trim().length > 0) {
-    const n = Number(v.replace(/[$,\s]/g, ''))
-    return Number.isFinite(n) ? n : undefined
-  }
-  return undefined
 }
 
 function payloadRoots(event: BaseEvent): Array<Record<string, unknown>> {
@@ -163,51 +157,45 @@ function extractStandardizationId(event: BaseEvent): string | undefined {
   return undefined
 }
 
-function normalizeExtracted(raw: Record<string, unknown>): ExtractedFields {
-  // DocuPipe can return either primitives (`vendor_name: 'Rusin'`) or objects
-  // (`vendor_name: { value: 'Rusin', confidence: 0.92 }`). Unwrap the object
-  // case here so downstream logic sees the raw scalar.
-  const v = (key: string, alt?: string): unknown => {
-    const primary = raw[key]
-    const fallback = alt !== undefined ? raw[alt] : undefined
-    for (const x of [primary, fallback]) {
-      if (x && typeof x === 'object' && 'value' in x) {
-        return (x as { value?: unknown }).value
-      }
-      if (x !== undefined) return x
+/**
+ * Pull the Review object ID from a `review.*` event. Mirrors the
+ * standardization extractor: explicit `reviewId` keys win, and a bare root
+ * `id` is honored only when the event is unambiguously a review event.
+ */
+export function extractReviewId(event: BaseEvent): string | undefined {
+  for (const root of payloadRoots(event)) {
+    const id = asString(root.reviewId) ?? asString(root.review_id)
+    if (id) return id
+  }
+  if (event.eventType.startsWith('review.')) {
+    for (const root of payloadRoots(event)) {
+      const id = asString(root.id)
+      if (id) return id
     }
-    return undefined
   }
-  // PA schema pins `amount` to Current Payment Due (G702 Line 11) and emits a
-  // duplicate `current_payment_due` for cross-checking. Prefer the explicit
-  // current-payment-due value when present so the headline figure can never
-  // regress to a different waterfall line.
-  const amount =
-    asNumber(v('current_payment_due', 'currentPaymentDue')) ??
-    asNumber(v('amount'))
-  return {
-    vendorName: asString(v('vendor_name', 'vendorName')),
-    vendorIdGuess: asString(v('vendor_id_guess', 'vendorIdGuess')),
-    documentNumber: asString(v('document_number', 'documentNumber')),
-    amount,
-    currency: asString(v('currency')),
-    documentDate: asString(v('document_date', 'documentDate')),
-    periodStart: asString(v('period_start', 'periodStart')),
-    periodEnd: asString(v('period_end', 'periodEnd')),
-    contractReference: asString(v('contract_reference', 'contractReference')),
-    contractSumToDate: asNumber(v('contract_sum_to_date', 'contractSumToDate')),
-    completedAndStoredToDate: asNumber(
-      v('completed_and_stored_to_date', 'completedAndStoredToDate'),
-    ),
-    retainage: asNumber(v('retainage')),
-    totalEarnedLessRetainage: asNumber(
-      v('total_earned_less_retainage', 'totalEarnedLessRetainage'),
-    ),
-    lessPreviousPayments: asNumber(
-      v('less_previous_payments', 'lessPreviousPayments'),
-    ),
-    balanceToFinish: asNumber(v('balance_to_finish', 'balanceToFinish')),
+  return undefined
+}
+
+function parseReviewState(raw: string | undefined): ReviewState | undefined {
+  const lower = raw?.toLowerCase()
+  return lower === 'unverified' || lower === 'verified' || lower === 'rejected'
+    ? lower
+    : undefined
+}
+
+/**
+ * Derive the review lifecycle state from a `review.*` event name when the
+ * fetched review object doesn't carry one (or the fetch failed).
+ */
+export function reviewStateFromEventType(
+  type: string,
+): ReviewState | undefined {
+  if (type.startsWith('review.verified')) return 'verified'
+  if (type.startsWith('review.rejected')) return 'rejected'
+  if (type.startsWith('review.') && type.endsWith('.success')) {
+    return 'unverified'
   }
+  return undefined
 }
 
 // Derived from src/server/docupipe-spec.ts so the webhook's known-classes
@@ -327,6 +315,10 @@ export function statusFromEvent(
   type: string,
   stored: StoredDocument,
 ): DocumentStatus | null {
+  // Review events describe the optional human-review layer, never pipeline
+  // progress — even `review.processed.error` must not flip a completed
+  // extraction to `error`.
+  if (type.startsWith('review.')) return null
   if (isDocumentSuccess(type) || isClassificationSuccess(type)) {
     return 'classifying'
   }
@@ -381,6 +373,7 @@ export function stableAuditEventId(input: {
       extractStandardizationId(event) ?? document.docupipeStandardizationId,
       extractClassId(event),
       extractDocupipeJobId(event) ?? document.docupipeJobId,
+      extractReviewId(event) ?? document.docupipeReviewId,
       detail,
     ]
       .filter((part): part is string => Boolean(part))
@@ -409,6 +402,32 @@ function describeAuditEvent(input: {
   errorMessage?: string
 }): { event: string; result: AuditResult; detail?: string } | null {
   const { eventType, stored, next, errorMessage } = input
+  if (eventType.startsWith('review.')) {
+    if (eventType.endsWith('.error')) {
+      return {
+        event: 'Review overlay generation failed',
+        result: 'failed',
+        detail: errorMessage,
+      }
+    }
+    if (next.docupipeReviewState === 'verified') {
+      return {
+        event: 'Extraction verified by reviewer',
+        result: 'ok',
+        detail:
+          next.extractedFields?.amount !== undefined
+            ? `$${next.extractedFields.amount.toLocaleString()} from ${
+                next.extractedFields.vendorName ?? 'unknown vendor'
+              }`
+            : undefined,
+      }
+    }
+    if (next.docupipeReviewState === 'rejected') {
+      return { event: 'Extraction rejected by reviewer', result: 'flagged' }
+    }
+    // Review generated / reset to unverified — not worth an audit row.
+    return null
+  }
   if (eventType.endsWith('.error')) {
     return {
       event: 'DocuPipe error',
@@ -518,6 +537,81 @@ async function emitAuditEvents(input: {
   }
 }
 
+/**
+ * Sync the human-review layer back into the store.
+ *
+ * - `review.processed.error` (generation failed): clear the dead review ID so
+ *   the UI offers "Generate review overlay" again instead of a broken viewer.
+ * - `review.verified.success`: fetch the review and mirror the reviewer's
+ *   (possibly corrected) values into `extractedFields` — corrections made in
+ *   the hosted editor or via in-app corrections both land here, keeping
+ *   costs-submitted math and duplicate context on the corrected truth.
+ * - `review.rejected.success`: record the rejected state; extracted values
+ *   are left as-is (a rejection means "don't rely on this", not new data).
+ *
+ * Never touches `status` — reviews are an optional layer on top of a
+ * completed extraction.
+ */
+async function handleReviewEvent(
+  event: BaseEvent,
+  stored: StoredDocument,
+): Promise<void> {
+  const store = getStore()
+  const eventReviewId = extractReviewId(event)
+  const updatedAt = new Date().toISOString()
+
+  if (event.eventType.endsWith('.error')) {
+    // Only clear the stored ID when the failure is about *that* review (or
+    // the event didn't say which one) — an error for a stale review must not
+    // orphan a newer, healthy one.
+    const matchesStored =
+      !eventReviewId || eventReviewId === stored.docupipeReviewId
+    if (!matchesStored || !stored.docupipeReviewId) return
+    const persisted = await store.upsertDocument({
+      ...stored,
+      updatedAt,
+      docupipeReviewId: undefined,
+      docupipeReviewState: undefined,
+    })
+    await emitAuditEvents({
+      event,
+      stored,
+      next: persisted,
+      errorMessage: 'Review overlay generation failed',
+    })
+    return
+  }
+
+  const reviewId = eventReviewId ?? stored.docupipeReviewId
+  const review = reviewId ? await getReview(reviewId) : null
+  const reviewState =
+    parseReviewState(review?.reviewState) ??
+    reviewStateFromEventType(event.eventType)
+  if (!reviewState) return
+
+  const update: Partial<StoredDocument> = {
+    updatedAt,
+    docupipeReviewId: reviewId ?? stored.docupipeReviewId,
+    docupipeReviewState: reviewState,
+  }
+  if (reviewState === 'verified' && review) {
+    const extracted = normalizeExtractedFields(unwrapReviewData(review.data))
+    // Same normalization as the standardization path: POP amounts are
+    // magnitudes, never outflows.
+    if (
+      stored.docType === 'POP' &&
+      typeof extracted.amount === 'number' &&
+      extracted.amount < 0
+    ) {
+      extracted.amount = Math.abs(extracted.amount)
+    }
+    update.extractedFields = extracted
+  }
+
+  const persisted = await store.upsertDocument({ ...stored, ...update })
+  await emitAuditEvents({ event, stored, next: persisted })
+}
+
 async function handleEvent(event: BaseEvent): Promise<void> {
   const metadata = extractMetadata(event)
   const docupipeDocumentId = extractDocupipeDocumentId(event)
@@ -533,8 +627,19 @@ async function handleEvent(event: BaseEvent): Promise<void> {
   } else if (docupipeDocumentId) {
     stored = await store.findDocumentByDocupipeId(docupipeDocumentId)
   }
+  // Review events identify the Review object, not the document — join back
+  // through the persisted review ID when the usual lookups came up empty.
+  if (!stored && event.eventType.startsWith('review.')) {
+    const reviewId = extractReviewId(event)
+    if (reviewId) stored = await store.findDocumentByReviewId(reviewId)
+  }
 
   if (!stored) return
+
+  if (event.eventType.startsWith('review.')) {
+    await handleReviewEvent(event, stored)
+    return
+  }
 
   // Resolve docType from the classification event (`classIds[0]` → className
   // → DocType) so the UI can label the doc the moment classification lands,
@@ -607,7 +712,7 @@ async function handleEvent(event: BaseEvent): Promise<void> {
     if (standardizationId) {
       try {
         const result = await getStandardization(standardizationId)
-        const extracted = normalizeExtracted(
+        const extracted = normalizeExtractedFields(
           result.data as Record<string, unknown>,
         )
 
@@ -688,6 +793,9 @@ async function handleEvent(event: BaseEvent): Promise<void> {
           egnytePlannedPath: plan.plannedPath ?? stored.egnytePlannedPath,
           renamedName: plan.renamedName ?? stored.renamedName,
           docupipeReviewId,
+          // A fresh standardization means a fresh review — any prior
+          // verified/rejected decision applied to the old extraction.
+          docupipeReviewState: undefined,
           fieldConfidence: result.fieldConfidence,
           lowConfidence,
           errorMessage: plan.errorMessage,

@@ -149,6 +149,16 @@ class JsonFileStore implements DreamStore {
     return null
   }
 
+  async findDocumentByReviewId(
+    docupipeReviewId: string,
+  ): Promise<StoredDocument | null> {
+    await this.init()
+    for (const doc of Object.values(this.state.documents)) {
+      if (doc && doc.docupipeReviewId === docupipeReviewId) return doc
+    }
+    return null
+  }
+
   async deleteDocument(id: string): Promise<StoredDocument | null> {
     await this.init()
     const existing = this.state.documents[id]

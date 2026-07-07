@@ -169,6 +169,17 @@ class KvStore implements DreamStore {
     return null
   }
 
+  async findDocumentByReviewId(
+    docupipeReviewId: string,
+  ): Promise<StoredDocument | null> {
+    await this.init()
+    const state = normalize(await kv.get<DreamStoreState>(STATE_KEY))
+    for (const d of Object.values(state.documents)) {
+      if (d && d.docupipeReviewId === docupipeReviewId) return d
+    }
+    return null
+  }
+
   async deleteDocument(id: string): Promise<StoredDocument | null> {
     let removed: StoredDocument | null = null
     await this.withState((state) => {

@@ -344,6 +344,7 @@ function ConfirmationPage() {
           <div className="v2-stat">
             <div className="k">Costs submitted</div>
             <div className="v mono">{formatCurrency(totalSubmitted)}</div>
+            <div className="d">Invoices + pay applications only</div>
           </div>
           <div className="v2-stat">
             <div className="k">Flagged</div>
@@ -494,6 +495,11 @@ function ConfirmationPage() {
             .filter((g) => g.items.length > 0)
             .map((group) => {
               const subtotal = group.items.reduce((sum, d) => sum + d.amount, 0)
+              // Only claim documents (invoices + pay apps) feed the "Costs
+              // submitted" figure — contracts / task orders / change orders
+              // are authorization value, so their subtotals are labeled as
+              // reference-only to prevent the double-count misread.
+              const counted = group.type === 'INV' || group.type === 'PA'
               return (
                 <div key={group.type}>
                   <div
@@ -506,6 +512,11 @@ function ConfirmationPage() {
                     {subtotal > 0 ? (
                       <span className="mono text-[12px] text-muted-1">
                         {formatCurrencyPrecise(subtotal)}
+                        <span className="ml-2 font-sans text-[10.5px] font-semibold uppercase tracking-[0.05em] opacity-80">
+                          {counted
+                            ? 'in costs submitted'
+                            : 'authorization · not counted'}
+                        </span>
                       </span>
                     ) : null}
                   </div>

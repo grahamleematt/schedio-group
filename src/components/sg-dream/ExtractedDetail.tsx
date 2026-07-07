@@ -21,6 +21,7 @@ import {
 } from '#/lib/sg-dream'
 import type { Document, PayAppCheck } from '#/lib/sg-dream'
 import { verificationSnapshotQuery } from '#/lib/queries'
+import { ExtractionOverlayDialog } from '#/components/sg-dream/ExtractionOverlayDialog'
 import { generateVisualReview } from '#/server/fns/visualReview'
 import type { DreamSnapshot } from '#/server/store'
 
@@ -164,16 +165,12 @@ export function ExtractedDetail({
       ) : null}
 
       {doc.docupipeReviewId ? (
-        <a
-          href={`/api/docupipe/review-url?review=${encodeURIComponent(
-            doc.docupipeReviewId,
-          )}`}
-          target="_blank"
-          rel="noreferrer"
-          className="qlink"
-        >
-          View extraction overlay
-        </a>
+        <ExtractionOverlayDialog
+          verificationId={verificationId ?? doc.verificationId}
+          documentId={doc.id}
+          docupipeReviewId={doc.docupipeReviewId}
+          documentName={doc.renamedName}
+        />
       ) : canGenerate ? (
         <span className="qgen">
           <button

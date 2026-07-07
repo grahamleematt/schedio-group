@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   LOW_CONFIDENCE_THRESHOLD,
+  applyReviewEdits,
   computeLowConfidence,
   createClass,
   createSchema,
@@ -9,12 +10,207 @@ import {
   editClass,
   editSchema,
   extractFieldConfidence,
+  flattenReviewData,
   listClasses,
   listSchemas,
   listWorkflows,
+  normalizeExtractedFields,
+  parseReviewBoundingBox,
   registerWebhookEndpoint,
+  unwrapReviewData,
+  updateReview,
   updateWorkflow,
 } from './docupipe'
+
+describe('parseReviewBoundingBox', () => {
+  it('reads corner-format arrays (x1,y1,x2,y2)', () => {
+    expect(parseReviewBoundingBox([0.1, 0.2, 0.4, 0.5])).toEqual({
+      x: 0.1,
+      y: 0.2,
+      width: 0.30000000000000004,
+      height: 0.3,
+    })
+  })
+
+  it('falls back to width/height when corners are degenerate', () => {
+    // x2 < x1 can't be a corner pair — DocuPipe sample payloads use x,y,w,h.
+    expect(parseReviewBoundingBox([0.15, 0.2, 0.02, 0.02])).toEqual({
+      x: 0.15,
+      y: 0.2,
+      width: 0.02,
+      height: 0.02,
+    })
+  })
+
+  it('reads comma-separated strings', () => {
+    expect(parseReviewBoundingBox('0.1, 0.2, 0.4, 0.5')).toMatchObject({
+      x: 0.1,
+      y: 0.2,
+    })
+  })
+
+  it('rejects malformed input', () => {
+    expect(parseReviewBoundingBox(null)).toBeNull()
+    expect(parseReviewBoundingBox('not,a,box')).toBeNull()
+    expect(parseReviewBoundingBox([0.1, 0.2])).toBeNull()
+  })
+})
+
+describe('flattenReviewData', () => {
+  it('flattens localized leaves ordered by page then position', () => {
+    const fields = flattenReviewData({
+      amount: {
+        value: 11910,
+        review: {
+          page: 2,
+          confidence: 'high',
+          boundingBox: [0.1, 0.5, 0.3, 0.55],
+        },
+      },
+      vendor_name: {
+        value: 'Classic SRJ, LLC',
+        review: {
+          page: 1,
+          confidence: 'high',
+          boundingBox: [0.1, 0.1, 0.4, 0.14],
+        },
+      },
+    })
+    expect(fields.map((f) => f.path)).toEqual(['vendor_name', 'amount'])
+    expect(fields[0]).toMatchObject({
+      value: 'Classic SRJ, LLC',
+      page: 1,
+      confidence: 'high',
+    })
+    expect(fields[1].rect).toMatchObject({ x: 0.1, y: 0.5 })
+  })
+
+  it('recurses nested objects and arrays and keeps unlocalized leaves', () => {
+    const fields = flattenReviewData({
+      line_items: [
+        {
+          description: {
+            value: 'Grading',
+            review: { page: 3, boundingBox: [0.1, 0.2, 0.5, 0.25] },
+          },
+        },
+      ],
+      currency: { value: 'USD' },
+    })
+    expect(fields.map((f) => f.path)).toEqual([
+      'line_items.0.description',
+      'currency',
+    ])
+    expect(fields[1].page).toBeUndefined()
+  })
+
+  it('drops null and empty values', () => {
+    const fields = flattenReviewData({
+      po_number: { value: null, review: { page: 1 } },
+      notes: { value: '' },
+    })
+    expect(fields).toEqual([])
+  })
+})
+
+describe('unwrapReviewData', () => {
+  it('collapses {value, review} leaves to bare values, recursively', () => {
+    const out = unwrapReviewData({
+      vendor_name: {
+        value: 'Rusin',
+        review: { page: 1, boundingBox: [0.1, 0.1, 0.4, 0.14] },
+      },
+      amount: { value: 11910 },
+      line_items: [
+        {
+          description: { value: 'Grading', review: { page: 2 } },
+        },
+      ],
+    })
+    expect(out).toEqual({
+      vendor_name: 'Rusin',
+      amount: 11910,
+      line_items: [{ description: 'Grading' }],
+    })
+  })
+
+  it('feeds normalizeExtractedFields with reviewer-corrected values', () => {
+    const extracted = normalizeExtractedFields(
+      unwrapReviewData({
+        vendor_name: { value: 'Corrected Vendor', review: { page: 1 } },
+        amount: { value: 5000, review: { page: 1 } },
+        currency: { value: 'USD' },
+      }),
+    )
+    expect(extracted.vendorName).toBe('Corrected Vendor')
+    expect(extracted.amount).toBe(5000)
+    expect(extracted.currency).toBe('USD')
+  })
+})
+
+describe('normalizeExtractedFields', () => {
+  it('unwraps {value} objects and prefers current_payment_due for amount', () => {
+    const out = normalizeExtractedFields({
+      vendor_name: { value: 'Rusin', confidence: 0.92 },
+      amount: 99999,
+      current_payment_due: 11910,
+      document_number: '12',
+    })
+    expect(out.vendorName).toBe('Rusin')
+    expect(out.amount).toBe(11910)
+    expect(out.documentNumber).toBe('12')
+  })
+
+  it('parses currency-formatted strings as numbers', () => {
+    expect(normalizeExtractedFields({ amount: '$1,234.56' }).amount).toBe(
+      1234.56,
+    )
+  })
+})
+
+describe('applyReviewEdits', () => {
+  const data = {
+    vendor_name: {
+      value: 'Rusin',
+      review: { page: 1, boundingBox: [0.1, 0.1, 0.4, 0.14] },
+    },
+    amount: { value: 11910, review: { page: 2 } },
+    line_items: [{ description: { value: 'Grading', review: { page: 3 } } }],
+  }
+
+  it('replaces only the leaf value, keeping localization intact', () => {
+    const out = applyReviewEdits(data, [
+      { path: 'amount', value: 12500 },
+      { path: 'line_items.0.description', value: 'Regrading' },
+    ])
+    expect(out.appliedPaths).toEqual(['amount', 'line_items.0.description'])
+    const amount = out.data.amount as { value: unknown; review: unknown }
+    expect(amount.value).toBe(12500)
+    expect(amount.review).toEqual({ page: 2 })
+    const items = out.data.line_items as Array<{
+      description: { value: unknown; review: unknown }
+    }>
+    expect(items[0].description.value).toBe('Regrading')
+    expect(items[0].description.review).toEqual({ page: 3 })
+  })
+
+  it('does not mutate the input payload', () => {
+    applyReviewEdits(data, [{ path: 'amount', value: 1 }])
+    expect((data.amount as { value: unknown }).value).toBe(11910)
+  })
+
+  it('skips unknown or non-leaf paths', () => {
+    const out = applyReviewEdits(data, [
+      { path: 'no_such_field', value: 'x' },
+      { path: 'line_items', value: 'not-a-leaf' },
+      { path: 'vendor_name', value: 'Corrected' },
+    ])
+    expect(out.appliedPaths).toEqual(['vendor_name'])
+    expect((out.data.vendor_name as { value: unknown }).value).toBe(
+      'Corrected',
+    )
+  })
+})
 
 describe('extractFieldConfidence', () => {
   it('reads a top-level confidence map', () => {
@@ -314,6 +510,26 @@ describe('docupipe CRUD helpers', () => {
     expect(readJsonBody(calls[0].init)).toEqual({
       classifyStandardizeStep: { classToSchema: { c1: 's1', c2: 's2' } },
     })
+  })
+
+  it('updateReview POSTs data + reviewStatus to /review/{id}/update', async () => {
+    const { calls } = stubFetch(() => ({ body: { reviewId: 'rev1' } }))
+    await updateReview('rev1', {
+      data: { amount: { value: 12500, review: { page: 2 } } },
+      reviewStatus: 'verified',
+    })
+    expect(calls[0].url).toBe('https://app.docupipe.test/review/rev1/update')
+    expect(calls[0].init?.method).toBe('POST')
+    expect(readJsonBody(calls[0].init)).toEqual({
+      data: { amount: { value: 12500, review: { page: 2 } } },
+      reviewStatus: 'verified',
+    })
+  })
+
+  it('updateReview omits data when only the status changes', async () => {
+    const { calls } = stubFetch(() => ({ body: { reviewId: 'rev1' } }))
+    await updateReview('rev1', { reviewStatus: 'rejected' })
+    expect(readJsonBody(calls[0].init)).toEqual({ reviewStatus: 'rejected' })
   })
 
   it('registerWebhookEndpoint POSTs the URL + subscribed events', async () => {

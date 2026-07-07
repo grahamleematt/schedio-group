@@ -37,6 +37,7 @@ import { Route as ApiIntelligenceDocumentsRouteImport } from './routes/api/intel
 import { Route as ApiEgnyteImportsRouteImport } from './routes/api/egnyte/imports'
 import { Route as ApiDocupipeWebhookRouteImport } from './routes/api/docupipe/webhook'
 import { Route as ApiDocupipeReviewUrlRouteImport } from './routes/api/docupipe/review-url'
+import { Route as ApiDocumentsFileRouteImport } from './routes/api/documents/file'
 import { Route as ApiAuthSignOutRouteImport } from './routes/api/auth/sign-out'
 import { Route as ApiAuthSignInRouteImport } from './routes/api/auth/sign-in'
 import { Route as ApiAuthCallbackRouteImport } from './routes/api/auth/callback'
@@ -185,6 +186,11 @@ const ApiDocupipeReviewUrlRoute = ApiDocupipeReviewUrlRouteImport.update({
   path: '/api/docupipe/review-url',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDocumentsFileRoute = ApiDocumentsFileRouteImport.update({
+  id: '/api/documents/file',
+  path: '/api/documents/file',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSignOutRoute = ApiAuthSignOutRouteImport.update({
   id: '/api/auth/sign-out',
   path: '/api/auth/sign-out',
@@ -226,6 +232,7 @@ export interface FileRoutesByFullPath {
   '/api/auth/callback': typeof ApiAuthCallbackRoute
   '/api/auth/sign-in': typeof ApiAuthSignInRoute
   '/api/auth/sign-out': typeof ApiAuthSignOutRoute
+  '/api/documents/file': typeof ApiDocumentsFileRoute
   '/api/docupipe/review-url': typeof ApiDocupipeReviewUrlRoute
   '/api/docupipe/webhook': typeof ApiDocupipeWebhookRoute
   '/api/egnyte/imports': typeof ApiEgnyteImportsRoute
@@ -259,6 +266,7 @@ export interface FileRoutesByTo {
   '/api/auth/callback': typeof ApiAuthCallbackRoute
   '/api/auth/sign-in': typeof ApiAuthSignInRoute
   '/api/auth/sign-out': typeof ApiAuthSignOutRoute
+  '/api/documents/file': typeof ApiDocumentsFileRoute
   '/api/docupipe/review-url': typeof ApiDocupipeReviewUrlRoute
   '/api/docupipe/webhook': typeof ApiDocupipeWebhookRoute
   '/api/egnyte/imports': typeof ApiEgnyteImportsRoute
@@ -293,6 +301,7 @@ export interface FileRoutesById {
   '/api/auth/callback': typeof ApiAuthCallbackRoute
   '/api/auth/sign-in': typeof ApiAuthSignInRoute
   '/api/auth/sign-out': typeof ApiAuthSignOutRoute
+  '/api/documents/file': typeof ApiDocumentsFileRoute
   '/api/docupipe/review-url': typeof ApiDocupipeReviewUrlRoute
   '/api/docupipe/webhook': typeof ApiDocupipeWebhookRoute
   '/api/egnyte/imports': typeof ApiEgnyteImportsRoute
@@ -328,6 +337,7 @@ export interface FileRouteTypes {
     | '/api/auth/callback'
     | '/api/auth/sign-in'
     | '/api/auth/sign-out'
+    | '/api/documents/file'
     | '/api/docupipe/review-url'
     | '/api/docupipe/webhook'
     | '/api/egnyte/imports'
@@ -361,6 +371,7 @@ export interface FileRouteTypes {
     | '/api/auth/callback'
     | '/api/auth/sign-in'
     | '/api/auth/sign-out'
+    | '/api/documents/file'
     | '/api/docupipe/review-url'
     | '/api/docupipe/webhook'
     | '/api/egnyte/imports'
@@ -394,6 +405,7 @@ export interface FileRouteTypes {
     | '/api/auth/callback'
     | '/api/auth/sign-in'
     | '/api/auth/sign-out'
+    | '/api/documents/file'
     | '/api/docupipe/review-url'
     | '/api/docupipe/webhook'
     | '/api/egnyte/imports'
@@ -428,6 +440,7 @@ export interface RootRouteChildren {
   ApiAuthCallbackRoute: typeof ApiAuthCallbackRoute
   ApiAuthSignInRoute: typeof ApiAuthSignInRoute
   ApiAuthSignOutRoute: typeof ApiAuthSignOutRoute
+  ApiDocumentsFileRoute: typeof ApiDocumentsFileRoute
   ApiDocupipeReviewUrlRoute: typeof ApiDocupipeReviewUrlRoute
   ApiDocupipeWebhookRoute: typeof ApiDocupipeWebhookRoute
   ApiEgnyteImportsRoute: typeof ApiEgnyteImportsRoute
@@ -635,6 +648,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDocupipeReviewUrlRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/documents/file': {
+      id: '/api/documents/file'
+      path: '/api/documents/file'
+      fullPath: '/api/documents/file'
+      preLoaderRoute: typeof ApiDocumentsFileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/sign-out': {
       id: '/api/auth/sign-out'
       path: '/api/auth/sign-out'
@@ -684,6 +704,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthCallbackRoute: ApiAuthCallbackRoute,
   ApiAuthSignInRoute: ApiAuthSignInRoute,
   ApiAuthSignOutRoute: ApiAuthSignOutRoute,
+  ApiDocumentsFileRoute: ApiDocumentsFileRoute,
   ApiDocupipeReviewUrlRoute: ApiDocupipeReviewUrlRoute,
   ApiDocupipeWebhookRoute: ApiDocupipeWebhookRoute,
   ApiEgnyteImportsRoute: ApiEgnyteImportsRoute,

@@ -70,7 +70,7 @@ function fullyMappedWorkflow(): DocupipeWorkflowSummary {
       classToSchema,
       multiClass: false,
       includeUnknown: true,
-      stdVersion: 2.2,
+      stdVersion: SG_DREAM_DOCUPIPE_SPEC.workflow.stdVersion,
     },
   }
 }
@@ -165,7 +165,7 @@ describe('compareSpecToLive', () => {
         classToSchema: { [classId('INV')]: 'sid_inv' },
         multiClass: false,
         includeUnknown: true,
-        stdVersion: 2.2,
+        stdVersion: SG_DREAM_DOCUPIPE_SPEC.workflow.stdVersion,
       },
     }
     const result = compareSpecToLive(baseInput({ liveSchemas, liveWorkflow }))
@@ -244,6 +244,54 @@ describe('compareSpecToLive', () => {
     expect(warn).toBeDefined()
     expect(warn!.action?.kind).toBe('editSchema')
     expect(warn!.message).toContain('rogue_field')
+  })
+
+  it('flags stdVersion drift with an updateWorkflowSettings action', () => {
+    // Live workflow is fully mapped but still on the old V2 engine.
+    const liveWorkflow = fullyMappedWorkflow()
+    liveWorkflow.step = { ...liveWorkflow.step, stdVersion: 2.2 }
+    const result = compareSpecToLive(baseInput({ liveWorkflow }))
+    const drift = result.issues.find(
+      (i) => i.severity === 'fail' && i.message.includes('stdVersion'),
+    )
+    expect(drift).toBeDefined()
+    expect(drift!.action?.kind).toBe('updateWorkflowSettings')
+    if (drift!.action?.kind !== 'updateWorkflowSettings') return
+    expect(drift!.action.stepWithMerge.stdVersion).toBe(
+      SG_DREAM_DOCUPIPE_SPEC.workflow.stdVersion,
+    )
+    // Mappings were already complete, so the settings write is the only
+    // workflow action.
+    expect(drift!.action.changes[0]).toContain('2.2')
+  })
+
+  it('defers the stdVersion write to the mappings action when both drift', () => {
+    // Live workflow on 2.2 AND missing a mapping: the mappings action's step
+    // body already carries the spec stdVersion, so no second action fires.
+    const liveWorkflow = fullyMappedWorkflow()
+    const partialMap = {
+      ...(liveWorkflow.step.classToSchema as Record<string, string>),
+    }
+    delete partialMap[classId('POP')]
+    liveWorkflow.step = {
+      ...liveWorkflow.step,
+      classToSchema: partialMap,
+      stdVersion: 2.2,
+    }
+    const result = compareSpecToLive(baseInput({ liveWorkflow }))
+    const drift = result.issues.find(
+      (i) => i.severity === 'fail' && i.message.includes('stdVersion'),
+    )
+    expect(drift).toBeDefined()
+    expect(drift!.action).toBeUndefined()
+    const mappings = result.issues.find(
+      (i) => i.action?.kind === 'updateWorkflowMappings',
+    )
+    expect(mappings).toBeDefined()
+    if (mappings!.action?.kind !== 'updateWorkflowMappings') return
+    expect(mappings!.action.stepWithMerge.stdVersion).toBe(
+      SG_DREAM_DOCUPIPE_SPEC.workflow.stdVersion,
+    )
   })
 
   it('flags FAIL when the workflow is missing entirely', () => {

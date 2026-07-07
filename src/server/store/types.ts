@@ -72,6 +72,13 @@ export type CustodyState =
   | 'relied'
   | 'locked'
 
+/**
+ * DocuPipe Review lifecycle. `unverified` until a human finalizes
+ * (`verified`) or rejects (`rejected`) the extraction — either in the hosted
+ * editor or through the in-app corrections flow.
+ */
+export type ReviewState = 'unverified' | 'verified' | 'rejected'
+
 export type StoredDocument = {
   id: string
   clientId: string
@@ -142,6 +149,12 @@ export type StoredDocument = {
    * short-lived presigned link minted on demand from this ID, never stored.
    */
   docupipeReviewId?: string
+  /**
+   * Human-review lifecycle state of the DocuPipe Review object. Synced from
+   * `review.verified.success` / `review.rejected.success` webhook events and
+   * from in-app corrections. Absent until the first review exists.
+   */
+  docupipeReviewState?: ReviewState
   /** Per-scalar-field confidence 0..1, when DocuPipe returns it. */
   fieldConfidence?: Record<string, number>
   /**
@@ -265,6 +278,15 @@ export type DreamStore = {
 
   findDocumentByDocupipeId: (
     docupipeDocumentId: string,
+  ) => Promise<StoredDocument | null>
+
+  /**
+   * Resolve a document by its DocuPipe Review object ID. Review webhook
+   * events (`review.verified.success` etc.) identify only the review, so this
+   * is the webhook's join path back to the stored row.
+   */
+  findDocumentByReviewId: (
+    docupipeReviewId: string,
   ) => Promise<StoredDocument | null>
 
   /**

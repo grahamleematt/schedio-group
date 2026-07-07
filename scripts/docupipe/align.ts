@@ -92,6 +92,14 @@ export type SyncAction =
       // The full step body to PUT back, with `classToSchema` already merged.
       stepWithMerge: ClassifyStandardizeStep
     }
+  | {
+      kind: 'updateWorkflowSettings'
+      workflowId: string
+      // Full step body with the spec-driven settings (stdVersion) applied and
+      // the live mappings preserved.
+      stepWithMerge: ClassifyStandardizeStep
+      changes: ReadonlyArray<string>
+    }
 
 export type Issue = {
   severity: Severity
@@ -254,6 +262,32 @@ export function compareSpecToLive(input: CompareInput): CompareResult {
       liveSchemas,
       liveWorkflow,
     })
+
+    // Engine-version drift. The spec's stdVersion is intent (e.g. the V3
+    // extraction engine); a live workflow still on an older version gets a
+    // FAIL with a settings update. When a mappings action is also firing, its
+    // stepWithMerge already carries the spec stdVersion, so we skip the
+    // second write and just report.
+    const liveStd = (liveWorkflow.step as Partial<ClassifyStandardizeStep>)
+      .stdVersion
+    if (liveStd !== spec.workflow.stdVersion) {
+      issues.push({
+        severity: 'fail',
+        message: `workflow stdVersion is ${liveStd ?? '<unset>'}; spec wants ${spec.workflow.stdVersion}`,
+        action:
+          merge.additions.length > 0
+            ? undefined
+            : {
+                kind: 'updateWorkflowSettings',
+                workflowId: liveWorkflow.workflowId,
+                stepWithMerge: merge.stepWithMerge,
+                changes: [
+                  `stdVersion ${liveStd ?? '<unset>'} → ${spec.workflow.stdVersion}`,
+                ],
+              },
+      })
+    }
+
     if (merge.additions.length === 0 && merge.unmappableClasses.length === 0) {
       issues.push({
         severity: 'pass',
@@ -416,7 +450,10 @@ export function mergeWorkflowMappings(input: {
     classToSchema: mergedMap,
     multiClass: existingStep.multiClass ?? spec.workflow.multiClass,
     includeUnknown: existingStep.includeUnknown ?? spec.workflow.includeUnknown,
-    stdVersion: existingStep.stdVersion ?? spec.workflow.stdVersion,
+    // stdVersion is spec-driven (unlike the merges above, which preserve live
+    // state): the extraction engine version is deliberate configuration, so
+    // any workflow write carries the spec's value.
+    stdVersion: spec.workflow.stdVersion,
   }
 
   return {
@@ -579,6 +616,8 @@ function describeAction(a: SyncAction): string {
         .join(', ')
       return `add workflow mappings: ${pairs}`
     }
+    case 'updateWorkflowSettings':
+      return `update workflow settings: ${a.changes.join(', ')}`
   }
 }
 
@@ -626,6 +665,12 @@ async function applyAction(a: SyncAction): Promise<string> {
         classifyStandardizeStep: a.stepWithMerge,
       })
       return `updated workflow ${a.workflowId} mappings (+${a.additions.length})`
+    }
+    case 'updateWorkflowSettings': {
+      await updateWorkflow(a.workflowId, {
+        classifyStandardizeStep: a.stepWithMerge,
+      })
+      return `updated workflow ${a.workflowId} settings (${a.changes.join(', ')})`
     }
   }
 }
@@ -733,7 +778,10 @@ async function main(): Promise<number> {
       a.kind === 'editSchema',
   )
   const workflowActions = planned.filter(
-    (a) => a.kind === 'createWorkflow' || a.kind === 'updateWorkflowMappings',
+    (a) =>
+      a.kind === 'createWorkflow' ||
+      a.kind === 'updateWorkflowMappings' ||
+      a.kind === 'updateWorkflowSettings',
   )
 
   for (const action of structuralActions) {
@@ -765,7 +813,8 @@ async function main(): Promise<number> {
       if (
         issue.action &&
         (issue.action.kind === 'createWorkflow' ||
-          issue.action.kind === 'updateWorkflowMappings')
+          issue.action.kind === 'updateWorkflowMappings' ||
+          issue.action.kind === 'updateWorkflowSettings')
       ) {
         workflowActions.push(issue.action)
       }

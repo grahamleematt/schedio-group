@@ -25,6 +25,7 @@ import type {
   DreamSnapshot,
   DreamStore,
   ExtractedFields,
+  ReviewState,
   StoredAuditEvent,
   StoredDocument,
   StoredVerification,
@@ -65,6 +66,7 @@ type DocumentRow = {
   size_bytes: string | number | null
   import_job_id: string | null
   docupipe_review_id: string | null
+  docupipe_review_state: string | null
   field_confidence: Record<string, number> | null
   low_confidence: boolean | null
   content_hash: string | null
@@ -142,6 +144,8 @@ function rowToDocument(row: DocumentRow): StoredDocument {
     sizeBytes: maybeNumber(row.size_bytes),
     importJobId: row.import_job_id ?? undefined,
     docupipeReviewId: row.docupipe_review_id ?? undefined,
+    docupipeReviewState:
+      (row.docupipe_review_state as ReviewState | null) ?? undefined,
     fieldConfidence: row.field_confidence ?? undefined,
     lowConfidence: row.low_confidence ?? undefined,
     contentHash: row.content_hash ?? undefined,
@@ -248,6 +252,7 @@ async function ensureSchema(): Promise<void> {
       size_bytes bigint,
       import_job_id text,
       docupipe_review_id text,
+      docupipe_review_state text,
       field_confidence jsonb,
       low_confidence boolean,
       content_hash text
@@ -260,6 +265,10 @@ async function ensureSchema(): Promise<void> {
     -- earlier, incorrectly-modeled visual_review_url). The old column is left
     -- in place on existing databases; it is simply no longer read or written.
     alter table dream_documents add column if not exists docupipe_review_id text;
+
+    -- Additive migration: human-review lifecycle state synced from DocuPipe
+    -- review webhook events + in-app corrections.
+    alter table dream_documents add column if not exists docupipe_review_state text;
 
     -- Additive migration for the deferred-filing gate: destination path
     -- computed at analysis time, before the file is committed to Egnyte.
@@ -434,7 +443,8 @@ async function upsertDocumentRow(doc: StoredDocument): Promise<StoredDocument> {
         custody_state, egnyte_incoming_path, egnyte_classified_path,
         egnyte_guid, egnyte_source_path, egnyte_entry_id, egnyte_group_id,
         egnyte_checksum, egnyte_web_url, mime_type, size_bytes,
-        import_job_id, docupipe_review_id, field_confidence, low_confidence,
+        import_job_id, docupipe_review_id, docupipe_review_state,
+        field_confidence, low_confidence,
         content_hash, egnyte_planned_path
       )
       values (
@@ -446,8 +456,9 @@ async function upsertDocumentRow(doc: StoredDocument): Promise<StoredDocument> {
         $20, $21, $22,
         $23, $24, $25, $26,
         $27, $28, $29, $30,
-        $31, $32, $33::jsonb, $34,
-        $35, $36
+        $31, $32, $33,
+        $34::jsonb, $35,
+        $36, $37
       )
       on conflict (id) do update set
         client_id = excluded.client_id,
@@ -481,6 +492,7 @@ async function upsertDocumentRow(doc: StoredDocument): Promise<StoredDocument> {
         size_bytes = excluded.size_bytes,
         import_job_id = excluded.import_job_id,
         docupipe_review_id = excluded.docupipe_review_id,
+        docupipe_review_state = excluded.docupipe_review_state,
         field_confidence = excluded.field_confidence,
         low_confidence = excluded.low_confidence,
         content_hash = excluded.content_hash,
@@ -520,6 +532,7 @@ async function upsertDocumentRow(doc: StoredDocument): Promise<StoredDocument> {
       doc.sizeBytes ?? null,
       doc.importJobId ?? null,
       doc.docupipeReviewId ?? null,
+      doc.docupipeReviewState ?? null,
       doc.fieldConfidence ? JSON.stringify(doc.fieldConfidence) : null,
       doc.lowConfidence ?? null,
       doc.contentHash ?? null,
@@ -624,6 +637,17 @@ class PostgresStore implements DreamStore {
     const result = await dbQuery<DocumentRow>(
       `select * from dream_documents where docupipe_document_id = $1 limit 1`,
       [docupipeDocumentId],
+    )
+    return result.rows[0] ? rowToDocument(result.rows[0]) : null
+  }
+
+  async findDocumentByReviewId(
+    docupipeReviewId: string,
+  ): Promise<StoredDocument | null> {
+    await this.init()
+    const result = await dbQuery<DocumentRow>(
+      `select * from dream_documents where docupipe_review_id = $1 limit 1`,
+      [docupipeReviewId],
     )
     return result.rows[0] ? rowToDocument(result.rows[0]) : null
   }

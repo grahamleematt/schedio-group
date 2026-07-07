@@ -66,8 +66,13 @@ type WorkflowSpec = {
   workflowName: string
   /** Step type — only `classifyStandardize` is supported by this codebase. */
   stepType: 'classifyStandardize'
-  /** DocuPipe standardization engine version. 2.2 is current stable. */
-  stdVersion: 2.2
+  /**
+   * DocuPipe standardization engine version. 3.0 is the agentic V3 engine:
+   * higher extraction accuracy (~95% vs ~89% on DocuPipe's eval suite),
+   * per-field page attribution, same credit cost at standard effort, and
+   * fully compatible with existing schemas and webhook events.
+   */
+  stdVersion: 3.0
   /** Single-class classification (vs multi-label). */
   multiClass: false
   /** Whether DocuPipe should reserve an `unknown` bucket. */
@@ -372,16 +377,18 @@ export const SG_DREAM_DOCUPIPE_SPEC = {
   workflow: {
     workflowName: 'SG DREAM Ingest',
     stepType: 'classifyStandardize',
-    stdVersion: 2.2,
+    stdVersion: 3.0,
     multiClass: false,
     includeUnknown: true,
   } as const satisfies WorkflowSpec,
   /**
    * Webhook events the handler in src/routes/api/docupipe/webhook.ts knows
    * how to act on. Used by the align script when registering an endpoint
-   * via `--register-webhook`. Other DocuPipe events (review.*, schema.*,
-   * split.*, merge.*) are intentionally not subscribed because the handler
-   * has no logic for them and they'd just generate noise.
+   * via `--register-webhook`. The `review.*` pair syncs human-review
+   * decisions (hosted editor or in-app corrections) back into the store.
+   * Other DocuPipe events (schema.*, split.*, merge.*) are intentionally
+   * not subscribed because the handler has no logic for them and they'd
+   * just generate noise.
    */
   webhookEvents: [
     'document.processed.success',
@@ -390,6 +397,8 @@ export const SG_DREAM_DOCUPIPE_SPEC = {
     'classification.processed.error',
     'standardization.processed.success',
     'standardization.processed.error',
+    'review.verified.success',
+    'review.rejected.success',
   ] as const,
 } as const
 

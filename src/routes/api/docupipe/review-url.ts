@@ -16,7 +16,7 @@ import { createFileRoute } from '@tanstack/react-router'
 
 import { resolvePortalUser, authzJsonError } from '#/server/authz'
 import { getReviewPresignedUrl } from '#/server/docupipe'
-import { isIntakePipelineEnabled } from '#/server/env'
+import { isDocupipeConfigured } from '#/server/env'
 
 function htmlResponse(message: string, status: number): Response {
   return new Response(
@@ -31,8 +31,11 @@ export const Route = createFileRoute('/api/docupipe/review-url')({
   server: {
     handlers: {
       GET: async ({ request }) => {
-        if (!isIntakePipelineEnabled()) {
-          return htmlResponse('Document pipeline is disabled.', 503)
+        // Minting a viewer link is a read-only DocuPipe call, so it gates on
+        // credentials existing — not on the intake pipeline switch, which only
+        // guards against creating new extractions.
+        if (!isDocupipeConfigured()) {
+          return htmlResponse('Document pipeline is not configured.', 503)
         }
 
         try {
