@@ -9,6 +9,17 @@ function safeReturnPathname(value: string | null): string | undefined {
   return value
 }
 
+/**
+ * Loose email shape check for the `loginHint` passthrough. The hint only
+ * prefills AuthKit's email field — WorkOS re-validates on its side — so this
+ * just filters junk that would render a confusing prefill.
+ */
+function safeLoginHint(value: string | null): string | undefined {
+  const trimmed = value?.trim()
+  if (!trimmed || trimmed.length > 254) return undefined
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed) ? trimmed : undefined
+}
+
 function redirectToLogin(request: Request, error: string): Response {
   const url = new URL('/login', request.url)
   url.searchParams.set('error', error)
@@ -19,9 +30,9 @@ export const Route = createFileRoute('/api/auth/sign-in')({
   server: {
     handlers: {
       GET: async ({ request }) => {
-        const returnPathname = safeReturnPathname(
-          new URL(request.url).searchParams.get('returnPathname'),
-        )
+        const params = new URL(request.url).searchParams
+        const returnPathname = safeReturnPathname(params.get('returnPathname'))
+        const loginHint = safeLoginHint(params.get('email'))
         // Demo/dev bypass: skip the WorkOS round-trip and drop straight into the
         // app (resolvePortalUser resolves to the seeded Tim user).
         if (
@@ -39,8 +50,15 @@ export const Route = createFileRoute('/api/auth/sign-in')({
         const { getSignInUrl } = await import(
           '@workos/authkit-tanstack-react-start'
         )
+        // `loginHint` prefills AuthKit's email field so the user goes straight
+        // to their password / one-time-code step instead of retyping the email
+        // they just gave us on /login.
+        const data = {
+          ...(returnPathname ? { returnPathname } : {}),
+          ...(loginHint ? { loginHint } : {}),
+        }
         const url = await getSignInUrl(
-          returnPathname ? { data: { returnPathname } } : undefined,
+          Object.keys(data).length > 0 ? { data } : undefined,
         )
         return Response.redirect(url, 307)
       },

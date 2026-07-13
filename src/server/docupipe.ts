@@ -1100,6 +1100,61 @@ export function applyReviewEdits(
   return { data: next, appliedPaths: applied }
 }
 
+export type ReviewBoxEdit = {
+  /** Dot path into the review payload, as produced by `flattenReviewData`. */
+  path: string
+  /** New normalized rect (0..1, origin top-left, base page orientation). */
+  rect: OverlayRect
+  /** 1-based page the box lives on. Omit to keep the leaf's current page. */
+  page?: number
+}
+
+/**
+ * Apply dragged-box corrections to a review payload: each edit walks to the
+ * `{ value, review }` leaf at `path` and replaces `review.boundingBoxes` with
+ * the new rect (stored in DocuPipe's corner form `[x1, y1, x2, y2]`), leaving
+ * the extracted `value` untouched. The mirror image of `applyReviewEdits`,
+ * which replaces values and leaves boxes alone. Unknown paths are skipped;
+ * returns the new payload plus the paths that actually applied.
+ */
+export function applyReviewBoxEdits(
+  data: Record<string, unknown>,
+  edits: ReadonlyArray<ReviewBoxEdit>,
+): { data: Record<string, unknown>; appliedPaths: ReadonlyArray<string> } {
+  const next = structuredClone(data)
+  const applied: Array<string> = []
+  for (const edit of edits) {
+    const segments = edit.path.split('.')
+    let node: unknown = next
+    let ok = true
+    for (const segment of segments) {
+      if (Array.isArray(node)) {
+        node = node[Number(segment)]
+      } else if (node && typeof node === 'object') {
+        node = (node as Record<string, unknown>)[segment]
+      } else {
+        ok = false
+        break
+      }
+    }
+    if (!ok || !node || typeof node !== 'object' || Array.isArray(node)) {
+      continue
+    }
+    const leaf = node as Record<string, unknown>
+    if (!isReviewLeaf(leaf)) continue
+    const review =
+      leaf.review && typeof leaf.review === 'object'
+        ? (leaf.review as Record<string, unknown>)
+        : {}
+    const { x, y, width, height } = edit.rect
+    review.boundingBoxes = [[x, y, x + width, y + height]]
+    if (edit.page !== undefined) review.page = edit.page
+    leaf.review = review
+    applied.push(edit.path)
+  }
+  return { data: next, appliedPaths: applied }
+}
+
 export type ReviewStatus = 'unverified' | 'verified' | 'rejected'
 
 /**
@@ -1124,6 +1179,83 @@ export async function updateReview(
       reviewStatus: input.reviewStatus,
     }),
   })
+}
+
+export type StandardizeV3Result = {
+  jobId: string
+  standardizationId: string
+}
+
+/**
+ * Kick off a targeted V3 standardization for one document — the per-document
+ * escalation lever behind "Re-run extraction (high effort)". Unlike the
+ * workflow path (which runs at the workflow's default effort), this lets us
+ * re-extract a single problem document with `effortLevel: 'high'` (+2
+ * credits/page) without raising cost for the whole pipeline. The job is
+ * async; results arrive via the same `standardization.processed.success`
+ * webhook the workflow uses.
+ *
+ * @see https://docs.docupipe.ai/reference/post_standardize_v3
+ */
+export async function standardizeV3(input: {
+  documentId: string
+  schemaId: string
+  effortLevel: 'standard' | 'high'
+}): Promise<StandardizeV3Result> {
+  const body = await dpFetch<{
+    jobId?: string
+    job_id?: string
+    standardizationId?: string
+    standardization_id?: string
+  }>('/v3/standardize', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      documentId: input.documentId,
+      schemaId: input.schemaId,
+      effortLevel: input.effortLevel,
+    }),
+  })
+  const jobId = body.jobId ?? body.job_id
+  const standardizationId = body.standardizationId ?? body.standardization_id
+  if (!jobId || !standardizationId) {
+    throw new DocuPipeError(
+      500,
+      body,
+      'DocuPipe POST /v3/standardize response missing jobId/standardizationId',
+    )
+  }
+  return { jobId, standardizationId }
+}
+
+/**
+ * Re-run classification for one document against the given classes. Used by
+ * the high-effort re-run when a document is stuck at UNK — classification has
+ * no effort knob, but a standalone re-classify (with `displayMode` left to
+ * the AI) gives the classifier a second look; the result arrives via the
+ * `classification.processed.success` webhook.
+ *
+ * @see https://docs.docupipe.ai/reference/post_classify_batch
+ */
+export async function classifyDocument(input: {
+  documentId: string
+  classIds?: ReadonlyArray<string>
+}): Promise<{ jobId?: string }> {
+  const body = await dpFetch<{ jobId?: string; job_id?: string }>(
+    '/classify/batch',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        documentIds: [input.documentId],
+        ...(input.classIds && input.classIds.length > 0
+          ? { classIds: [...input.classIds] }
+          : {}),
+        includeUnknown: true,
+      }),
+    },
+  )
+  return { jobId: body.jobId ?? body.job_id }
 }
 
 /**

@@ -26,7 +26,8 @@ import { extractionOverlayQuery, verificationSnapshotQuery } from '#/lib/queries
 import { submitReviewCorrections } from '#/server/fns/reviewCorrections'
 import type { ReviewCorrectionsResult } from '#/server/fns/reviewCorrections'
 import type { ExtractionOverlayField } from '#/server/fns/extractionOverlay'
-import type { ReviewEdit } from '#/server/docupipe'
+import type { ReviewBoxEdit, ReviewEdit } from '#/server/docupipe'
+import type { NormalizedRect } from '#/lib/overlay-geometry'
 import type { ReviewState } from '#/server/store'
 
 const ExtractionOverlayViewer = lazy(
@@ -95,6 +96,8 @@ export function ExtractionOverlayDialog({
   const [open, setOpen] = useState(false)
   // Pending corrections keyed by field path; values are the raw input text.
   const [edits, setEdits] = useState<Record<string, string>>({})
+  // Pending box repositions keyed by field path (base page orientation).
+  const [boxEdits, setBoxEdits] = useState<Record<string, NormalizedRect>>({})
 
   const queryClient = useQueryClient()
   const overlayQuery = useQuery({
@@ -107,6 +110,7 @@ export function ExtractionOverlayDialog({
     mutationFn: (input: {
       action: 'verify' | 'reject'
       edits?: Array<ReviewEdit>
+      boxEdits?: Array<ReviewBoxEdit>
     }) =>
       submitReviewCorrections({
         data: { verificationId, documentId, ...input },
@@ -121,7 +125,10 @@ export function ExtractionOverlayDialog({
       void queryClient.invalidateQueries({
         queryKey: extractionOverlayQuery(verificationId, documentId).queryKey,
       })
-      if (result.ok) setEdits({})
+      if (result.ok) {
+        setEdits({})
+        setBoxEdits({})
+      }
     },
   })
 
@@ -134,7 +141,13 @@ export function ExtractionOverlayDialog({
       return field ? coerceEdit(field, raw) : null
     })
     .filter((e): e is ReviewEdit => e !== null)
-  const dirtyCount = dirtyEdits.length
+  const dirtyBoxEdits: Array<ReviewBoxEdit> = Object.entries(boxEdits)
+    .map(([path, rect]): ReviewBoxEdit | null => {
+      const field = fieldsByPath.get(path)
+      return field ? { path, rect, page: field.page } : null
+    })
+    .filter((e): e is ReviewBoxEdit => e !== null)
+  const dirtyCount = dirtyEdits.length + dirtyBoxEdits.length
 
   const onEdit = (field: ExtractionOverlayField, raw: string) => {
     setEdits((prev) => {
@@ -147,10 +160,25 @@ export function ExtractionOverlayDialog({
     })
   }
 
+  const onBoxEdit = (
+    field: ExtractionOverlayField,
+    rect: NormalizedRect | null,
+  ) => {
+    setBoxEdits((prev) => {
+      if (rect === null) {
+        if (!(field.path in prev)) return prev
+        const { [field.path]: _removed, ...rest } = prev
+        return rest
+      }
+      return { ...prev, [field.path]: rect }
+    })
+  }
+
   const onOpenChange = (next: boolean) => {
     setOpen(next)
     if (!next) {
       setEdits({})
+      setBoxEdits({})
       correctionsMut.reset()
     }
   }
@@ -179,7 +207,8 @@ export function ExtractionOverlayDialog({
             </DialogTitle>
             <DialogDescription className="ovl-dialog-sub">
               Every extracted value is tied to the exact spot it was read from.
-              Edit a value in the rail, then finalize to accept the extraction.
+              Edit a value in the rail or drag a box to re-anchor it, then
+              finalize to accept the extraction.
               <a
                 href={hostedViewerHref(docupipeReviewId)}
                 target="_blank"
@@ -244,6 +273,8 @@ export function ExtractionOverlayDialog({
                   corrections={{
                     edits,
                     onEdit,
+                    boxEdits,
+                    onBoxEdit,
                     disabled: correctionsMut.isPending,
                   }}
                 />
@@ -273,6 +304,7 @@ export function ExtractionOverlayDialog({
                       correctionsMut.mutate({
                         action: 'verify',
                         edits: dirtyEdits,
+                        boxEdits: dirtyBoxEdits,
                       })
                     }
                   >

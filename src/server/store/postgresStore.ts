@@ -67,6 +67,7 @@ type DocumentRow = {
   import_job_id: string | null
   docupipe_review_id: string | null
   docupipe_review_state: string | null
+  pending_effort_level: string | null
   field_confidence: Record<string, number> | null
   low_confidence: boolean | null
   content_hash: string | null
@@ -146,6 +147,8 @@ function rowToDocument(row: DocumentRow): StoredDocument {
     docupipeReviewId: row.docupipe_review_id ?? undefined,
     docupipeReviewState:
       (row.docupipe_review_state as ReviewState | null) ?? undefined,
+    pendingEffortLevel:
+      row.pending_effort_level === 'high' ? 'high' : undefined,
     fieldConfidence: row.field_confidence ?? undefined,
     lowConfidence: row.low_confidence ?? undefined,
     contentHash: row.content_hash ?? undefined,
@@ -253,6 +256,7 @@ async function ensureSchema(): Promise<void> {
       import_job_id text,
       docupipe_review_id text,
       docupipe_review_state text,
+      pending_effort_level text,
       field_confidence jsonb,
       low_confidence boolean,
       content_hash text
@@ -269,6 +273,10 @@ async function ensureSchema(): Promise<void> {
     -- Additive migration: human-review lifecycle state synced from DocuPipe
     -- review webhook events + in-app corrections.
     alter table dream_documents add column if not exists docupipe_review_state text;
+
+    -- Additive migration: marker for the two-step high-effort re-run
+    -- (re-classify, then V3 standardize at high effort from the webhook).
+    alter table dream_documents add column if not exists pending_effort_level text;
 
     -- Additive migration for the deferred-filing gate: destination path
     -- computed at analysis time, before the file is committed to Egnyte.
@@ -444,7 +452,7 @@ async function upsertDocumentRow(doc: StoredDocument): Promise<StoredDocument> {
         egnyte_guid, egnyte_source_path, egnyte_entry_id, egnyte_group_id,
         egnyte_checksum, egnyte_web_url, mime_type, size_bytes,
         import_job_id, docupipe_review_id, docupipe_review_state,
-        field_confidence, low_confidence,
+        pending_effort_level, field_confidence, low_confidence,
         content_hash, egnyte_planned_path
       )
       values (
@@ -457,8 +465,8 @@ async function upsertDocumentRow(doc: StoredDocument): Promise<StoredDocument> {
         $23, $24, $25, $26,
         $27, $28, $29, $30,
         $31, $32, $33,
-        $34::jsonb, $35,
-        $36, $37
+        $34, $35::jsonb, $36,
+        $37, $38
       )
       on conflict (id) do update set
         client_id = excluded.client_id,
@@ -493,6 +501,7 @@ async function upsertDocumentRow(doc: StoredDocument): Promise<StoredDocument> {
         import_job_id = excluded.import_job_id,
         docupipe_review_id = excluded.docupipe_review_id,
         docupipe_review_state = excluded.docupipe_review_state,
+        pending_effort_level = excluded.pending_effort_level,
         field_confidence = excluded.field_confidence,
         low_confidence = excluded.low_confidence,
         content_hash = excluded.content_hash,
@@ -533,6 +542,7 @@ async function upsertDocumentRow(doc: StoredDocument): Promise<StoredDocument> {
       doc.importJobId ?? null,
       doc.docupipeReviewId ?? null,
       doc.docupipeReviewState ?? null,
+      doc.pendingEffortLevel ?? null,
       doc.fieldConfidence ? JSON.stringify(doc.fieldConfidence) : null,
       doc.lowConfidence ?? null,
       doc.contentHash ?? null,

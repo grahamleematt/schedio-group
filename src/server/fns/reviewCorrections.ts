@@ -20,13 +20,14 @@ import { createServerFn } from '@tanstack/react-start'
 
 import { assertClientAccess } from '#/server/authz'
 import {
+  applyReviewBoxEdits,
   applyReviewEdits,
   getReview,
   normalizeExtractedFields,
   unwrapReviewData,
   updateReview,
 } from '#/server/docupipe'
-import type { ReviewEdit } from '#/server/docupipe'
+import type { ReviewBoxEdit, ReviewEdit } from '#/server/docupipe'
 import { isDocupipeConfigured } from '#/server/env'
 import { getStore } from '#/server/store'
 import type {
@@ -52,8 +53,20 @@ function correctionAuditEvent(input: {
   document: StoredDocument
   action: 'verify' | 'reject'
   appliedCount: number
+  appliedBoxCount: number
 }): StoredAuditEvent {
-  const { actor, document, action, appliedCount } = input
+  const { actor, document, action, appliedCount, appliedBoxCount } = input
+  const detailParts: Array<string> = []
+  if (appliedCount > 0) {
+    detailParts.push(
+      `${appliedCount} field${appliedCount === 1 ? '' : 's'} corrected`,
+    )
+  }
+  if (appliedBoxCount > 0) {
+    detailParts.push(
+      `${appliedBoxCount} box${appliedBoxCount === 1 ? '' : 'es'} repositioned`,
+    )
+  }
   return {
     id: randomUUID(),
     ts: new Date().toISOString(),
@@ -63,7 +76,7 @@ function correctionAuditEvent(input: {
     event:
       action === 'reject'
         ? 'Extraction rejected'
-        : appliedCount > 0
+        : detailParts.length > 0
           ? 'Extraction corrected & verified'
           : 'Extraction verified',
     object: document.renamedName ?? document.displayName,
@@ -72,10 +85,7 @@ function correctionAuditEvent(input: {
     verificationId: document.verificationId,
     documentId: document.id,
     docupipeDocumentId: document.docupipeDocumentId,
-    detail:
-      appliedCount > 0
-        ? `${appliedCount} field${appliedCount === 1 ? '' : 's'} corrected`
-        : undefined,
+    detail: detailParts.length > 0 ? detailParts.join(', ') : undefined,
   }
 }
 
@@ -86,6 +96,7 @@ export const submitReviewCorrections = createServerFn({ method: 'POST' })
       documentId: string
       action: 'verify' | 'reject'
       edits?: Array<ReviewEdit>
+      boxEdits?: Array<ReviewBoxEdit>
     }) => data,
   )
   .handler(async ({ data }): Promise<ReviewCorrectionsResult> => {
@@ -121,10 +132,14 @@ export const submitReviewCorrections = createServerFn({ method: 'POST' })
     // Corrections only make sense on a finalize; a rejection means "don't
     // rely on this extraction", so edits are ignored there.
     const edits = data.action === 'verify' ? (data.edits ?? []) : []
+    const boxEdits = data.action === 'verify' ? (data.boxEdits ?? []) : []
     const applied = applyReviewEdits(review.data, edits)
+    const appliedBoxes = applyReviewBoxEdits(applied.data, boxEdits)
+    const anyApplied =
+      applied.appliedPaths.length > 0 || appliedBoxes.appliedPaths.length > 0
 
     await updateReview(doc.docupipeReviewId, {
-      ...(applied.appliedPaths.length > 0 ? { data: applied.data } : {}),
+      ...(anyApplied ? { data: appliedBoxes.data } : {}),
       reviewStatus: data.action === 'verify' ? 'verified' : 'rejected',
     })
 
@@ -135,7 +150,9 @@ export const submitReviewCorrections = createServerFn({ method: 'POST' })
       docupipeReviewState: reviewState,
     }
     if (data.action === 'verify') {
-      const extracted = normalizeExtractedFields(unwrapReviewData(applied.data))
+      const extracted = normalizeExtractedFields(
+        unwrapReviewData(appliedBoxes.data),
+      )
       // Same normalization as the webhook paths: POP amounts are magnitudes.
       if (
         doc.docType === 'POP' &&
@@ -155,6 +172,7 @@ export const submitReviewCorrections = createServerFn({ method: 'POST' })
           document: persisted,
           action: data.action,
           appliedCount: applied.appliedPaths.length,
+          appliedBoxCount: appliedBoxes.appliedPaths.length,
         }),
       )
     } catch (err) {
@@ -164,7 +182,8 @@ export const submitReviewCorrections = createServerFn({ method: 'POST' })
     return {
       ok: true,
       reviewState,
-      appliedCount: applied.appliedPaths.length,
+      appliedCount:
+        applied.appliedPaths.length + appliedBoxes.appliedPaths.length,
       snapshot: await store.getSnapshot(data.verificationId),
     }
   })

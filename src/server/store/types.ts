@@ -155,6 +155,14 @@ export type StoredDocument = {
    * from in-app corrections. Absent until the first review exists.
    */
   docupipeReviewState?: ReviewState
+  /**
+   * Set when a user requests "Re-run extraction (high effort)" on a document
+   * that must be re-classified first. Standalone classification does not
+   * chain into standardization (only the workflow does), so the webhook's
+   * classification handler checks this flag and fires the V3 high-effort
+   * standardization itself, then clears it.
+   */
+  pendingEffortLevel?: 'high'
   /** Per-scalar-field confidence 0..1, when DocuPipe returns it. */
   fieldConfidence?: Record<string, number>
   /**

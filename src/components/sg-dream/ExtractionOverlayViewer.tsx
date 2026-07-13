@@ -5,18 +5,28 @@
  * sideways scans get a rotate control, and the boxes stay glued to the page
  * because box coordinates are transformed with the same rotation.
  *
+ * When corrections are enabled, boxes are also draggable (move) and
+ * resizable (bottom-right handle): the reviewer can re-anchor a value to the
+ * spot it was actually read from, and Finalize persists the repositioned
+ * boxes to the DocuPipe review alongside any value edits.
+ *
  * Loaded lazily (client-only) from ExtractionOverlayDialog — react-pdf and the
  * pdf.js worker never enter the SSR bundle.
  */
 
 import { Minus, Plus, RotateCw } from 'lucide-react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Document, Page, pdfjs } from 'react-pdf'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
 import 'react-pdf/dist/Page/TextLayer.css'
 
 import { formatCurrencyPrecise } from '#/lib/sg-dream'
-import { rotateRect } from '#/lib/overlay-geometry'
+import {
+  clampRectToPage,
+  rotateRect,
+  unrotateRect,
+} from '#/lib/overlay-geometry'
+import type { NormalizedRect } from '#/lib/overlay-geometry'
 import type { ExtractionOverlayField } from '#/server/fns/extractionOverlay'
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
@@ -26,6 +36,8 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 
 const MIN_SCALE = 0.5
 const MAX_SCALE = 3
+/** Pointer must travel this many px before a press counts as a drag. */
+const DRAG_THRESHOLD_PX = 3
 
 function boxDomId(path: string): string {
   return `ovl-box-${path.replace(/[^a-zA-Z0-9_-]/g, '_')}`
@@ -57,6 +69,9 @@ export type OverlayCorrections = {
   /** Pending raw input text keyed by field path (only dirty fields present). */
   edits: Record<string, string>
   onEdit: (field: ExtractionOverlayField, raw: string) => void
+  /** Pending box repositions keyed by field path (base page orientation). */
+  boxEdits: Record<string, NormalizedRect>
+  onBoxEdit: (field: ExtractionOverlayField, rect: NormalizedRect | null) => void
   disabled?: boolean
 }
 
@@ -96,23 +111,41 @@ export default function ExtractionOverlayViewer({
 
   const isImage = Boolean(mimeType?.startsWith('image/'))
 
+  const renderBox = (field: ExtractionOverlayField, rotation: number) => (
+    <OverlayBox
+      key={field.path}
+      field={field}
+      extraRotation={rotation}
+      selected={field.path === selectedPath}
+      onSelect={() => setSelectedPath(field.path)}
+      editedRect={corrections?.boxEdits[field.path]}
+      editable={Boolean(corrections) && !corrections?.disabled}
+      onCommit={(rect) => corrections?.onBoxEdit(field, rect)}
+    />
+  )
+
   return (
     <div className="ovl-layout">
       <aside className="ovl-rail">
         <p className="ovl-rail-hint">
           {corrections
-            ? 'Click a field to jump to where it was read. Edit a value to correct it.'
+            ? 'Click a field to jump to where it was read. Edit a value to correct it, or drag its box on the page to re-anchor it.'
             : 'Click a field to jump to where it was read from the document.'}
         </p>
         <ul className="ovl-field-list">
           {[...localized, ...unlocalized].map((field) => {
             const selected = field.path === selectedPath
             const hasBox = Boolean(field.page && field.rect)
-            const dirty = Boolean(corrections && field.path in corrections.edits)
+            const valueDirty = Boolean(
+              corrections && field.path in corrections.edits,
+            )
+            const boxDirty = Boolean(
+              corrections && field.path in corrections.boxEdits,
+            )
             return (
               <li key={field.path}>
                 <div
-                  className={`ovl-field${selected ? ' selected' : ''}${dirty ? ' dirty' : ''}`}
+                  className={`ovl-field${selected ? ' selected' : ''}${valueDirty || boxDirty ? ' dirty' : ''}`}
                 >
                   <button
                     type="button"
@@ -125,8 +158,11 @@ export default function ExtractionOverlayViewer({
                       {isLowConfidence(field) ? (
                         <span className="pill pill-amber">Low</span>
                       ) : null}
-                      {dirty ? (
+                      {valueDirty ? (
                         <span className="pill pill-amber">Edited</span>
+                      ) : null}
+                      {boxDirty ? (
+                        <span className="pill pill-amber">Box moved</span>
                       ) : null}
                     </span>
                     <span className="ovl-field-page">
@@ -154,6 +190,16 @@ export default function ExtractionOverlayViewer({
                       {formatFieldValue(field)}
                     </span>
                   )}
+                  {boxDirty ? (
+                    <button
+                      type="button"
+                      className="ovl-box-reset"
+                      onClick={() => corrections?.onBoxEdit(field, null)}
+                      disabled={corrections?.disabled}
+                    >
+                      Reset box position
+                    </button>
+                  ) : null}
                 </div>
               </li>
             )
@@ -212,15 +258,7 @@ export default function ExtractionOverlayViewer({
                 />
                 {localized
                   .filter((f) => f.page === 1)
-                  .map((field) => (
-                    <OverlayBox
-                      key={field.path}
-                      field={field}
-                      extraRotation={0}
-                      selected={field.path === selectedPath}
-                      onSelect={() => setSelectedPath(field.path)}
-                    />
-                  ))}
+                  .map((field) => renderBox(field, 0))}
               </div>
             </div>
           ) : (
@@ -260,15 +298,7 @@ export default function ExtractionOverlayViewer({
                       />
                       {localized
                         .filter((f) => f.page === pageNumber)
-                        .map((field) => (
-                          <OverlayBox
-                            key={field.path}
-                            field={field}
-                            extraRotation={extraRotation}
-                            selected={field.path === selectedPath}
-                            onSelect={() => setSelectedPath(field.path)}
-                          />
-                        ))}
+                        .map((field) => renderBox(field, extraRotation))}
                     </div>
                   </div>
                 )
@@ -281,33 +311,161 @@ export default function ExtractionOverlayViewer({
   )
 }
 
+type DragState = {
+  mode: 'move' | 'resize'
+  pointerId: number
+  startX: number
+  startY: number
+  /** Displayed (rotated) rect at drag start. */
+  orig: NormalizedRect
+  /** Live displayed rect while dragging. */
+  live: NormalizedRect
+  pageWidth: number
+  pageHeight: number
+}
+
+function moveRect(orig: NormalizedRect, dx: number, dy: number): NormalizedRect {
+  return clampRectToPage({ ...orig, x: orig.x + dx, y: orig.y + dy })
+}
+
+function resizeRect(
+  orig: NormalizedRect,
+  dx: number,
+  dy: number,
+): NormalizedRect {
+  return {
+    x: orig.x,
+    y: orig.y,
+    width: Math.min(1 - orig.x, Math.max(0.005, orig.width + dx)),
+    height: Math.min(1 - orig.y, Math.max(0.005, orig.height + dy)),
+  }
+}
+
 function OverlayBox({
   field,
   extraRotation,
   selected,
   onSelect,
+  editedRect,
+  editable,
+  onCommit,
 }: {
   field: ExtractionOverlayField
   extraRotation: number
   selected: boolean
   onSelect: () => void
+  /** Pending repositioned rect (base orientation), when the user moved it. */
+  editedRect?: NormalizedRect
+  editable?: boolean
+  onCommit?: (rect: NormalizedRect) => void
 }) {
+  const [drag, setDrag] = useState<DragState | null>(null)
+  // Set when the pointer actually moved during the last press, so the click
+  // that follows a drag doesn't also fire the select behavior.
+  const didDragRef = useRef(false)
+
   if (!field.rect) return null
-  const rect = rotateRect(field.rect, extraRotation)
+  const baseRect = editedRect ?? field.rect
+  const rect = drag ? drag.live : rotateRect(baseRect, extraRotation)
+
+  const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!editable) return
+    // Only primary button/touch/pen.
+    if (e.button !== 0) return
+    // Resize only when the press is near the bottom-right corner of a box
+    // that's big enough on screen to have a distinct corner — DocuPipe boxes
+    // are often just a few px tall, and on those a corner-handle hit test
+    // would swallow every drag. Zooming in makes small boxes resizable.
+    const ownBox = e.currentTarget.getBoundingClientRect()
+    const nearCorner =
+      ownBox.right - e.clientX < 8 && ownBox.bottom - e.clientY < 8
+    const bigEnough = ownBox.width > 24 && ownBox.height > 16
+    const mode: DragState['mode'] =
+      nearCorner && bigEnough ? 'resize' : 'move'
+    const pageEl = e.currentTarget.offsetParent
+    if (!(pageEl instanceof HTMLElement)) return
+    const pageBox = pageEl.getBoundingClientRect()
+    if (pageBox.width === 0 || pageBox.height === 0) return
+    e.currentTarget.setPointerCapture(e.pointerId)
+    didDragRef.current = false
+    const displayed = rotateRect(baseRect, extraRotation)
+    setDrag({
+      mode,
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      orig: displayed,
+      live: displayed,
+      pageWidth: pageBox.width,
+      pageHeight: pageBox.height,
+    })
+  }
+
+  const onPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!drag || e.pointerId !== drag.pointerId) return
+    const pxX = e.clientX - drag.startX
+    const pxY = e.clientY - drag.startY
+    if (
+      !didDragRef.current &&
+      Math.abs(pxX) < DRAG_THRESHOLD_PX &&
+      Math.abs(pxY) < DRAG_THRESHOLD_PX
+    ) {
+      return
+    }
+    didDragRef.current = true
+    const dx = pxX / drag.pageWidth
+    const dy = pxY / drag.pageHeight
+    setDrag({
+      ...drag,
+      live:
+        drag.mode === 'move'
+          ? moveRect(drag.orig, dx, dy)
+          : resizeRect(drag.orig, dx, dy),
+    })
+  }
+
+  const onPointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!drag || e.pointerId !== drag.pointerId) return
+    if (didDragRef.current && onCommit) {
+      onCommit(clampRectToPage(unrotateRect(drag.live, extraRotation)))
+    }
+    setDrag(null)
+  }
+
   return (
     <button
       type="button"
       id={boxDomId(field.path)}
-      className={`ovl-mark${selected ? ' selected' : ''}`}
+      className={`ovl-mark${selected ? ' selected' : ''}${editedRect ? ' edited' : ''}${editable ? ' editable' : ''}${drag ? ' dragging' : ''}`}
       style={{
         left: `${rect.x * 100}%`,
         top: `${rect.y * 100}%`,
         width: `${rect.width * 100}%`,
         height: `${rect.height * 100}%`,
       }}
-      title={`${field.label}: ${formatFieldValue(field)}`}
+      title={
+        editable
+          ? `${field.label}: ${formatFieldValue(field)} — drag to move, corner to resize`
+          : `${field.label}: ${formatFieldValue(field)}`
+      }
       aria-label={`${field.label} extracted here`}
-      onClick={onSelect}
-    />
+      onClick={() => {
+        // A drag ends with a synthetic click on the same element; only a
+        // clean press-and-release should select.
+        if (didDragRef.current) {
+          didDragRef.current = false
+          return
+        }
+        onSelect()
+      }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={() => setDrag(null)}
+    >
+      {editable ? (
+        <span className="ovl-resize-handle" data-resize aria-hidden />
+      ) : null}
+    </button>
   )
 }

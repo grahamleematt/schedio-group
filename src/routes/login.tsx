@@ -52,8 +52,8 @@ function LoginPage() {
           Sign in to your workspace
         </h2>
         <p className="text-ink-2 mt-1 text-[12.5px] leading-snug">
-          Access is invitation-only. Schedio Group provisions every entity and
-          identity through WorkOS single sign-on.
+          Access is invitation-only. Enter your work email and continue with
+          your password or a one-time code we email you.
         </p>
 
         {hasError ? (
@@ -65,16 +65,36 @@ function LoginPage() {
           </div>
         ) : null}
 
-        <a
-          href="/api/auth/sign-in?returnPathname=/clients"
-          className="v2-btn primary lg mt-5 w-full justify-center"
+        <form
+          method="get"
+          action="/api/auth/sign-in"
+          className="login-email-form mt-5"
         >
-          Continue with WorkOS
-          <ArrowRight className="size-4" aria-hidden />
-        </a>
+          <input type="hidden" name="returnPathname" value="/clients" />
+          <label className="field-label" htmlFor="login-email">
+            Work email
+          </label>
+          <input
+            id="login-email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            placeholder="you@yourdistrict.org"
+            className="login-email-input"
+            // Optional on purpose: submitting without an email still starts
+            // the AuthKit flow, where the email is asked first.
+          />
+          <button
+            type="submit"
+            className="v2-btn primary lg mt-3 w-full justify-center"
+          >
+            Continue
+            <ArrowRight className="size-4" aria-hidden />
+          </button>
+        </form>
         <p className="text-muted-1 mt-2 flex items-center justify-center gap-1.5 text-[11px]">
           <ShieldCheck className="size-3.5" aria-hidden />
-          Secured by WorkOS — your password is never stored by SG DREAM.
+          Secured by WorkOS — password, one-time email code, and MFA supported.
         </p>
 
         <div className="login-reset-head mt-5">
@@ -83,13 +103,14 @@ function LoginPage() {
             <button
               type="button"
               className="login-help-button"
-              aria-label="Schedio Admin verifies identity and manages access and password resets through WorkOS."
+              aria-label="Forgot your password? Use “Forgot password” on the sign-in screen, or choose the emailed one-time code — no admin needed. Contact Schedio Admin only for access changes."
             >
               <CircleHelp className="size-3.5" aria-hidden />
             </button>
             <span className="login-tooltip" role="tooltip">
-              Schedio Admin verifies identity and manages access and password
-              resets through WorkOS.
+              Forgot your password? Use “Forgot password” on the sign-in
+              screen, or choose the emailed one-time code — no admin needed.
+              Contact Schedio Admin only for access changes.
             </span>
           </span>
         </div>

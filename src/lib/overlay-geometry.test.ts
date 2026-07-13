@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { rotateRect } from '#/lib/overlay-geometry'
+import {
+  clampRectToPage,
+  rotateRect,
+  unrotateRect,
+} from '#/lib/overlay-geometry'
 
 const box = { x: 0.1, y: 0.2, width: 0.3, height: 0.1 }
 
@@ -44,5 +48,37 @@ describe('rotateRect', () => {
     expect(r.y).toBeCloseTo(box.y)
     expect(r.width).toBeCloseTo(box.width)
     expect(r.height).toBeCloseTo(box.height)
+  })
+})
+
+describe('unrotateRect', () => {
+  it('inverts rotateRect at every quarter turn', () => {
+    for (const degrees of [0, 90, 180, 270]) {
+      const rotated = rotateRect(box, degrees)
+      const back = unrotateRect(rotated, degrees)
+      expect(back.x).toBeCloseTo(box.x)
+      expect(back.y).toBeCloseTo(box.y)
+      expect(back.width).toBeCloseTo(box.width)
+      expect(back.height).toBeCloseTo(box.height)
+    }
+  })
+})
+
+describe('clampRectToPage', () => {
+  it('leaves an in-bounds rect unchanged', () => {
+    expect(clampRectToPage(box)).toEqual(box)
+  })
+
+  it('pulls an off-page rect back inside', () => {
+    expect(
+      clampRectToPage({ x: 0.95, y: -0.1, width: 0.2, height: 0.1 }),
+    ).toEqual({ x: 0.8, y: 0, width: 0.2, height: 0.1 })
+  })
+
+  it('caps oversize dimensions at the page and keeps a minimum size', () => {
+    const out = clampRectToPage({ x: 0.5, y: 0.5, width: 2, height: 0 })
+    expect(out.width).toBe(1)
+    expect(out.x).toBe(0)
+    expect(out.height).toBeGreaterThan(0)
   })
 })

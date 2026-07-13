@@ -20,6 +20,7 @@ import {
   getStandardization,
   getWorkflow,
   normalizeExtractedFields,
+  standardizeV3,
   unwrapReviewData,
 } from '#/server/docupipe'
 import { SPEC_CLASS_NAMES } from '#/server/docupipe-spec'
@@ -656,17 +657,40 @@ async function handleEvent(event: BaseEvent): Promise<void> {
   // without this branch the row would hang at `classifying` indefinitely.
   let earlyDocType: DocType | undefined
   let unmappedClass = false
+  // Set when this classification came from a user-requested high-effort
+  // re-run (rerunExtraction set `pendingEffortLevel`). Standalone
+  // classification never chains into standardization the way the workflow
+  // does, so we fire the V3 high-effort standardization from here.
+  let chainedHighEffort = false
   if (isClassificationSuccess(event.eventType)) {
     const classId = extractClassId(event)
     if (classId) {
       earlyDocType = await docTypeForClassId(classId)
+      let schemaId: string | undefined
       try {
         const workflow = await getWorkflow()
-        if (workflow && !(classId in workflow.classToSchema)) {
-          unmappedClass = true
+        if (workflow) {
+          schemaId = workflow.classToSchema[classId]
+          if (!schemaId) unmappedClass = true
         }
       } catch (err) {
         console.warn('[docupipe webhook] workflow lookup failed', err)
+      }
+      const dpDocumentId = stored.docupipeDocumentId ?? docupipeDocumentId
+      if (stored.pendingEffortLevel === 'high' && schemaId && dpDocumentId) {
+        try {
+          await standardizeV3({
+            documentId: dpDocumentId,
+            schemaId,
+            effortLevel: 'high',
+          })
+          chainedHighEffort = true
+        } catch (err) {
+          console.warn(
+            '[docupipe webhook] high-effort standardization failed',
+            err,
+          )
+        }
       }
     }
   }
@@ -689,7 +713,17 @@ async function handleEvent(event: BaseEvent): Promise<void> {
       : stored
   let newStatus = statusFromEvent(event.eventType, effectiveStored)
   if (unmappedClass) newStatus = 'completed'
+  if (chainedHighEffort) newStatus = 'standardizing'
   if (newStatus) baseUpdate.status = newStatus
+  // A classification result consumes the high-effort marker either way: the
+  // chained standardization fired, or the class is (still) unmapped and
+  // there is nothing to standardize.
+  if (
+    isClassificationSuccess(event.eventType) &&
+    stored.pendingEffortLevel !== undefined
+  ) {
+    baseUpdate.pendingEffortLevel = undefined
+  }
 
   // Either: (a) classification landed a class with no schema mapped, or
   // (b) the workflow finished without a standardization. Both deserve a

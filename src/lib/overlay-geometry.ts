@@ -13,6 +13,31 @@ export type NormalizedRect = {
   height: number
 }
 
+/**
+ * Inverse of {@link rotateRect}: map a rect expressed in the rotated view
+ * back to the document's base orientation. Used when the user drags a box in
+ * a rotated view — DocuPipe stores coordinates against the unrotated page.
+ */
+export function unrotateRect(
+  rect: NormalizedRect,
+  extra: number,
+): NormalizedRect {
+  const r = ((extra % 360) + 360) % 360
+  return rotateRect(rect, (360 - r) % 360)
+}
+
+/** Clamp a normalized rect so it stays fully inside the page (0..1). */
+export function clampRectToPage(rect: NormalizedRect): NormalizedRect {
+  const width = Math.min(1, Math.max(0.001, rect.width))
+  const height = Math.min(1, Math.max(0.001, rect.height))
+  return {
+    x: Math.min(1 - width, Math.max(0, rect.x)),
+    y: Math.min(1 - height, Math.max(0, rect.y)),
+    width,
+    height,
+  }
+}
+
 /** Rotate a normalized rect by `extra` degrees clockwise (multiples of 90). */
 export function rotateRect(
   rect: NormalizedRect,

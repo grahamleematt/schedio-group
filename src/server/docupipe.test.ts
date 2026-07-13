@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   LOW_CONFIDENCE_THRESHOLD,
+  applyReviewBoxEdits,
   applyReviewEdits,
+  classifyDocument,
   computeLowConfidence,
   createClass,
   createSchema,
@@ -17,6 +19,7 @@ import {
   normalizeExtractedFields,
   parseReviewBoundingBox,
   registerWebhookEndpoint,
+  standardizeV3,
   unwrapReviewData,
   updateReview,
   updateWorkflow,
@@ -209,6 +212,67 @@ describe('applyReviewEdits', () => {
     expect((out.data.vendor_name as { value: unknown }).value).toBe(
       'Corrected',
     )
+  })
+})
+
+describe('applyReviewBoxEdits', () => {
+  const data = {
+    vendor_name: {
+      value: 'Rusin',
+      review: {
+        page: 1,
+        boundingBoxes: [[0.1, 0.1, 0.4, 0.14]],
+        confidence: 'high',
+      },
+    },
+    amount: { value: 11910, review: { page: 2, boundingBoxes: null } },
+    line_items: [{ description: { value: 'Grading', review: { page: 3 } } }],
+  }
+
+  it('replaces the bounding box in corner form, keeping the value intact', () => {
+    const out = applyReviewBoxEdits(data, [
+      {
+        path: 'vendor_name',
+        rect: { x: 0.2, y: 0.3, width: 0.25, height: 0.05 },
+      },
+    ])
+    expect(out.appliedPaths).toEqual(['vendor_name'])
+    const vendor = out.data.vendor_name as {
+      value: unknown
+      review: { page: number; boundingBoxes: unknown; confidence: string }
+    }
+    expect(vendor.value).toBe('Rusin')
+    expect(vendor.review.page).toBe(1)
+    expect(vendor.review.confidence).toBe('high')
+    const [box] = vendor.review.boundingBoxes as Array<Array<number>>
+    expect(box[0]).toBeCloseTo(0.2)
+    expect(box[1]).toBeCloseTo(0.3)
+    expect(box[2]).toBeCloseTo(0.45)
+    expect(box[3]).toBeCloseTo(0.35)
+  })
+
+  it('anchors an unlocalized leaf, writing box and page', () => {
+    const out = applyReviewBoxEdits(data, [
+      {
+        path: 'amount',
+        rect: { x: 0.5, y: 0.5, width: 0.1, height: 0.02 },
+        page: 4,
+      },
+    ])
+    const amount = out.data.amount as {
+      review: { page: number; boundingBoxes: unknown }
+    }
+    expect(amount.review.page).toBe(4)
+    expect(amount.review.boundingBoxes).toEqual([[0.5, 0.5, 0.6, 0.52]])
+  })
+
+  it('does not mutate the input payload and skips unknown paths', () => {
+    const out = applyReviewBoxEdits(data, [
+      { path: 'no_such', rect: { x: 0, y: 0, width: 0.1, height: 0.1 } },
+    ])
+    expect(out.appliedPaths).toEqual([])
+    const vendor = data.vendor_name.review.boundingBoxes
+    expect(vendor).toEqual([[0.1, 0.1, 0.4, 0.14]])
   })
 })
 
@@ -530,6 +594,46 @@ describe('docupipe CRUD helpers', () => {
     const { calls } = stubFetch(() => ({ body: { reviewId: 'rev1' } }))
     await updateReview('rev1', { reviewStatus: 'rejected' })
     expect(readJsonBody(calls[0].init)).toEqual({ reviewStatus: 'rejected' })
+  })
+
+  it('standardizeV3 POSTs documentId + schemaId + effortLevel to /v3/standardize', async () => {
+    const { calls } = stubFetch(() => ({
+      body: { jobId: 'job9', standardizationId: 'std9' },
+    }))
+    const out = await standardizeV3({
+      documentId: 'doc1',
+      schemaId: 'schema1',
+      effortLevel: 'high',
+    })
+    expect(calls[0].url).toBe('https://app.docupipe.test/v3/standardize')
+    expect(readJsonBody(calls[0].init)).toEqual({
+      documentId: 'doc1',
+      schemaId: 'schema1',
+      effortLevel: 'high',
+    })
+    expect(out).toEqual({ jobId: 'job9', standardizationId: 'std9' })
+  })
+
+  it('standardizeV3 throws when the response is missing IDs', async () => {
+    stubFetch(() => ({ body: {} }))
+    await expect(
+      standardizeV3({
+        documentId: 'doc1',
+        schemaId: 'schema1',
+        effortLevel: 'high',
+      }),
+    ).rejects.toThrow(/missing jobId/)
+  })
+
+  it('classifyDocument POSTs the document with includeUnknown', async () => {
+    const { calls } = stubFetch(() => ({ body: { jobId: 'cj1' } }))
+    const out = await classifyDocument({ documentId: 'doc1' })
+    expect(calls[0].url).toBe('https://app.docupipe.test/classify/batch')
+    expect(readJsonBody(calls[0].init)).toEqual({
+      documentIds: ['doc1'],
+      includeUnknown: true,
+    })
+    expect(out).toEqual({ jobId: 'cj1' })
   })
 
   it('registerWebhookEndpoint POSTs the URL + subscribed events', async () => {

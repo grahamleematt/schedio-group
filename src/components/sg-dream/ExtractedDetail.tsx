@@ -23,6 +23,8 @@ import type { Document, PayAppCheck } from '#/lib/sg-dream'
 import { verificationSnapshotQuery } from '#/lib/queries'
 import { ExtractionOverlayDialog } from '#/components/sg-dream/ExtractionOverlayDialog'
 import { generateVisualReview } from '#/server/fns/visualReview'
+import { rerunExtraction } from '#/server/fns/rerunExtraction'
+import type { RerunExtractionResult } from '#/server/fns/rerunExtraction'
 import type { DreamSnapshot } from '#/server/store'
 
 export function PayAppCheckPill({ check }: { check: PayAppCheck }) {
@@ -100,6 +102,29 @@ export function ExtractedDetail({
   // A no-op success (no standardization to base a review on) leaves the row
   // without a review ID — surface that rather than spinning forever.
   const generateUnavailable = genMut.isSuccess && !doc.docupipeReviewId
+
+  const rerunMut = useMutation({
+    mutationFn: () =>
+      rerunExtraction({
+        data: { verificationId: verificationId as string, documentId: doc.id },
+      }),
+    onSuccess: (result: RerunExtractionResult) => {
+      if (verificationId && result.snapshot) {
+        queryClient.setQueryData(
+          verificationSnapshotQuery(verificationId).queryKey,
+          result.snapshot,
+        )
+      }
+    },
+  })
+  // Escalation lever for problem documents: re-run just this document on the
+  // V3 engine's high-effort mode (re-classifying first when it's stuck at
+  // UNK). Terminal documents only — an in-flight doc is already being worked.
+  const canRerun =
+    Boolean(verificationId) &&
+    (doc.status === 'completed' || doc.status === 'error')
+  const rerunFailed =
+    rerunMut.isError || (rerunMut.isSuccess && !rerunMut.data.ok)
 
   return (
     <>
@@ -192,6 +217,32 @@ export function ExtractedDetail({
             </span>
           ) : genMut.isError ? (
             <span className="qgen-note">Couldn’t generate — try again.</span>
+          ) : null}
+        </span>
+      ) : null}
+
+      {canRerun ? (
+        <span className="qgen">
+          <button
+            type="button"
+            className="qlink"
+            disabled={rerunMut.isPending}
+            onClick={() => rerunMut.mutate()}
+          >
+            {rerunMut.isPending ? (
+              <Loader2 className="size-3 animate-spin" aria-hidden />
+            ) : null}
+            {rerunMut.isPending
+              ? 'Requesting re-run…'
+              : doc.docType === 'UNK'
+                ? 'Re-classify & extract (high effort)'
+                : 'Re-run extraction (high effort)'}
+          </button>
+          {rerunFailed ? (
+            <span className="qgen-note">
+              {(rerunMut.data && !rerunMut.data.ok && rerunMut.data.error) ||
+                'Couldn’t start the re-run — try again.'}
+            </span>
           ) : null}
         </span>
       ) : null}

@@ -10,7 +10,10 @@ to the seeded user (never honored in strict mode).
 ## Routes
 
 - `GET /api/auth/sign-in` starts AuthKit and preserves an optional
-  `returnPathname`.
+  `returnPathname`. It also accepts an optional `email` query param, forwarded
+  to AuthKit as `loginHint` so the hosted screen lands with the email already
+  filled in — the `/login` page's email field feeds this, cutting a step out
+  of both the password and one-time-code paths.
 - `GET /api/auth/callback` completes the AuthKit code exchange and stores the
   sealed WorkOS session cookie.
 - `GET /api/auth/sign-out` signs the user out. It guards the no-session case
@@ -40,6 +43,23 @@ WORKOS_COOKIE_PASSWORD=...   # openssl rand -base64 24
 
 `WORKOS_REDIRECT_URI` must exactly match one of the dashboard Redirect URIs.
 
+## WorkOS dashboard — Authentication methods
+
+These toggles live under **Authentication** in the WorkOS dashboard and are
+environment-wide (they cannot be set via the API). For the sign-in experience
+the portal is built around — email first, then password or a one-time code,
+with self-serve password reset — enable:
+
+| Method             | Setting                                                                                          |
+| ------------------ | ------------------------------------------------------------------------------------------------ |
+| **Email + Password** | On. This is what makes "Forgot password?" appear on the hosted AuthKit screen — reset is fully self-serve (WorkOS emails the reset link; no admin involved). |
+| **Magic Auth**       | On. AuthKit emails a six-digit one-time code — this is the "magic link" path. With the `loginHint` prefill from `/login`, the user types their email once and goes straight to the code step. |
+| **SSO / Google OAuth** | Optional; leave off unless a customer brings their own IdP.                                    |
+
+With both methods on, AuthKit shows password entry with a "use a one-time
+code instead" switch — users pick whichever is easier, and password reset
+never routes through Schedio Admin.
+
 ## WorkOS dashboard — Redirects
 
 Configure these on the AuthKit **Redirects** page. Add both the local and the
@@ -52,7 +72,7 @@ staging origin for each value you set.
 | Sign-in endpoint                | Recommended  | `https://schedio-group-ai.vercel.app/api/auth/sign-in`                                          |
 | User invitation URL             | Recommended  | `https://schedio-group-ai.vercel.app/api/auth/sign-in`                                          |
 | Sign-up URL                     | Skip         | — (access is invitation-only; no self-serve sign-up)                                            |
-| Password reset URL              | Optional     | `https://schedio-group-ai.vercel.app/api/auth/sign-in` (only if email+password auth is enabled) |
+| Password reset URL              | **Required** | `https://schedio-group-ai.vercel.app/api/auth/sign-in` (email+password auth is enabled; this is where users land after resetting) |
 
 Notes:
 
@@ -65,9 +85,9 @@ Notes:
 - **User invitation URL** matters because access is invitation-based — point it
   at the sign-in endpoint so an invited user lands in the app and AuthKit
   completes acceptance.
-- **Sign-up URL** / **Password reset URL** are only needed if you adopt
-  self-serve sign-up or email+password auth. Magic Auth (email code) needs
-  neither.
+- **Password reset URL** pairs with the Email + Password method above — reset
+  links land the user back on our sign-in endpoint with a fresh session.
+  **Sign-up URL** stays unset because access is invitation-only.
 
 Local equivalents use `http://localhost:3000` in place of the staging origin.
 
