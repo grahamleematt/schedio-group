@@ -68,9 +68,9 @@ async function caption(
   opts?: { kicker?: string },
 ) {
   await page.evaluate(
-    ({ text, kicker }) => {
+    ({ text: body, kicker: kick }) => {
       let el = document.getElementById('__demo_caption')
-      if (!text) {
+      if (!body) {
         el?.remove()
         return
       }
@@ -91,12 +91,13 @@ async function caption(
         ].join(';')
         document.body.appendChild(el)
       }
-      const kickerHtml = kicker
-        ? `<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:#7dd3fc;margin-bottom:6px">${kicker}</div>`
+      const kickerHtml = kick
+        ? `<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:#7dd3fc;margin-bottom:6px">${kick}</div>`
         : ''
-      el.innerHTML = kickerHtml + `<div>${text}</div>`
+      el.innerHTML = kickerHtml + `<div>${body}</div>`
+      const mounted = el
       requestAnimationFrame(() => {
-        el!.style.opacity = '1'
+        mounted.style.opacity = '1'
       })
     },
     { text, kicker: opts?.kicker ?? null },
@@ -108,9 +109,9 @@ async function titleCard(
   page: Page,
   content: { title: string; sub: string } | null,
 ) {
-  await page.evaluate((content) => {
+  await page.evaluate((card) => {
     let el = document.getElementById('__demo_title')
-    if (!content) {
+    if (!card) {
       if (el) {
         el.style.opacity = '0'
         setTimeout(() => el?.remove(), 450)
@@ -132,10 +133,11 @@ async function titleCard(
     }
     el.innerHTML =
       `<div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.22em;color:#7dd3fc">SG DREAM · Schedio Group</div>` +
-      `<div style="font-size:40px;font-weight:700;letter-spacing:-0.02em;max-width:900px">${content.title}</div>` +
-      `<div style="font-size:18px;color:#cbd5e1;max-width:760px;line-height:1.5">${content.sub}</div>`
+      `<div style="font-size:40px;font-weight:700;letter-spacing:-0.02em;max-width:900px">${card.title}</div>` +
+      `<div style="font-size:18px;color:#cbd5e1;max-width:760px;line-height:1.5">${card.sub}</div>`
+    const mounted = el
     requestAnimationFrame(() => {
-      el!.style.opacity = '1'
+      mounted.style.opacity = '1'
     })
   }, content)
 }
@@ -143,10 +145,10 @@ async function titleCard(
 /** Pulse a highlight ring around an element (by selector) for emphasis. */
 async function spotlight(page: Page, selector: string, on: boolean) {
   await page.evaluate(
-    ({ selector, on }) => {
-      const el = document.querySelector(selector) as HTMLElement | null
+    ({ selector: sel, on: active }) => {
+      const el = document.querySelector<HTMLElement>(sel)
       if (!el) return
-      if (on) {
+      if (active) {
         el.style.outline = '3px solid #f59e0b'
         el.style.outlineOffset = '4px'
         el.style.borderRadius = '6px'
@@ -301,8 +303,8 @@ async function main() {
   )
   const targetBoxId: string | null = await page.evaluate(() => {
     const marks = Array.from(
-      document.querySelectorAll('.ovl-mark'),
-    ) as Array<HTMLElement>
+      document.querySelectorAll<HTMLElement>('.ovl-mark'),
+    )
     const scroller = document.querySelector('.ovl-scroll')
     const scrollerRect = scroller?.getBoundingClientRect()
     let best: HTMLElement | null = null

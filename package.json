@@ -14,6 +14,8 @@
     "format": "prettier --check .",
     "check": "prettier --write . && eslint --fix",
     "db:intelligence:migrate": "tsx --env-file=.env.local scripts/intelligence/migrate.ts",
+    "team:onboard": "tsx --env-file=.env.local scripts/team/onboard.ts",
+    "team:revoke": "tsx --env-file=.env.local scripts/team/revoke.ts",
     "db:intelligence:preflight": "tsx --env-file=.env.local scripts/intelligence/preflight.ts",
     "check:docupipe": "tsx --env-file=.env.local scripts/docupipe/align.ts check",
     "sync:docupipe": "tsx --env-file=.env.local scripts/docupipe/align.ts sync",

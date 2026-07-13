@@ -95,21 +95,31 @@ Local equivalents use `http://localhost:3000` in place of the staging origin.
 
 WorkOS owns identity; Postgres owns entity access. A user can sign in via
 WorkOS but sees a `403` until they have an `intelligence_user_client_access`
-row. To grant a tester:
+row. Both halves are handled by one command:
 
-1. Ensure the person exists in WorkOS and is a member of the Schedio
-   organization (`WORKOS_ORGANIZATION_ID`). Invite them if needed.
-2. Insert an `intelligence_users` row (bind both `email` and, when known,
-   `workos_user_id`) and one `intelligence_user_client_access` row per entity.
-   The seed grant for the first reviewer lives in
-   `db/intelligence/003_workos_tim_access.sql`; mirror its shape.
-3. The two Dawson review entities are:
-   - `dawson-trails-md1` — District Direct Pay
-   - `dawson-trails-md1-developer` — Developer Reimbursement
+```sh
+yarn team:onboard someone@schediogroup.com "Full Name"
+```
+
+This upserts the `intelligence_users` row, grants every entity in the Schedio
+organization (narrow with `--entities dawson-trails-md1,...`, change the role
+with `--role`), and sends the WorkOS AuthKit invitation — or, if the person
+already has a WorkOS account, binds their `workos_user_id` and ensures
+organization membership instead. Re-running is safe. `workos_user_id` is also
+bound automatically on the person's first sign-in (`src/server/authz.ts`).
+
+To remove someone, `yarn team:revoke someone@schediogroup.com` deletes the
+Postgres user + grants, revokes any pending invitation, and removes their
+WorkOS organization membership.
+
+The two Dawson review entities are:
+
+- `dawson-trails-md1` — District Direct Pay
+- `dawson-trails-md1-developer` — Developer Reimbursement
 
 Because the lookup matches on email or WorkOS id in both strict and non-strict
-mode, the grant takes effect immediately against the live database — no
-redeploy needed.
+mode, grants take effect immediately against the live database — no redeploy
+needed.
 
 ## Organization model
 

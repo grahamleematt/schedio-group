@@ -79,6 +79,22 @@ async function accessFromDatabase(input: {
     )
     if (rows.rows.length === 0) return null
     const first = rows.rows[0]
+    // Self-healing identity binding: a freshly onboarded user matches by
+    // email with workos_user_id still null. Bind the stable WorkOS ID on
+    // this first sign-in so later logins (and future email changes) match
+    // on the ID instead. Best-effort — a failure just means we bind next
+    // time.
+    if (!first.workos_user_id && input.workosUserId) {
+      dbQuery(
+        `update intelligence_users
+            set workos_user_id = $1, updated_at = now()
+          where id = $2 and workos_user_id is null`,
+        [input.workosUserId, first.id],
+      ).catch((err: unknown) => {
+        console.warn('[authz] workos_user_id bind failed', err)
+      })
+      first.workos_user_id = input.workosUserId
+    }
     return {
       id: first.id,
       workosUserId: first.workos_user_id ?? undefined,
