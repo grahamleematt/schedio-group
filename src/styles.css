@@ -4567,3 +4567,56 @@ pre code {
     border-bottom: 1px solid var(--color-line);
   }
 }
+
+/* ── Users & access: add-user form ─────────────────────────────────────── */
+
+.invite-form {
+  display: grid;
+  gap: 14px;
+}
+.invite-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+@media (max-width: 760px) {
+  .invite-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.invite-field {
+  display: grid;
+  gap: 6px;
+}
+.invite-field .field-label {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  color: var(--color-muted-1);
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.invite-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.invite-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--color-muted-1);
+  min-height: 20px;
+}
+.invite-note-error {
+  color: var(--color-red-base);
+  font-weight: 600;
+}
+/* The pending-invitations table has only four columns; the roster table's
+   960px floor would push its action column into horizontal scroll. */
+.v2-table-scroll > .users-table-invites {
+  min-width: 680px;
+}

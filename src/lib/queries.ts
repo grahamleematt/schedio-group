@@ -24,6 +24,8 @@ import type { ExtractionOverlay } from '#/server/fns/extractionOverlay'
 import { getEgnyteConnection } from '#/server/fns/getEgnyteConnection'
 import type { EgnyteConnectionStatus } from '#/server/egnyteConnections'
 import { getUserDirectory } from '#/server/fns/getUserDirectory'
+import { getPendingInvites } from '#/server/fns/manageUsers'
+import type { PendingInvite } from '#/server/fns/manageUsers'
 import type { ActiveUser } from '#/lib/sg-dream'
 import type { DreamSnapshot } from '#/server/store'
 import type { DeterminationWorkspace } from '#/server/determinations/types'
@@ -86,6 +88,20 @@ export function userDirectoryQuery() {
     queryKey: ['user-directory'] as const,
     queryFn: () => getUserDirectory(),
     staleTime: 60_000,
+  })
+}
+
+export type PendingInvitesData = ReadonlyArray<PendingInvite>
+
+/**
+ * Outstanding WorkOS invitations (admin-only). Drives the pending list on
+ * the Users & access page so a just-invited teammate is visible immediately.
+ */
+export function pendingInvitesQuery() {
+  return queryOptions({
+    queryKey: ['pending-invites'] as const,
+    queryFn: () => getPendingInvites(),
+    staleTime: 30_000,
   })
 }
 

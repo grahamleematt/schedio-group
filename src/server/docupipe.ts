@@ -12,7 +12,7 @@
 
 import { getEnv } from './env'
 
-import type { ExtractedFields } from './store/types'
+import type { ExtractedFields, ExtractedLineItem } from './store/types'
 
 export class DocuPipeError extends Error {
   readonly status: number
@@ -48,7 +48,13 @@ export type PostDocumentResult = {
   jobId?: string
 }
 
-export type StandardizationField = string | number | boolean | null
+export type StandardizationField =
+  | string
+  | number
+  | boolean
+  | null
+  | ReadonlyArray<unknown>
+  | Record<string, unknown>
 
 export type StandardizationData = Record<string, StandardizationField>
 
@@ -171,6 +177,97 @@ function fieldNumber(v: unknown): number | undefined {
   return undefined
 }
 
+/** Unwrap a DocuPipe leaf that may be a primitive or `{ value, confidence }`. */
+function unwrapLeaf(x: unknown): unknown {
+  if (x && typeof x === 'object' && 'value' in x) {
+    return (x as { value?: unknown }).value
+  }
+  return x
+}
+
+const LINE_ITEM_CAP = 200
+
+/**
+ * Parse one INV/PA `line_items` element. Leaves may be plain values or
+ * `{ value }`-wrapped; keys may be snake_case or camelCase. PA `this_period`
+ * maps onto `amount`. Empty rows (no description and no numbers) are skipped
+ * by the caller.
+ */
+function normalizeLineItem(raw: unknown): ExtractedLineItem | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const row = raw as Record<string, unknown>
+  const leaf = (snake: string, camel: string): unknown =>
+    unwrapLeaf(row[snake] !== undefined ? row[snake] : row[camel])
+
+  const description =
+    fieldString(leaf('description', 'description')) ??
+    fieldString(leaf('description_of_work', 'descriptionOfWork'))
+  const itemNumber = fieldString(leaf('item_number', 'itemNumber'))
+  const taskOrderReference = fieldString(
+    leaf('task_order_reference', 'taskOrderReference'),
+  )
+  // INV `amount` and PA `this_period` (col E) both land on `amount`.
+  const amount =
+    fieldNumber(leaf('amount', 'amount')) ??
+    fieldNumber(leaf('this_period', 'thisPeriod'))
+  const scheduledValue = fieldNumber(
+    leaf('scheduled_value', 'scheduledValue'),
+  )
+  const fromPreviousApplication = fieldNumber(
+    leaf('from_previous_application', 'fromPreviousApplication'),
+  )
+  const materialsStored = fieldNumber(
+    leaf('materials_stored', 'materialsStored'),
+  )
+  const totalCompletedAndStored = fieldNumber(
+    leaf('total_completed_and_stored', 'totalCompletedAndStored'),
+  )
+  const percentComplete = fieldNumber(
+    leaf('percent_complete', 'percentComplete'),
+  )
+  const balanceToFinish = fieldNumber(
+    leaf('balance_to_finish', 'balanceToFinish'),
+  )
+  const retainage = fieldNumber(leaf('retainage', 'retainage'))
+
+  const hasDescription = Boolean(description)
+  const hasNumber =
+    amount !== undefined ||
+    scheduledValue !== undefined ||
+    fromPreviousApplication !== undefined ||
+    materialsStored !== undefined ||
+    totalCompletedAndStored !== undefined ||
+    percentComplete !== undefined ||
+    balanceToFinish !== undefined ||
+    retainage !== undefined
+  if (!hasDescription && !hasNumber) return null
+
+  return {
+    itemNumber,
+    description,
+    taskOrderReference,
+    amount,
+    scheduledValue,
+    fromPreviousApplication,
+    materialsStored,
+    totalCompletedAndStored,
+    percentComplete,
+    balanceToFinish,
+    retainage,
+  }
+}
+
+function normalizeLineItems(raw: unknown): ReadonlyArray<ExtractedLineItem> | undefined {
+  const unwrapped = unwrapLeaf(raw)
+  if (!Array.isArray(unwrapped)) return undefined
+  const items: Array<ExtractedLineItem> = []
+  for (const row of unwrapped.slice(0, LINE_ITEM_CAP)) {
+    const item = normalizeLineItem(row)
+    if (item) items.push(item)
+  }
+  return items.length > 0 ? items : undefined
+}
+
 /**
  * Map a raw DocuPipe data payload (standardization data, or an unwrapped
  * review payload) onto our `ExtractedFields` shape. DocuPipe can return
@@ -186,10 +283,13 @@ export function normalizeExtractedFields(
     const primary = raw[key]
     const fallback = alt !== undefined ? raw[alt] : undefined
     for (const x of [primary, fallback]) {
-      if (x && typeof x === 'object' && 'value' in x) {
-        return (x as { value?: unknown }).value
+      if (x !== undefined) {
+        const unwrapped = unwrapLeaf(x)
+        // Prefer the unwrapped leaf when present; fall through only when the
+        // primary key was absent (undefined), not when it was an empty wrap.
+        if (x && typeof x === 'object' && 'value' in x) return unwrapped
+        return x
       }
-      if (x !== undefined) return x
     }
     return undefined
   }
@@ -226,6 +326,7 @@ export function normalizeExtractedFields(
       v('less_previous_payments', 'lessPreviousPayments'),
     ),
     balanceToFinish: fieldNumber(v('balance_to_finish', 'balanceToFinish')),
+    lineItems: normalizeLineItems(raw.line_items ?? raw.lineItems),
   }
 }
 
@@ -659,28 +760,25 @@ export async function createSchema(input: {
   }
 }
 
-/** Edit an existing schema. Omitted fields are left unchanged. */
+/** Edit an existing schema's name / description / guidelines.
+ *  DocuPipe does **not** accept `jsonSchema` here — body changes require
+ *  creating a new schema (see align.ts `replaceSchema`). */
 export async function editSchema(input: {
   schemaId: string
   schemaName?: string
-  jsonSchema?: Record<string, unknown>
+  description?: string
   guidelines?: string
-}): Promise<DocupipeSchema> {
+}): Promise<{ success: boolean; schemaId: string }> {
   const body = await dpFetch<{
-    schemaId?: string
-    schemaName?: string
-    jsonSchema?: Record<string, unknown> | null
-    guidelines?: string | null
+    success?: boolean
   }>('/schema/edit', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   })
   return {
-    schemaId: body.schemaId ?? input.schemaId,
-    schemaName: body.schemaName ?? input.schemaName ?? '',
-    jsonSchema: body.jsonSchema ?? input.jsonSchema ?? null,
-    guidelines: body.guidelines ?? input.guidelines,
+    success: body.success ?? true,
+    schemaId: input.schemaId,
   }
 }
 

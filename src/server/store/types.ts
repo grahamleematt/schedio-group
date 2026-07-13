@@ -23,6 +23,26 @@ export type DocumentStatus =
   | 'error'
 
 /**
+ * One extracted invoice or G703 continuation-sheet row. Shared shape covers
+ * both INV and PA; PA-only columns stay undefined on invoices.
+ */
+export type ExtractedLineItem = {
+  itemNumber?: string
+  description?: string
+  /** INV only: task order / work order reference for contract matching. */
+  taskOrderReference?: string
+  /** INV: line billed amount. PA: this-period amount (col E). */
+  amount?: number
+  scheduledValue?: number
+  fromPreviousApplication?: number
+  materialsStored?: number
+  totalCompletedAndStored?: number
+  percentComplete?: number
+  balanceToFinish?: number
+  retainage?: number
+}
+
+/**
  * Minimum extracted shape we surface in the UI. Superset of every per-class
  * schema in docs/docupipe-setup.md; everything optional so one type covers
  * all doc types.
@@ -54,6 +74,11 @@ export type ExtractedFields = {
   totalEarnedLessRetainage?: number
   lessPreviousPayments?: number
   balanceToFinish?: number
+  /**
+   * INV task-order lines or PA G703 continuation-sheet rows, in document
+   * order. Absent when the schema did not return any rows.
+   */
+  lineItems?: ReadonlyArray<ExtractedLineItem>
 }
 
 /**

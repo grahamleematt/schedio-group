@@ -169,6 +169,127 @@ describe('normalizeExtractedFields', () => {
       1234.56,
     )
   })
+
+  it('parses plain INV line_items rows', () => {
+    const out = normalizeExtractedFields({
+      line_items: [
+        {
+          item_number: '1',
+          description: 'Design services',
+          task_order_reference: 'TO-04',
+          amount: 2500,
+        },
+        {
+          item_number: '2',
+          description: 'Survey',
+          task_order_reference: 'TO-04',
+          amount: 800,
+        },
+      ],
+    })
+    expect(out.lineItems).toEqual([
+      {
+        itemNumber: '1',
+        description: 'Design services',
+        taskOrderReference: 'TO-04',
+        amount: 2500,
+        scheduledValue: undefined,
+        fromPreviousApplication: undefined,
+        materialsStored: undefined,
+        totalCompletedAndStored: undefined,
+        percentComplete: undefined,
+        balanceToFinish: undefined,
+        retainage: undefined,
+      },
+      {
+        itemNumber: '2',
+        description: 'Survey',
+        taskOrderReference: 'TO-04',
+        amount: 800,
+        scheduledValue: undefined,
+        fromPreviousApplication: undefined,
+        materialsStored: undefined,
+        totalCompletedAndStored: undefined,
+        percentComplete: undefined,
+        balanceToFinish: undefined,
+        retainage: undefined,
+      },
+    ])
+  })
+
+  it('unwraps {value}-wrapped PA line_items and maps this_period to amount', () => {
+    const out = normalizeExtractedFields({
+      line_items: [
+        {
+          item_number: { value: '3.1' },
+          description_of_work: { value: 'Site grading' },
+          scheduled_value: { value: 10000 },
+          from_previous_application: { value: 2000 },
+          this_period: { value: 1500 },
+          materials_stored: { value: 0 },
+          total_completed_and_stored: { value: 3500 },
+          percent_complete: { value: 35 },
+          balance_to_finish: { value: 6500 },
+          retainage: { value: 350 },
+        },
+      ],
+    })
+    expect(out.lineItems).toHaveLength(1)
+    expect(out.lineItems![0]).toMatchObject({
+      itemNumber: '3.1',
+      description: 'Site grading',
+      amount: 1500,
+      scheduledValue: 10000,
+      fromPreviousApplication: 2000,
+      materialsStored: 0,
+      totalCompletedAndStored: 3500,
+      percentComplete: 35,
+      balanceToFinish: 6500,
+      retainage: 350,
+    })
+  })
+
+  it('skips empty line_items rows and accepts camelCase keys', () => {
+    const out = normalizeExtractedFields({
+      lineItems: [
+        {},
+        { item_number: 'x' },
+        {
+          itemNumber: '4',
+          descriptionOfWork: 'Concrete',
+          thisPeriod: 4200,
+          scheduledValue: 50000,
+        },
+      ],
+    })
+    expect(out.lineItems).toEqual([
+      {
+        itemNumber: '4',
+        description: 'Concrete',
+        taskOrderReference: undefined,
+        amount: 4200,
+        scheduledValue: 50000,
+        fromPreviousApplication: undefined,
+        materialsStored: undefined,
+        totalCompletedAndStored: undefined,
+        percentComplete: undefined,
+        balanceToFinish: undefined,
+        retainage: undefined,
+      },
+    ])
+  })
+
+  it('caps line_items at 200 rows', () => {
+    const rows = Array.from({ length: 250 }, (_, i) => ({
+      item_number: String(i + 1),
+      description: `Row ${i + 1}`,
+      amount: i + 1,
+    }))
+    const out = normalizeExtractedFields({ line_items: rows })
+    expect(out.lineItems).toHaveLength(200)
+    expect(out.lineItems![0].itemNumber).toBe('1')
+    expect(out.lineItems![199].itemNumber).toBe('200')
+  })
 })
 
 describe('applyReviewEdits', () => {

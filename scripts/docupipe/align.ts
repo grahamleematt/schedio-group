@@ -15,10 +15,15 @@
  *
  * Design notes:
  *
- * - **Additive-only by default.** A drifted schema (e.g. INV's two extra
- *   `po_number`/`line_item_count` fields) is reported as WARN, not changed,
- *   so you can never wipe a tweaked-by-hand schema by running `sync`. Pass
- *   `--allow-update` to opt in to overwrites.
+ * - **Additive-only by default.** Schema field *additions* (missing on live,
+ *   no extras, no body rewrites) are applied by `sync` without a flag — that
+ *   is how `line_items` and similar growth lands. DocuPipe cannot mutate a
+ *   schema's `jsonSchema` in place (`POST /schema/edit` only renames /
+ *   updates guidelines), so additive growth archives the old schema and
+ *   creates a replacement with the same display name, then remaps the
+ *   workflow. Overwrites that remove live-only fields or rewrite an existing
+ *   property body are reported as WARN and skipped unless you pass
+ *   `--allow-update`. Class description edits still require `--allow-update`.
  *
  * - **Workflow-class mapping is patched, not replaced.** The script reads
  *   the current `classToSchema` map and merges in any missing entries —
@@ -75,10 +80,18 @@ export type SyncAction =
       mappedTo: ReadonlyArray<DocType>
     }
   | {
-      kind: 'editSchema'
-      schemaId: string
+      /**
+       * DocuPipe's `POST /schema/edit` cannot change `jsonSchema` (only name /
+       * description / guidelines). Body drift is fixed by archiving the old
+       * schema, creating a replacement with the same display name, then
+       * remapping the workflow onto the new schemaId.
+       */
+      kind: 'replaceSchema'
+      oldSchemaId: string
       schemaName: string
       jsonSchema: Record<string, unknown>
+      /** See editSchema.additive — additive replaces run under default sync. */
+      additive: boolean
     }
   | {
       kind: 'createWorkflow'
@@ -189,8 +202,21 @@ export function compareSpecToLive(input: CompareInput): CompareResult {
   }
 
   // -- Schemas ----------------------------------------------------------------
+  // Prefer the live schema whose body is closest to the spec when duplicates
+  // share a display name (can happen mid-replace before the old row is renamed).
   const liveSchemaByName = new Map<string, DocupipeSchema>()
-  for (const s of liveSchemas) liveSchemaByName.set(s.schemaName, s)
+  for (const wantSchema of spec.schemas) {
+    const candidates = liveSchemas.filter(
+      (s) => s.schemaName === wantSchema.schemaName,
+    )
+    const best = pickBestLiveSchema(candidates, wantSchema.jsonSchema)
+    if (best) liveSchemaByName.set(wantSchema.schemaName, best)
+  }
+  // Also index any live schemas not in the spec (ignored for compare, but
+  // keeps the map complete if callers inspect it).
+  for (const s of liveSchemas) {
+    if (!liveSchemaByName.has(s.schemaName)) liveSchemaByName.set(s.schemaName, s)
+  }
 
   for (const wantSchema of spec.schemas) {
     const live = liveSchemaByName.get(wantSchema.schemaName)
@@ -208,7 +234,11 @@ export function compareSpecToLive(input: CompareInput): CompareResult {
       continue
     }
     const drift = diffSchemaFields(live.jsonSchema, wantSchema.jsonSchema)
-    if (drift.extraOnLive.length === 0 && drift.missingOnLive.length === 0) {
+    if (
+      drift.extraOnLive.length === 0 &&
+      drift.missingOnLive.length === 0 &&
+      drift.bodyChanged.length === 0
+    ) {
       issues.push({
         severity: 'pass',
         message: `schema '${wantSchema.schemaName}' matches spec (${drift.specFieldCount} fields)`,
@@ -225,14 +255,27 @@ export function compareSpecToLive(input: CompareInput): CompareResult {
           `${drift.missingOnLive.length} missing (${drift.missingOnLive.join(', ')})`,
         )
       }
+      if (drift.bodyChanged.length > 0) {
+        parts.push(
+          `${drift.bodyChanged.length} body-changed (${drift.bodyChanged.join(', ')})`,
+        )
+      }
+      // Additive = only new fields to push; no removals and no rewrites of
+      // existing property definitions. Default sync applies these without
+      // --allow-update so schema growth (e.g. adding line_items) lands safely.
+      const additive =
+        drift.missingOnLive.length > 0 &&
+        drift.extraOnLive.length === 0 &&
+        drift.bodyChanged.length === 0
       issues.push({
         severity: 'warn',
         message: `schema '${wantSchema.schemaName}' drift: ${parts.join('; ')}`,
         action: {
-          kind: 'editSchema',
-          schemaId: live.schemaId,
+          kind: 'replaceSchema',
+          oldSchemaId: live.schemaId,
           schemaName: wantSchema.schemaName,
           jsonSchema: wantSchema.jsonSchema,
+          additive,
         },
       })
     }
@@ -338,6 +381,32 @@ export function compareSpecToLive(input: CompareInput): CompareResult {
 // Diff helpers (pure, exported for tests)
 // ---------------------------------------------------------------------------
 
+/**
+ * When multiple live schemas share a display name (mid-replace), pick the
+ * body closest to the wanted spec. Falls back to the first row when no want
+ * schema is supplied.
+ */
+export function pickBestLiveSchema(
+  candidates: ReadonlyArray<DocupipeSchema>,
+  wantJsonSchema?: Record<string, unknown>,
+): DocupipeSchema | undefined {
+  if (candidates.length === 0) return undefined
+  const first = candidates[0]
+  if (!wantJsonSchema) return first
+  let best = first
+  let bestScore = Number.POSITIVE_INFINITY
+  for (const live of candidates) {
+    const d = diffSchemaFields(live.jsonSchema, wantJsonSchema)
+    const score =
+      d.missingOnLive.length + d.bodyChanged.length + d.extraOnLive.length
+    if (score < bestScore) {
+      best = live
+      bestScore = score
+    }
+  }
+  return best
+}
+
 export function diffSchemaFields(
   live: Record<string, unknown> | null | undefined,
   want: Record<string, unknown>,
@@ -345,20 +414,62 @@ export function diffSchemaFields(
   specFieldCount: number
   extraOnLive: ReadonlyArray<string>
   missingOnLive: ReadonlyArray<string>
+  /** Spec fields present on live whose property definition body differs. */
+  bodyChanged: ReadonlyArray<string>
 } {
-  const wantFields = Object.keys(
-    (want.properties as Record<string, unknown> | undefined) ?? {},
-  ).filter((k) => !k.endsWith('_confidence'))
-  const liveFields = Object.keys(
-    (live?.properties as Record<string, unknown> | undefined) ?? {},
-  ).filter((k) => !k.endsWith('_confidence'))
+  const wantProps =
+    (want.properties as Record<string, unknown> | undefined) ?? {}
+  const liveProps =
+    (live?.properties as Record<string, unknown> | undefined) ?? {}
+  const wantFields = Object.keys(wantProps).filter(
+    (k) => !k.endsWith('_confidence'),
+  )
+  const liveFields = Object.keys(liveProps).filter(
+    (k) => !k.endsWith('_confidence'),
+  )
   const wantSet = new Set(wantFields)
   const liveSet = new Set(liveFields)
+  const bodyChanged: Array<string> = []
+  for (const name of wantFields) {
+    if (!liveSet.has(name)) continue
+    if (!stableJsonEqual(liveProps[name], wantProps[name])) {
+      bodyChanged.push(name)
+    }
+  }
   return {
     specFieldCount: wantFields.length,
     extraOnLive: liveFields.filter((f) => !wantSet.has(f)),
     missingOnLive: wantFields.filter((f) => !liveSet.has(f)),
+    bodyChanged,
   }
+}
+
+/** Canonical JSON equality for schema property bodies (key-order insensitive). */
+function stableJsonEqual(a: unknown, b: unknown): boolean {
+  return (
+    JSON.stringify(structuralSchemaFingerprint(a)) ===
+    JSON.stringify(structuralSchemaFingerprint(b))
+  )
+}
+
+/**
+ * Fingerprint a JSON-Schema property for drift detection. Ignores prose
+ * (`description`, `examples`) so live DocuPipe copy-edits don't force
+ * `--allow-update`; still catches type / items / nested-shape changes
+ * (e.g. `line_items` row columns).
+ */
+function structuralSchemaFingerprint(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(structuralSchemaFingerprint)
+  if (value && typeof value === 'object') {
+    const obj = value as Record<string, unknown>
+    const out: Record<string, unknown> = {}
+    for (const key of Object.keys(obj).sort()) {
+      if (key === 'description' || key === 'examples') continue
+      out[key] = structuralSchemaFingerprint(obj[key])
+    }
+    return out
+  }
+  return value
 }
 
 /**
@@ -384,9 +495,15 @@ export function mergeWorkflowMappings(input: {
 } {
   const { spec, liveClasses, liveSchemas, liveWorkflow } = input
   const classByName = new Map(liveClasses.map((c) => [c.className, c.classId]))
-  const schemaByName = new Map(
-    liveSchemas.map((s) => [s.schemaName, s.schemaId]),
-  )
+  const schemaByName = new Map<string, string>()
+  for (const want of spec.schemas) {
+    const candidates = liveSchemas.filter((s) => s.schemaName === want.schemaName)
+    const best = pickBestLiveSchema(candidates, want.jsonSchema)
+    if (best) schemaByName.set(want.schemaName, best.schemaId)
+  }
+  for (const s of liveSchemas) {
+    if (!schemaByName.has(s.schemaName)) schemaByName.set(s.schemaName, s.schemaId)
+  }
   const existingStep = liveWorkflow.step as Partial<ClassifyStandardizeStep>
   const liveMap: Record<string, string> = {
     ...(existingStep.classToSchema ?? {}),
@@ -485,9 +602,14 @@ function buildClassifyStandardizeStep(input: {
   const classByName = new Map(
     input.liveClasses.map((c) => [c.className, c.classId]),
   )
-  const schemaByName = new Map(
-    input.liveSchemas.map((s) => [s.schemaName, s.schemaId]),
-  )
+  const schemaByName = new Map<string, string>()
+  for (const schema of input.spec.schemas) {
+    const candidates = input.liveSchemas.filter(
+      (s) => s.schemaName === schema.schemaName,
+    )
+    const best = pickBestLiveSchema(candidates, schema.jsonSchema)
+    if (best) schemaByName.set(schema.schemaName, best.schemaId)
+  }
   const classToSchema: Record<string, string> = {}
   for (const schema of input.spec.schemas) {
     const schemaId = schemaByName.get(schema.schemaName)
@@ -606,8 +728,8 @@ function describeAction(a: SyncAction): string {
       return `edit class ${a.className} (${a.classId})`
     case 'createSchema':
       return `create schema '${a.schemaName}' (mapped to ${a.mappedTo.join(' ')})`
-    case 'editSchema':
-      return `edit schema '${a.schemaName}' (${a.schemaId})`
+    case 'replaceSchema':
+      return `replace schema '${a.schemaName}' (${a.oldSchemaId} → new)`
     case 'createWorkflow':
       return `create workflow '${a.workflowName}'`
     case 'updateWorkflowMappings': {
@@ -645,13 +767,18 @@ async function applyAction(a: SyncAction): Promise<string> {
       })
       return `created schema '${r.schemaName}' (${r.schemaId})`
     }
-    case 'editSchema': {
+    case 'replaceSchema': {
+      // Archive the old row so the display name is free, then create the
+      // replacement. Workflow remapping runs in the post-structural refresh.
       await editSchema({
-        schemaId: a.schemaId,
+        schemaId: a.oldSchemaId,
+        schemaName: `${a.schemaName} (superseded ${a.oldSchemaId})`,
+      })
+      const r = await createSchema({
         schemaName: a.schemaName,
         jsonSchema: a.jsonSchema,
       })
-      return `edited schema '${a.schemaName}'`
+      return `replaced schema '${a.schemaName}' (${a.oldSchemaId} → ${r.schemaId})`
     }
     case 'createWorkflow': {
       const r = await createWorkflow({
@@ -677,7 +804,11 @@ async function applyAction(a: SyncAction): Promise<string> {
 
 function shouldSkipAction(a: SyncAction, allowUpdate: boolean): boolean {
   if (allowUpdate) return false
-  return a.kind === 'editClass' || a.kind === 'editSchema'
+  if (a.kind === 'editClass') return true
+  // Additive schema growth (new fields only) is safe under the default
+  // additive-only sync policy; body rewrites / removals still need opt-in.
+  if (a.kind === 'replaceSchema') return !a.additive
+  return false
 }
 
 async function main(): Promise<number> {
@@ -775,7 +906,7 @@ async function main(): Promise<number> {
       a.kind === 'createClass' ||
       a.kind === 'createSchema' ||
       a.kind === 'editClass' ||
-      a.kind === 'editSchema',
+      a.kind === 'replaceSchema',
   )
   const workflowActions = planned.filter(
     (a) =>

@@ -19,6 +19,7 @@ import {
   LogOut,
   Settings,
   UploadCloud,
+  UserPlus,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { Client, User, Verification, Workflow } from '#/lib/sg-dream'
@@ -160,6 +161,22 @@ export function Sidebar({
         active={active}
         baseSearch={baseSearch}
       />
+      {user.canManageUsers ? (
+        <NavSection
+          title="Administration"
+          items={[
+            {
+              id: 'users',
+              label: 'Users & access',
+              icon: UserPlus,
+              to: '/users',
+              count: counts.users,
+            },
+          ]}
+          active={active}
+          baseSearch={baseSearch}
+        />
+      ) : null}
       <div className="nav-foot">
         <div className="avatar" aria-hidden>
           {avatarInitials}

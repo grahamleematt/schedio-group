@@ -1,20 +1,46 @@
+/**
+ * Users & access — the admin surface for managing who can sign in to the
+ * portal. Gated to users with `canManageUsers` (Tim): everyone else is
+ * redirected to the dashboard and never sees the nav entry.
+ *
+ * Inviting someone here runs the same onboarding core as `yarn team:onboard`:
+ * Postgres identity + entity grants and the WorkOS AuthKit invitation in one
+ * step. Pending invitations and the live organization roster render below.
+ */
+
+import { useState } from 'react'
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
-import { CheckCircle2 } from 'lucide-react'
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  useSuspenseQuery,
+} from '@tanstack/react-query'
+import { CheckCircle2, ChevronDown, Loader2, UserPlus } from 'lucide-react'
 import { AppShell } from '#/components/sg-dream/AppShell'
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '#/components/ui/dropdown-menu'
+import { Input } from '#/components/ui/input'
 import {
   accessRoleLabels,
   clients,
   getClientById,
   getOpenVerification,
-  pendingUsers,
 } from '#/lib/sg-dream'
 import {
+  pendingInvitesQuery,
   portalConfigQuery,
+  sessionUserQuery,
   userDirectoryQuery,
   verificationSnapshotQuery,
 } from '#/lib/queries'
 import { usePortalConfig } from '#/lib/session'
+import { addPortalUser, revokePendingInvite } from '#/server/fns/manageUsers'
+import type { AddPortalUserResult } from '#/server/fns/manageUsers'
 
 type UsersSearch = {
   client: string
@@ -32,17 +58,65 @@ export const Route = createFileRoute('/users')({
     if (!known) {
       throw redirect({ to: '/users', search: { client: 'dawson-trails-md1' } })
     }
+    // Admin-only surface: bounce anyone without user-management access back
+    // to their dashboard (the nav entry is hidden for them too).
+    const user = await context.queryClient.ensureQueryData(sessionUserQuery())
+    if (!user) {
+      throw redirect({ to: '/login' })
+    }
+    if (!user.canManageUsers) {
+      throw redirect({ to: '/dashboard', search: { client: known.id } })
+    }
     const { verifications } =
       await context.queryClient.ensureQueryData(portalConfigQuery())
     const open = getOpenVerification(verifications, known.id)
     return Promise.all([
       context.queryClient.ensureQueryData(verificationSnapshotQuery(open.id)),
       context.queryClient.ensureQueryData(userDirectoryQuery()),
+      context.queryClient.ensureQueryData(pendingInvitesQuery()),
     ])
   },
   head: () => ({ meta: [{ title: 'Users & access | SG DREAM' }] }),
   component: UsersPage,
 })
+
+function formatInviteDate(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+function expiresLabel(iso: string, nowISO: string): string {
+  const expires = new Date(iso).getTime()
+  const now = new Date(nowISO).getTime()
+  if (Number.isNaN(expires) || Number.isNaN(now)) return '—'
+  const days = Math.max(0, Math.ceil((expires - now) / 86_400_000))
+  return days === 0 ? 'today' : `in ${days}d`
+}
+
+function successCopy(result: AddPortalUserResult & { ok: true }): string {
+  const { workos } = result.result
+  if (workos === 'invited') {
+    return 'Invitation sent — they’ll get an email to set up their account.'
+  }
+  if (workos === 'invitation_pending' || workos === 'membership_pending') {
+    return 'Access granted. Their earlier invitation is still pending — no new email needed.'
+  }
+  if (workos === 'unconfigured') {
+    return 'Access granted in the portal. WorkOS isn’t configured here, so no invitation email went out.'
+  }
+  return 'Access granted — they already have an account and can sign in now.'
+}
+
+function entityAccessLabel(entityIds: ReadonlyArray<string>): string {
+  if (entityIds.length === 0) return 'Select entities'
+  if (entityIds.length === clients.length) return 'All entities'
+  const codes = clients
+    .filter((c) => entityIds.includes(c.id))
+    .map((c) => c.code)
+  const noun = entityIds.length === 1 ? 'entity' : 'entities'
+  return `${entityIds.length} ${noun} · ${codes.join(', ')}`
+}
 
 function UsersPage() {
   const { client: clientId } = Route.useSearch()
@@ -55,7 +129,62 @@ function UsersPage() {
   // MFA enrollment, last sign-in) joined with each user's Postgres entity
   // access.
   const activeUsers = useSuspenseQuery(userDirectoryQuery()).data
-  const hasPending = pendingUsers.length > 0
+  const pendingInvites = useSuspenseQuery(pendingInvitesQuery()).data
+
+  const queryClient = useQueryClient()
+  const refresh = () => {
+    void queryClient.invalidateQueries({
+      queryKey: userDirectoryQuery().queryKey,
+    })
+    void queryClient.invalidateQueries({
+      queryKey: pendingInvitesQuery().queryKey,
+    })
+  }
+
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [entityIds, setEntityIds] = useState<ReadonlyArray<string>>(
+    clients.map((c) => c.id),
+  )
+
+  const addMut = useMutation({
+    mutationFn: () =>
+      addPortalUser({
+        data: { email, name, entities: [...entityIds] },
+      }),
+    onSuccess: (result: AddPortalUserResult) => {
+      refresh()
+      if (result.ok) {
+        setName('')
+        setEmail('')
+        setEntityIds(clients.map((c) => c.id))
+      }
+    },
+  })
+
+  const revokeMut = useMutation({
+    mutationFn: (invitationId: string) =>
+      revokePendingInvite({ data: { invitationId } }),
+    onSuccess: refresh,
+  })
+
+  const toggleEntity = (id: string) => {
+    setEntityIds((prev) =>
+      prev.includes(id) ? prev.filter((e) => e !== id) : [...prev, id],
+    )
+  }
+
+  const canSubmit =
+    name.trim().length > 0 &&
+    email.includes('@') &&
+    entityIds.length > 0 &&
+    !addMut.isPending
+  const addResult = addMut.data
+  const addError = addMut.isError
+    ? 'Couldn’t add the user — try again.'
+    : addResult && !addResult.ok
+      ? addResult.error
+      : null
 
   const rail = (
     <section className="v2-card">
@@ -92,7 +221,7 @@ function UsersPage() {
       active="users"
       crumbs={[{ label: 'Users & access' }]}
       rail={rail}
-      pendingUsers={pendingUsers.length}
+      pendingUsers={pendingInvites.length}
       recentAuditEvents={0}
     >
       <header className="mb-3 flex flex-wrap items-end justify-between gap-3">
@@ -100,123 +229,189 @@ function UsersPage() {
           <p className="v2-eyebrow">Administration</p>
           <h1 className="v2-h1">Users &amp; access</h1>
           <p className="v2-lede">
-            Entity Owners approve every access request. Pending requests expire
-            in 72 hours. Every action is logged in the audit trail.
+            Invite teammates and manage who can sign in. New users get a
+            secure WorkOS invitation and only see the entities you grant.
           </p>
         </div>
-        <span className="chip">Access changes handled by SG Admin</span>
+        <span className="chip">Visible to admins only</span>
       </header>
 
-      <section
-        className="v2-card mb-3"
-        style={
-          hasPending
-            ? {
-                borderColor: 'var(--color-amber-bd)',
-                background:
-                  'linear-gradient(180deg, var(--color-amber-bg), var(--color-brand-white))',
-              }
-            : undefined
-        }
-      >
-        <header
-          className="v2-card-head"
-          style={
-            hasPending
-              ? {
-                  background: 'transparent',
-                  borderBottomColor: 'var(--color-amber-bd)',
-                }
-              : undefined
-          }
-        >
-          <h3
-            style={
-              hasPending ? { color: 'var(--color-amber-base)' } : undefined
-            }
-          >
-            Pending approval · {pendingUsers.length}
-          </h3>
-          <span
-            className="sub"
-            style={
-              hasPending ? { color: 'var(--color-amber-base)' } : undefined
-            }
-          >
-            72-hour window
+      <section className="v2-card mb-3">
+        <header className="v2-card-head">
+          <h3>Add a user</h3>
+          <span className="sub">
+            One step: portal access + WorkOS invitation
           </span>
         </header>
-        {!hasPending ? (
+        <form
+          className="v2-card-body invite-form"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (canSubmit) addMut.mutate()
+          }}
+        >
+          <div className="invite-form-grid">
+            <label className="invite-field">
+              <span className="field-label">Full name</span>
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Jordan Rivera"
+                autoComplete="off"
+                disabled={addMut.isPending}
+              />
+            </label>
+            <label className="invite-field">
+              <span className="field-label">Work email</span>
+              <Input
+                className="mono"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="jrivera@schediogroup.com"
+                autoComplete="off"
+                disabled={addMut.isPending}
+              />
+            </label>
+          </div>
+
+          <div className="invite-field">
+            <span className="field-label" id="entity-access-label">
+              Entity access
+            </span>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                type="button"
+                disabled={addMut.isPending}
+                aria-labelledby="entity-access-label"
+                className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 flex h-9 w-full items-center justify-between gap-2 rounded-md border px-3 text-left text-sm outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <span className="min-w-0 truncate font-semibold text-ink">
+                  {entityAccessLabel(entityIds)}
+                </span>
+                <ChevronDown
+                  className="text-muted-foreground size-4 shrink-0 opacity-50"
+                  aria-hidden
+                />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="start"
+                className="w-(--radix-dropdown-menu-trigger-width) min-w-64"
+              >
+                {clients.map((c) => (
+                  <DropdownMenuCheckboxItem
+                    key={c.id}
+                    checked={entityIds.includes(c.id)}
+                    onCheckedChange={() => toggleEntity(c.id)}
+                    className="gap-2.5"
+                  >
+                    <span
+                      className="grid size-6 shrink-0 place-items-center rounded-2 bg-(--color-brand-blue) font-mono text-[9.5px] font-bold text-white"
+                      aria-hidden
+                    >
+                      {c.code}
+                    </span>
+                    <span className="min-w-0 truncate font-semibold">
+                      {c.name}
+                    </span>
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
+          <div className="invite-actions">
+            <span className="invite-note" role="status">
+              {addError ? (
+                <span className="invite-note-error">{addError}</span>
+              ) : addResult?.ok ? (
+                <>
+                  <CheckCircle2
+                    className="size-4 shrink-0"
+                    style={{ color: 'var(--color-green-base)' }}
+                    aria-hidden
+                  />
+                  {successCopy(addResult)}
+                </>
+              ) : (
+                'Invitations expire after 7 days. Access can be revoked any time.'
+              )}
+            </span>
+            <button
+              type="submit"
+              className="v2-btn primary"
+              disabled={!canSubmit}
+            >
+              {addMut.isPending ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+              ) : (
+                <UserPlus className="size-4" aria-hidden />
+              )}
+              {addMut.isPending ? 'Adding…' : 'Add user'}
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section className="v2-card mb-3">
+        <header className="v2-card-head">
+          <h3>Pending invitations · {pendingInvites.length}</h3>
+          <span className="sub">Sent via WorkOS · 7-day window</span>
+        </header>
+        {pendingInvites.length === 0 ? (
           <div className="v2-card-body flex items-center gap-2 text-[12.5px] text-muted-1">
             <CheckCircle2
               className="size-4 shrink-0"
               style={{ color: 'var(--color-green-base)' }}
               aria-hidden
             />
-            No pending approval requests. New invitations appear here for a
-            72-hour decision window before they expire.
+            No outstanding invitations. People you add appear here until they
+            accept.
           </div>
         ) : (
           <div className="v2-table-scroll">
-            <table className="v2-tbl users-table users-table-pending">
+            <table className="v2-tbl users-table users-table-invites">
               <colgroup>
-                <col style={{ width: '23%' }} />
+                <col style={{ width: '38%' }} />
+                <col style={{ width: '18%' }} />
+                <col style={{ width: '18%' }} />
                 <col style={{ width: '26%' }} />
-                <col style={{ width: '15%' }} />
-                <col style={{ width: '11%' }} />
-                <col style={{ width: '10%' }} />
-                <col style={{ width: '15%' }} />
               </colgroup>
               <thead>
                 <tr>
-                  <th>Requester</th>
                   <th>Email</th>
-                  <th>Requested role</th>
-                  <th>Entity</th>
-                  <th className="num">Expires</th>
+                  <th>Invited</th>
+                  <th>Expires</th>
                   <th />
                 </tr>
               </thead>
               <tbody>
-                {pendingUsers.map((u) => (
-                  <tr key={u.id}>
-                    <td>
-                      <div className="flex items-center gap-2">
-                        <Avatar initials={u.initials} />
-                        <div className="min-w-0">
-                          <div className="user-name font-semibold text-ink">
-                            {u.name}
-                          </div>
-                          <div className="user-sub text-muted-1 text-[11px]">
-                            {u.affiliation}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="mono email-cell">{u.email}</td>
-                    <td>
-                      <span className="pill pill-gray">
-                        {accessRoleLabels[u.requestedRole]}
-                      </span>
-                    </td>
-                    <td>
-                      <span className="pill pill-wf">
-                        <span className="dot" />
-                        {u.entityCode}
-                      </span>
+                {pendingInvites.map((inv) => (
+                  <tr key={inv.id}>
+                    <td className="mono email-cell">{inv.email}</td>
+                    <td className="mono whitespace-nowrap text-muted-1">
+                      {formatInviteDate(inv.invitedAtISO)}
                     </td>
                     <td
-                      className="num mono whitespace-nowrap"
+                      className="mono whitespace-nowrap"
                       style={{ color: 'var(--color-amber-base)' }}
                     >
-                      in {u.expiresInHours}h
+                      {expiresLabel(inv.expiresAtISO, config.todayISO)}
                     </td>
                     <td>
-                      <div className="flex justify-end">
+                      <div className="flex items-center justify-end gap-2">
                         <span className="pill pill-amber">
                           <span className="dot" />
-                          Awaiting owner decision
+                          Awaiting acceptance
                         </span>
+                        <button
+                          type="button"
+                          className="qlink"
+                          disabled={revokeMut.isPending}
+                          onClick={() => revokeMut.mutate(inv.id)}
+                        >
+                          Revoke
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -330,9 +525,8 @@ function UsersPage() {
             Competitor isolation
           </p>
           <p className="text-ink-2 m-0 mt-1 text-[12.5px] leading-relaxed">
-            Your WorkOS account is limited to the entities attached to your
-            review package. Additional entity access is granted by SG Admin
-            before it appears in this portal.
+            Every account is limited to the entities granted here. Users never
+            see workspaces that conflict with their other assignments.
           </p>
         </div>
       </section>

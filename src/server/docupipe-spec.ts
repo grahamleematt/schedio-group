@@ -98,56 +98,93 @@ function withConfidence(
   return out
 }
 
+const INV_LINE_ITEM = {
+  type: 'object',
+  description:
+    'One invoice line / task-order billing row. Return every billed line in document order.',
+  properties: {
+    item_number: {
+      type: 'string',
+      description:
+        'Line number, item code, or row index as printed (e.g. "1", "TO-3", "A").',
+    },
+    description: {
+      type: 'string',
+      description:
+        'Line description of work or goods billed, as printed on the invoice.',
+    },
+    task_order_reference: {
+      type: 'string',
+      description:
+        'Task order, work order, or PO this line bills against. Critical for matching the line to the authorizing contract. Prefer the per-line TO/WO/PO number over the invoice-level PO when both appear.',
+    },
+    amount: {
+      type: 'number',
+      description:
+        'This line\'s billed amount in USD. Strip currency symbols and commas; return a numeric value (e.g. 1250.00 not "$1,250.00").',
+    },
+  },
+} as const
+
 const INV_SCHEMA = {
   $schema: 'http://json-schema.org/draft-07/schema#',
   type: 'object',
   description:
     'Schema for extracting key invoice data with confidence scores for each field.',
-  properties: withConfidence({
-    vendor_name: {
-      type: 'string',
+  properties: {
+    ...withConfidence({
+      vendor_name: {
+        type: 'string',
+        description:
+          'Vendor or counterparty name as printed on the invoice header.',
+      },
+      vendor_id_guess: {
+        type: 'string',
+        description:
+          'Vendor tax ID, EIN, or internal vendor number if visible on the invoice.',
+      },
+      document_number: {
+        type: 'string',
+        description: 'Invoice number or document identifier.',
+      },
+      amount: {
+        type: 'number',
+        description:
+          'Total amount due in USD. Strip currency symbols and return as a numeric value.',
+      },
+      currency: {
+        type: 'string',
+        description:
+          'ISO 4217 currency code. Default to USD if not explicitly stated.',
+        examples: ['USD', 'EUR', 'CAD'],
+      },
+      document_date: {
+        type: 'string',
+        format: 'date',
+        description: 'Invoice issue date in YYYY-MM-DD format.',
+      },
+      contract_reference: {
+        type: 'string',
+        description:
+          'Parent contract number or reference if mentioned on the invoice, separate from PO number.',
+      },
+      po_number: {
+        type: 'string',
+        description: 'Purchase order number referenced on the invoice.',
+      },
+      line_item_count: {
+        type: 'integer',
+        description: 'Number of distinct line items listed on the invoice.',
+      },
+    }),
+    // Arrays are not wrapped by withConfidence — no sibling confidence fields.
+    line_items: {
+      type: 'array',
       description:
-        'Vendor or counterparty name as printed on the invoice header.',
+        'Every invoice line-item / task-order billing row in document order. Return ALL rows present on the invoice (typically ~8 for task-order invoices such as CORE Engineering). Do not summarize or omit rows. Strip currency symbols and commas from numeric amounts.',
+      items: INV_LINE_ITEM,
     },
-    vendor_id_guess: {
-      type: 'string',
-      description:
-        'Vendor tax ID, EIN, or internal vendor number if visible on the invoice.',
-    },
-    document_number: {
-      type: 'string',
-      description: 'Invoice number or document identifier.',
-    },
-    amount: {
-      type: 'number',
-      description:
-        'Total amount due in USD. Strip currency symbols and return as a numeric value.',
-    },
-    currency: {
-      type: 'string',
-      description:
-        'ISO 4217 currency code. Default to USD if not explicitly stated.',
-      examples: ['USD', 'EUR', 'CAD'],
-    },
-    document_date: {
-      type: 'string',
-      format: 'date',
-      description: 'Invoice issue date in YYYY-MM-DD format.',
-    },
-    contract_reference: {
-      type: 'string',
-      description:
-        'Parent contract number or reference if mentioned on the invoice, separate from PO number.',
-    },
-    po_number: {
-      type: 'string',
-      description: 'Purchase order number referenced on the invoice.',
-    },
-    line_item_count: {
-      type: 'integer',
-      description: 'Number of distinct line items listed on the invoice.',
-    },
-  }),
+  },
 } as const
 
 /**
@@ -162,95 +199,162 @@ const INV_SCHEMA = {
  * `amount` explicitly to Current Payment Due and capture the rest of the
  * waterfall so the figure can be validated rather than trusted blindly.
  */
+const PA_LINE_ITEM = {
+  type: 'object',
+  description:
+    'One AIA G703 continuation-sheet row (Schedule of Values line). Return every row in document order, including change-order and summary rows that appear on the sheet.',
+  properties: {
+    item_number: {
+      type: 'string',
+      description:
+        'G703 column A — Item No. as printed (e.g. "1", "3.2", "CO-1").',
+    },
+    description_of_work: {
+      type: 'string',
+      description:
+        'G703 column B — Description of Work as printed on the continuation sheet.',
+    },
+    scheduled_value: {
+      type: 'number',
+      description:
+        'G703 column C — Scheduled Value for this line. Strip currency symbols and commas; return a numeric USD value.',
+    },
+    from_previous_application: {
+      type: 'number',
+      description:
+        'G703 column D — Work Completed From Previous Application. Strip currency symbols and commas.',
+    },
+    this_period: {
+      type: 'number',
+      description:
+        'G703 column E — Work Completed This Period. Strip currency symbols and commas.',
+    },
+    materials_stored: {
+      type: 'number',
+      description:
+        'G703 column F — Materials Presently Stored (not in D or E). Strip currency symbols and commas.',
+    },
+    total_completed_and_stored: {
+      type: 'number',
+      description:
+        'G703 column G — Total Completed and Stored To Date (D+E+F). Strip currency symbols and commas.',
+    },
+    percent_complete: {
+      type: 'number',
+      description:
+        'G703 "% (G ÷ C)" — percent complete as printed on the sheet (typically 0–100). Return the printed percentage number, not a 0–1 fraction.',
+    },
+    balance_to_finish: {
+      type: 'number',
+      description:
+        'G703 column H — Balance to Finish (C − G). Strip currency symbols and commas.',
+    },
+    retainage: {
+      type: 'number',
+      description:
+        'G703 column I — Retainage for this line. Strip currency symbols and commas.',
+    },
+  },
+} as const
+
 const PA_SCHEMA = {
   $schema: 'http://json-schema.org/draft-07/schema#',
   type: 'object',
   description:
     'AIA G702/G703 (or vendor) pay-application extraction schema. Read the full G702 certificate; figures are dollars, numeric (strip currency symbols and commas).',
-  properties: withConfidence({
-    vendor_name: {
-      type: 'string',
+  properties: {
+    ...withConfidence({
+      vendor_name: {
+        type: 'string',
+        description:
+          'Contractor / vendor being paid (the "FROM CONTRACTOR" / applicant party on the G702).',
+      },
+      vendor_id_guess: {
+        type: 'string',
+        description:
+          'Contractor tax ID, EIN, or vendor number if printed. Leave blank if absent.',
+      },
+      document_number: {
+        type: 'string',
+        description:
+          'Application / pay-app / draw number (G702 "APPLICATION NO."), e.g. "11" or "12".',
+      },
+      amount: {
+        type: 'number',
+        description:
+          'CURRENT PAYMENT DUE — AIA G702 Line 11 (also labeled "AMOUNT DUE THIS APPLICATION" / "CURRENT PAYMENT DUE"). This equals Total Earned Less Retainage (Line 6) minus Less Previous Certificates for Payment (Line 7). It is the single dollar amount payable for THIS application only. Do NOT return the contract sum, the total completed & stored to date, the period gross, or total earned less retainage — return the Current Payment Due line specifically. If the form truly has no current-payment-due line, return null.',
+      },
+      current_payment_due: {
+        type: 'number',
+        description:
+          'Same value as `amount`: the G702 Line 11 Current Payment Due. Provide it here as well for cross-checking.',
+      },
+      contract_sum_to_date: {
+        type: 'number',
+        description:
+          'Contract Sum To Date — G702 Line 3 (original contract sum plus net change orders). Null if not shown.',
+      },
+      completed_and_stored_to_date: {
+        type: 'number',
+        description:
+          'Total Completed & Stored To Date — G702 Line 4 (G703 column G grand total). Cumulative across all applications. Null if not shown.',
+      },
+      retainage: {
+        type: 'number',
+        description:
+          'Total retainage withheld to date — G702 Line 5 (sum of line 5a + 5b). Null if not shown.',
+      },
+      total_earned_less_retainage: {
+        type: 'number',
+        description:
+          'Total Earned Less Retainage — G702 Line 6 (Line 4 minus Line 5). Null if not shown.',
+      },
+      less_previous_payments: {
+        type: 'number',
+        description:
+          'Less Previous Certificates for Payment — G702 Line 7 (cumulative amount certified on prior applications). Null if this is the first application or not shown.',
+      },
+      balance_to_finish: {
+        type: 'number',
+        description:
+          'Balance To Finish, Including Retainage — G702 Line 9. Null if not shown.',
+      },
+      currency: {
+        type: 'string',
+        description: 'ISO 4217 currency code. Default to USD if not stated.',
+        examples: ['USD'],
+      },
+      document_date: {
+        type: 'string',
+        format: 'date',
+        description:
+          'Application date (G702 "APPLICATION DATE" / period-to date signature date) in YYYY-MM-DD.',
+      },
+      period_start: {
+        type: 'string',
+        format: 'date',
+        description: 'Start of the billing period covered, YYYY-MM-DD.',
+      },
+      period_end: {
+        type: 'string',
+        format: 'date',
+        description:
+          'End of the billing period covered (G702 "PERIOD TO"), YYYY-MM-DD.',
+      },
+      contract_reference: {
+        type: 'string',
+        description:
+          'Project name/number or parent contract this application bills against (G702 "PROJECT" / "VIA CONTRACT").',
+      },
+    }),
+    // Arrays are not wrapped by withConfidence — no sibling confidence fields.
+    line_items: {
+      type: 'array',
       description:
-        'Contractor / vendor being paid (the "FROM CONTRACTOR" / applicant party on the G702).',
+        'Every AIA G703 continuation-sheet row (Schedule of Values) in document order. Return ALL rows on the sheet — pay apps often have 60+ lines. Do not summarize, skip, or collapse rows. Include change-order lines. Strip currency symbols and commas from every numeric column.',
+      items: PA_LINE_ITEM,
     },
-    vendor_id_guess: {
-      type: 'string',
-      description:
-        'Contractor tax ID, EIN, or vendor number if printed. Leave blank if absent.',
-    },
-    document_number: {
-      type: 'string',
-      description:
-        'Application / pay-app / draw number (G702 "APPLICATION NO."), e.g. "11" or "12".',
-    },
-    amount: {
-      type: 'number',
-      description:
-        'CURRENT PAYMENT DUE — AIA G702 Line 11 (also labeled "AMOUNT DUE THIS APPLICATION" / "CURRENT PAYMENT DUE"). This equals Total Earned Less Retainage (Line 6) minus Less Previous Certificates for Payment (Line 7). It is the single dollar amount payable for THIS application only. Do NOT return the contract sum, the total completed & stored to date, the period gross, or total earned less retainage — return the Current Payment Due line specifically. If the form truly has no current-payment-due line, return null.',
-    },
-    current_payment_due: {
-      type: 'number',
-      description:
-        'Same value as `amount`: the G702 Line 11 Current Payment Due. Provide it here as well for cross-checking.',
-    },
-    contract_sum_to_date: {
-      type: 'number',
-      description:
-        'Contract Sum To Date — G702 Line 3 (original contract sum plus net change orders). Null if not shown.',
-    },
-    completed_and_stored_to_date: {
-      type: 'number',
-      description:
-        'Total Completed & Stored To Date — G702 Line 4 (G703 column G grand total). Cumulative across all applications. Null if not shown.',
-    },
-    retainage: {
-      type: 'number',
-      description:
-        'Total retainage withheld to date — G702 Line 5 (sum of line 5a + 5b). Null if not shown.',
-    },
-    total_earned_less_retainage: {
-      type: 'number',
-      description:
-        'Total Earned Less Retainage — G702 Line 6 (Line 4 minus Line 5). Null if not shown.',
-    },
-    less_previous_payments: {
-      type: 'number',
-      description:
-        'Less Previous Certificates for Payment — G702 Line 7 (cumulative amount certified on prior applications). Null if this is the first application or not shown.',
-    },
-    balance_to_finish: {
-      type: 'number',
-      description:
-        'Balance To Finish, Including Retainage — G702 Line 9. Null if not shown.',
-    },
-    currency: {
-      type: 'string',
-      description: 'ISO 4217 currency code. Default to USD if not stated.',
-      examples: ['USD'],
-    },
-    document_date: {
-      type: 'string',
-      format: 'date',
-      description:
-        'Application date (G702 "APPLICATION DATE" / period-to date signature date) in YYYY-MM-DD.',
-    },
-    period_start: {
-      type: 'string',
-      format: 'date',
-      description: 'Start of the billing period covered, YYYY-MM-DD.',
-    },
-    period_end: {
-      type: 'string',
-      format: 'date',
-      description:
-        'End of the billing period covered (G702 "PERIOD TO"), YYYY-MM-DD.',
-    },
-    contract_reference: {
-      type: 'string',
-      description:
-        'Project name/number or parent contract this application bills against (G702 "PROJECT" / "VIA CONTRACT").',
-    },
-  }),
+  },
 } as const
 
 /**

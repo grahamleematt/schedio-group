@@ -135,6 +135,8 @@ export type User = {
   email: string
   role: 'entity_owner' | 'client_mgr' | 'client_viewer'
   permittedClientIds: ReadonlyArray<string>
+  /** Grants the Users & access admin page (invite/manage teammates). */
+  canManageUsers: boolean
 }
 
 export const currentUser: User = {
@@ -144,6 +146,8 @@ export const currentUser: User = {
   email: 'tim.mccarley@schedio.example',
   role: 'entity_owner',
   permittedClientIds: CUSTOMER_INTAKE_CLIENT_IDS,
+  // The seeded persona is Tim, who administers the team.
+  canManageUsers: true,
 }
 
 type VerificationStatus = 'open' | 'under_review' | 'approved'
@@ -773,19 +777,6 @@ export const accessRoleLabels: Record<AccessRole, string> = {
   client_mgr: 'Client Mgr',
   client_viewer: 'Client Viewer',
 }
-
-export type PendingUser = {
-  id: string
-  initials: string
-  name: string
-  affiliation: string
-  email: string
-  requestedRole: AccessRole
-  entityCode: string
-  expiresInHours: number
-}
-
-export const pendingUsers: ReadonlyArray<PendingUser> = []
 
 export type MfaState = 'enabled' | 'not_set'
 

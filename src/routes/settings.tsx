@@ -27,7 +27,7 @@ import {
   DialogTrigger,
 } from '#/components/ui/dialog'
 import { Input } from '#/components/ui/input'
-import { clients, getOpenVerification, pendingUsers } from '#/lib/sg-dream'
+import { clients, getOpenVerification } from '#/lib/sg-dream'
 import {
   egnyteConnectionQuery,
   portalConfigQuery,
@@ -101,7 +101,6 @@ function SettingsPage() {
       active="settings"
       crumbs={[{ label: 'Settings & integrations' }]}
       rail={rail}
-      pendingUsers={pendingUsers.length}
       recentAuditEvents={0}
     >
       <header className="mb-3">

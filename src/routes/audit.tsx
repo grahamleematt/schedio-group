@@ -5,7 +5,6 @@ import {
   clients,
   getClientById,
   getOpenVerification,
-  pendingUsers,
 } from '#/lib/sg-dream'
 import {
   auditLogQuery,
@@ -215,7 +214,6 @@ function AuditPage() {
       active="audit"
       crumbs={[{ label: 'Audit log' }]}
       rail={rail}
-      pendingUsers={pendingUsers.length}
       recentAuditEvents={todayEvents.length}
     >
       <header className="mb-3 flex flex-wrap items-end justify-between gap-3">

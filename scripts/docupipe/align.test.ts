@@ -106,6 +106,7 @@ describe('diffSchemaFields', () => {
       specFieldCount: 1,
       extraOnLive: [],
       missingOnLive: [],
+      bodyChanged: [],
     })
   })
 
@@ -122,6 +123,7 @@ describe('diffSchemaFields', () => {
     )
     expect(result.extraOnLive).toEqual(['po_number', 'line_item_count'])
     expect(result.missingOnLive).toEqual(['document_number'])
+    expect(result.bodyChanged).toEqual([])
   })
 
   it('handles a missing live schema body', () => {
@@ -129,6 +131,71 @@ describe('diffSchemaFields', () => {
       properties: { vendor_name: {} },
     })
     expect(result.missingOnLive).toEqual(['vendor_name'])
+    expect(result.bodyChanged).toEqual([])
+  })
+
+  it('detects jsonSchema body drift when a shared property definition changes', () => {
+    const result = diffSchemaFields(
+      {
+        properties: {
+          line_items: {
+            type: 'array',
+            items: { type: 'object', properties: { amount: { type: 'string' } } },
+          },
+        },
+      },
+      {
+        properties: {
+          line_items: {
+            type: 'array',
+            items: { type: 'object', properties: { amount: { type: 'number' } } },
+          },
+        },
+      },
+    )
+    expect(result.missingOnLive).toEqual([])
+    expect(result.extraOnLive).toEqual([])
+    expect(result.bodyChanged).toEqual(['line_items'])
+  })
+
+  it('ignores property key order when comparing bodies', () => {
+    const result = diffSchemaFields(
+      {
+        properties: {
+          amount: { description: 'Total', type: 'number' },
+        },
+      },
+      {
+        properties: {
+          amount: { type: 'number', description: 'Total' },
+        },
+      },
+    )
+    expect(result.bodyChanged).toEqual([])
+  })
+
+  it('ignores description/examples prose when comparing bodies', () => {
+    const result = diffSchemaFields(
+      {
+        properties: {
+          amount: {
+            type: 'number',
+            description: 'Live-edited wording',
+            examples: ['1'],
+          },
+        },
+      },
+      {
+        properties: {
+          amount: {
+            type: 'number',
+            description: 'Spec wording',
+            examples: ['USD'],
+          },
+        },
+      },
+    )
+    expect(result.bodyChanged).toEqual([])
   })
 })
 
@@ -215,7 +282,7 @@ describe('compareSpecToLive', () => {
     expect(action.mappedTo).toEqual(['CTR', 'TO', 'CO', 'POP', 'LSP', 'CD'])
   })
 
-  it('flags WARN with editSchema action when a known schema has extra fields', () => {
+  it('flags WARN with replaceSchema action when a known schema has extra fields', () => {
     // Drop one field, add an extra — simulates a schema that drifted.
     const driftedInv = {
       ...INV_SCHEMA.jsonSchema,
@@ -234,6 +301,7 @@ describe('compareSpecToLive', () => {
             jsonSchema: driftedInv,
           },
           ALL_SCHEMAS[1],
+          ALL_SCHEMAS[2],
         ],
       }),
     )
@@ -242,8 +310,117 @@ describe('compareSpecToLive', () => {
         i.severity === 'warn' && i.message.includes("'SG DREAM INV' drift"),
     )
     expect(warn).toBeDefined()
-    expect(warn!.action?.kind).toBe('editSchema')
+    expect(warn!.action?.kind).toBe('replaceSchema')
     expect(warn!.message).toContain('rogue_field')
+    if (warn!.action?.kind !== 'replaceSchema') return
+    // Extra live fields make this a non-additive overwrite.
+    expect(warn!.action.additive).toBe(false)
+  })
+
+  it('marks missing-only schema growth as additive replaceSchema', () => {
+    const liveInvProps = {
+      ...(INV_SCHEMA.jsonSchema as { properties: Record<string, unknown> })
+        .properties,
+    }
+    delete liveInvProps.line_items
+    const result = compareSpecToLive(
+      baseInput({
+        liveSchemas: [
+          {
+            schemaId: 'sid_inv',
+            schemaName: INV_SCHEMA.schemaName,
+            jsonSchema: {
+              ...INV_SCHEMA.jsonSchema,
+              properties: liveInvProps,
+            },
+          },
+          ALL_SCHEMAS[1],
+          ALL_SCHEMAS[2],
+        ],
+      }),
+    )
+    const warn = result.issues.find(
+      (i) =>
+        i.severity === 'warn' &&
+        i.message.includes("'SG DREAM INV' drift") &&
+        i.message.includes('line_items'),
+    )
+    expect(warn).toBeDefined()
+    if (warn!.action?.kind !== 'replaceSchema') {
+      throw new Error('expected replaceSchema for additive line_items growth')
+    }
+    expect(warn!.action.additive).toBe(true)
+    expect(warn!.action.oldSchemaId).toBe('sid_inv')
+  })
+
+  it('flags body-changed properties as non-additive schema drift', () => {
+    const liveInvProps = {
+      ...(INV_SCHEMA.jsonSchema as { properties: Record<string, unknown> })
+        .properties,
+      amount: { type: 'string', description: 'rewritten' },
+    }
+    const result = compareSpecToLive(
+      baseInput({
+        liveSchemas: [
+          {
+            schemaId: 'sid_inv',
+            schemaName: INV_SCHEMA.schemaName,
+            jsonSchema: {
+              ...INV_SCHEMA.jsonSchema,
+              properties: liveInvProps,
+            },
+          },
+          ALL_SCHEMAS[1],
+          ALL_SCHEMAS[2],
+        ],
+      }),
+    )
+    const warn = result.issues.find(
+      (i) =>
+        i.severity === 'warn' &&
+        i.message.includes("'SG DREAM INV' drift") &&
+        i.message.includes('body-changed'),
+    )
+    expect(warn).toBeDefined()
+    if (warn!.action?.kind !== 'replaceSchema') {
+      throw new Error('expected replaceSchema for body-changed amount')
+    }
+    expect(warn!.action.additive).toBe(false)
+    expect(warn!.message).toContain('amount')
+  })
+
+  it('prefers the closer duplicate when multiple live schemas share a name', () => {
+    const liveInvProps = {
+      ...(INV_SCHEMA.jsonSchema as { properties: Record<string, unknown> })
+        .properties,
+    }
+    delete liveInvProps.line_items
+    const result = compareSpecToLive(
+      baseInput({
+        liveSchemas: [
+          {
+            schemaId: 'sid_inv_old',
+            schemaName: INV_SCHEMA.schemaName,
+            jsonSchema: {
+              ...INV_SCHEMA.jsonSchema,
+              properties: liveInvProps,
+            },
+          },
+          {
+            schemaId: 'sid_inv_new',
+            schemaName: INV_SCHEMA.schemaName,
+            jsonSchema: INV_SCHEMA.jsonSchema,
+          },
+          ALL_SCHEMAS[1],
+          ALL_SCHEMAS[2],
+        ],
+      }),
+    )
+    const invIssues = result.issues.filter((i) =>
+      i.message.includes("'SG DREAM INV'"),
+    )
+    expect(invIssues).toHaveLength(1)
+    expect(invIssues[0]?.severity).toBe('pass')
   })
 
   it('flags stdVersion drift with an updateWorkflowSettings action', () => {

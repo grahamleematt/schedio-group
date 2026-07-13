@@ -26,6 +26,7 @@ type DbUserAccessRow = {
   email: string
   name: string
   role: User['role']
+  is_admin: boolean
   client_id: string
 }
 
@@ -67,6 +68,7 @@ async function accessFromDatabase(input: {
           u.email,
           u.name,
           u.role,
+          u.is_admin,
           a.client_id
         from intelligence_users u
         join intelligence_user_client_access a on a.user_id = u.id
@@ -103,6 +105,7 @@ async function accessFromDatabase(input: {
       email: first.email,
       role: first.role,
       permittedClientIds: rows.rows.map((row) => row.client_id),
+      canManageUsers: first.is_admin,
     }
   } catch (err) {
     console.warn('[authz] database access lookup failed', err)
