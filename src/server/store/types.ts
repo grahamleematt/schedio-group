@@ -40,6 +40,11 @@ export type ExtractedLineItem = {
   percentComplete?: number
   balanceToFinish?: number
   retainage?: number
+  /**
+   * Reviewer-applied approval percentage, 0–100. Distinct from the extracted
+   * `percentComplete` (G703 col G); drives approved-amount math in the UI.
+   */
+  appliedPercent?: number
 }
 
 /**

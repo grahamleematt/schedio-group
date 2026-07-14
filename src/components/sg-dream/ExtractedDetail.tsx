@@ -22,6 +22,7 @@ import {
 import type { Document, PayAppCheck } from '#/lib/sg-dream'
 import { verificationSnapshotQuery } from '#/lib/queries'
 import { ExtractionOverlayDialog } from '#/components/sg-dream/ExtractionOverlayDialog'
+import { LineItemsTable } from '#/components/sg-dream/LineItemsTable'
 import { generateVisualReview } from '#/server/fns/visualReview'
 import { rerunExtraction } from '#/server/fns/rerunExtraction'
 import type { RerunExtractionResult } from '#/server/fns/rerunExtraction'
@@ -174,6 +175,8 @@ export function ExtractedDetail({
           ) : null}
         </div>
       ) : null}
+
+      <LineItemsTable doc={doc} verificationId={verificationId} />
 
       {lowFields.length > 0 ? (
         <p className="qconf">

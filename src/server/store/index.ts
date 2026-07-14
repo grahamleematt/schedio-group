@@ -52,6 +52,7 @@ export type {
   DreamStore,
   DreamStoreState,
   ExtractedFields,
+  ExtractedLineItem,
   ReviewState,
   StoredAuditEvent,
   StoredDocument,
