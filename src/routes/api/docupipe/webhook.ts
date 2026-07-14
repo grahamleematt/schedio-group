@@ -19,6 +19,7 @@ import {
   getReview,
   getStandardization,
   getWorkflow,
+  carryAppliedPercents,
   normalizeExtractedFields,
   standardizeV3,
   unwrapReviewData,
@@ -606,6 +607,10 @@ async function handleReviewEvent(
     ) {
       extracted.amount = Math.abs(extracted.amount)
     }
+    extracted.lineItems = carryAppliedPercents(
+      stored.extractedFields?.lineItems,
+      extracted.lineItems,
+    )
     update.extractedFields = extracted
   }
 
@@ -773,6 +778,11 @@ async function handleEvent(event: BaseEvent): Promise<void> {
         ) {
           extracted.amount = Math.abs(extracted.amount)
         }
+
+        extracted.lineItems = carryAppliedPercents(
+          stored.extractedFields?.lineItems,
+          extracted.lineItems,
+        )
 
         const priorSnapshot = await store.getSnapshot(stored.verificationId)
         const verificationRefs: Record<string, string> = {}

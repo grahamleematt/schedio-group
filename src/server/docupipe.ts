@@ -330,6 +330,95 @@ export function normalizeExtractedFields(
   }
 }
 
+function uniqueLineItemKeyMap(
+  rows: ReadonlyArray<ExtractedLineItem>,
+  keyOf: (row: ExtractedLineItem) => string | undefined,
+): Map<string, ExtractedLineItem> {
+  const counts = new Map<string, number>()
+  for (const row of rows) {
+    const key = keyOf(row)
+    if (key === undefined) continue
+    counts.set(key, (counts.get(key) ?? 0) + 1)
+  }
+  const map = new Map<string, ExtractedLineItem>()
+  for (const row of rows) {
+    const key = keyOf(row)
+    if (key === undefined || counts.get(key) !== 1) continue
+    map.set(key, row)
+  }
+  return map
+}
+
+function normalizedLineItemDescription(
+  description: string | undefined,
+): string | undefined {
+  if (description === undefined) return undefined
+  return description.trim().toLowerCase()
+}
+
+/**
+ * Preserve reviewer-entered `appliedPercent` values across a re-normalization
+ * of line items (webhook standardization, review verify, etc.). Matches by
+ * unique `itemNumber`, then unique normalized description, then same index
+ * when array lengths match. Never invents rows; never overwrites a percent
+ * already present on `next`.
+ */
+export function carryAppliedPercents(
+  prev: ReadonlyArray<ExtractedLineItem> | undefined,
+  next: ReadonlyArray<ExtractedLineItem> | undefined,
+): ReadonlyArray<ExtractedLineItem> | undefined {
+  if (next === undefined || next.length === 0) return next
+  if (prev === undefined || prev.length === 0) return next
+  const hasPrevPercent = prev.some(
+    (row) => typeof row.appliedPercent === 'number',
+  )
+  if (!hasPrevPercent) return next
+
+  const prevByItem = uniqueLineItemKeyMap(prev, (r) => r.itemNumber)
+  const nextByItem = uniqueLineItemKeyMap(next, (r) => r.itemNumber)
+  const prevByDesc = uniqueLineItemKeyMap(prev, (r) =>
+    normalizedLineItemDescription(r.description),
+  )
+  const nextByDesc = uniqueLineItemKeyMap(next, (r) =>
+    normalizedLineItemDescription(r.description),
+  )
+  const equalLength = prev.length === next.length
+
+  return next.map((nextRow, index) => {
+    if (typeof nextRow.appliedPercent === 'number') return nextRow
+
+    let matched: ExtractedLineItem | undefined
+    const itemNumber = nextRow.itemNumber
+    if (
+      itemNumber !== undefined &&
+      nextByItem.has(itemNumber) &&
+      prevByItem.has(itemNumber)
+    ) {
+      matched = prevByItem.get(itemNumber)
+    }
+
+    if (!matched) {
+      const desc = normalizedLineItemDescription(nextRow.description)
+      if (
+        desc !== undefined &&
+        nextByDesc.has(desc) &&
+        prevByDesc.has(desc)
+      ) {
+        matched = prevByDesc.get(desc)
+      }
+    }
+
+    if (!matched && equalLength) {
+      matched = prev[index]
+    }
+
+    if (matched && typeof matched.appliedPercent === 'number') {
+      return { ...nextRow, appliedPercent: matched.appliedPercent }
+    }
+    return nextRow
+  })
+}
+
 function toBase64(buf: ArrayBuffer | Uint8Array): string {
   const u8 = buf instanceof Uint8Array ? buf : new Uint8Array(buf)
   // Buffer is always available in the server runtime (Node + Vercel Edge polyfill).

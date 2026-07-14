@@ -9,7 +9,7 @@ import { randomUUID } from 'node:crypto'
 
 import { createServerFn } from '@tanstack/react-start'
 
-import { assertClientAccess } from '#/server/authz'
+import { assertClientAccess, resolvePortalUser } from '#/server/authz'
 import { getStore } from '#/server/store'
 import type {
   DreamSnapshot,
@@ -21,6 +21,7 @@ import type {
 export type SaveLineItemPercentsResult = {
   ok: boolean
   appliedCount: number
+  skippedCount: number
   snapshot: DreamSnapshot | null
   error?: string
 }
@@ -28,30 +29,67 @@ export type SaveLineItemPercentsResult = {
 export type LineItemPercentEdit = {
   index: number
   percent: number | null
+  /** Optional row identity — when present, must match the target row. */
+  itemNumber?: string
+  description?: string
 }
 
-/** Clamp a reviewer percent into the inclusive 0–100 range. */
+function isValidPercentInput(percent: number | null): boolean {
+  return percent === null || Number.isFinite(percent)
+}
+
+/** Clamp a finite reviewer percent into the inclusive 0–100 range. */
 export function clampAppliedPercent(percent: number): number {
-  if (!Number.isFinite(percent)) return 0
   return Math.min(100, Math.max(0, percent))
+}
+
+function editMatchesRow(
+  edit: LineItemPercentEdit,
+  row: ExtractedLineItem,
+): boolean {
+  if (
+    edit.itemNumber !== undefined &&
+    row.itemNumber !== undefined &&
+    edit.itemNumber !== row.itemNumber
+  ) {
+    return false
+  }
+  if (edit.description !== undefined && row.description !== undefined) {
+    if (
+      edit.description.trim().toLowerCase() !==
+      row.description.trim().toLowerCase()
+    ) {
+      return false
+    }
+  }
+  return true
 }
 
 /**
  * Apply percent edits onto a line-item array by index. Out-of-range indices
- * are ignored; `null` clears `appliedPercent`.
+ * are ignored; identity mismatches are skipped; `null` clears `appliedPercent`.
  */
 export function applyLineItemPercents(
   lineItems: ReadonlyArray<ExtractedLineItem>,
   percents: ReadonlyArray<LineItemPercentEdit>,
-): { items: Array<ExtractedLineItem>; appliedCount: number } {
+): {
+  items: Array<ExtractedLineItem>
+  appliedCount: number
+  skippedCount: number
+} {
   const items = lineItems.map((item) => ({ ...item }))
   let appliedCount = 0
+  let skippedCount = 0
   for (const edit of percents) {
     if (
       !Number.isInteger(edit.index) ||
       edit.index < 0 ||
       edit.index >= items.length
     ) {
+      continue
+    }
+    if (!editMatchesRow(edit, items[edit.index])) {
+      skippedCount += 1
       continue
     }
     appliedCount += 1
@@ -65,7 +103,7 @@ export function applyLineItemPercents(
       }
     }
   }
-  return { items, appliedCount }
+  return { items, appliedCount, skippedCount }
 }
 
 function percentsAuditEvent(input: {
@@ -101,38 +139,64 @@ export const saveLineItemPercents = createServerFn({ method: 'POST' })
     }) => data,
   )
   .handler(async ({ data }): Promise<SaveLineItemPercentsResult> => {
+    await resolvePortalUser()
     const store = getStore()
     const snapshot = await store.getSnapshot(data.verificationId)
     const doc = snapshot?.verification.documents.find(
       (d) => d.id === data.documentId,
     )
     if (!doc) {
-      return { ok: false, appliedCount: 0, snapshot, error: 'unknown document' }
+      return {
+        ok: false,
+        appliedCount: 0,
+        skippedCount: 0,
+        snapshot: null,
+        error: 'unknown document',
+      }
     }
     const user = await assertClientAccess(doc.clientId)
+
+    if (data.percents.some((edit) => !isValidPercentInput(edit.percent))) {
+      return {
+        ok: false,
+        appliedCount: 0,
+        skippedCount: 0,
+        snapshot,
+        error: 'invalid percent value',
+      }
+    }
 
     const existing = doc.extractedFields?.lineItems ?? []
     if (existing.length === 0) {
       return {
         ok: false,
         appliedCount: 0,
+        skippedCount: 0,
         snapshot,
         error: 'no line items on this document',
       }
     }
 
-    const { items, appliedCount } = applyLineItemPercents(
+    const { items, appliedCount, skippedCount } = applyLineItemPercents(
       existing,
       data.percents,
     )
-    const persisted = await store.upsertDocument({
-      ...doc,
+    const persisted = await store.patchDocument(doc.id, {
       updatedAt: new Date().toISOString(),
       extractedFields: {
         ...doc.extractedFields,
         lineItems: items,
       },
     })
+    if (!persisted) {
+      return {
+        ok: false,
+        appliedCount: 0,
+        skippedCount: 0,
+        snapshot,
+        error: 'document no longer exists',
+      }
+    }
 
     try {
       await store.appendAuditEvent(
@@ -150,6 +214,7 @@ export const saveLineItemPercents = createServerFn({ method: 'POST' })
     return {
       ok: true,
       appliedCount,
+      skippedCount,
       snapshot: await store.getSnapshot(data.verificationId),
     }
   })

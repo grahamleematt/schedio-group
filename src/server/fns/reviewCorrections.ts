@@ -18,10 +18,11 @@ import { randomUUID } from 'node:crypto'
 
 import { createServerFn } from '@tanstack/react-start'
 
-import { assertClientAccess } from '#/server/authz'
+import { assertClientAccess, resolvePortalUser } from '#/server/authz'
 import {
   applyReviewBoxEdits,
   applyReviewEdits,
+  carryAppliedPercents,
   getReview,
   normalizeExtractedFields,
   unwrapReviewData,
@@ -100,13 +101,14 @@ export const submitReviewCorrections = createServerFn({ method: 'POST' })
     }) => data,
   )
   .handler(async ({ data }): Promise<ReviewCorrectionsResult> => {
+    await resolvePortalUser()
     const store = getStore()
     const snapshot = await store.getSnapshot(data.verificationId)
     const doc = snapshot?.verification.documents.find(
       (d) => d.id === data.documentId,
     )
     if (!doc) {
-      return { ok: false, appliedCount: 0, snapshot, error: 'unknown document' }
+      return { ok: false, appliedCount: 0, snapshot: null, error: 'unknown document' }
     }
     const user = await assertClientAccess(doc.clientId)
 
@@ -161,9 +163,21 @@ export const submitReviewCorrections = createServerFn({ method: 'POST' })
       ) {
         extracted.amount = Math.abs(extracted.amount)
       }
+      extracted.lineItems = carryAppliedPercents(
+        doc.extractedFields?.lineItems,
+        extracted.lineItems,
+      )
       update.extractedFields = extracted
     }
-    const persisted = await store.upsertDocument({ ...doc, ...update })
+    const persisted = await store.patchDocument(doc.id, update)
+    if (!persisted) {
+      return {
+        ok: false,
+        appliedCount: 0,
+        snapshot,
+        error: 'document no longer exists',
+      }
+    }
 
     try {
       await store.appendAuditEvent(

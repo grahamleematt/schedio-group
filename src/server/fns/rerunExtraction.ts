@@ -22,7 +22,7 @@ import { randomUUID } from 'node:crypto'
 
 import { createServerFn } from '@tanstack/react-start'
 
-import { assertClientAccess } from '#/server/authz'
+import { assertClientAccess, resolvePortalUser } from '#/server/authz'
 import {
   classifyDocument,
   getClassMap,
@@ -90,13 +90,14 @@ export const rerunExtraction = createServerFn({ method: 'POST' })
     (data: { verificationId: string; documentId: string }) => data,
   )
   .handler(async ({ data }): Promise<RerunExtractionResult> => {
+    await resolvePortalUser()
     const store = getStore()
     const snapshot = await store.getSnapshot(data.verificationId)
     const doc = snapshot?.verification.documents.find(
       (d) => d.id === data.documentId,
     )
     if (!doc) {
-      return { ok: false, snapshot, error: 'unknown document' }
+      return { ok: false, snapshot: null, error: 'unknown document' }
     }
     const user = await assertClientAccess(doc.clientId)
 

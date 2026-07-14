@@ -9,7 +9,7 @@ import { clients as configuredClients, formatRef } from '#/lib/sg-dream'
 import { getVerificationConfigById } from '#/server/portalConfig'
 import { getStore } from '#/server/store'
 import type { DreamSnapshot } from '#/server/store'
-import { assertClientAccess } from '#/server/authz'
+import { assertClientAccess, resolvePortalUser } from '#/server/authz'
 
 async function seedMetadata(verificationId: string) {
   const verification = await getVerificationConfigById(verificationId)
@@ -30,15 +30,15 @@ async function seedMetadata(verificationId: string) {
 export const getVerificationSnapshot = createServerFn({ method: 'GET' })
   .inputValidator((data: { verificationId: string }) => data)
   .handler(async ({ data }): Promise<DreamSnapshot | null> => {
+    await resolvePortalUser()
     const store = getStore()
     const metadata = await seedMetadata(data.verificationId)
-    if (metadata) {
-      await assertClientAccess(metadata.clientId)
-      await store.ensureVerification({
-        verificationId: data.verificationId,
-        clientId: metadata.clientId,
-        ref: metadata.ref,
-      })
-    }
+    if (!metadata) return null
+    await assertClientAccess(metadata.clientId)
+    await store.ensureVerification({
+      verificationId: data.verificationId,
+      clientId: metadata.clientId,
+      ref: metadata.ref,
+    })
     return store.getSnapshot(data.verificationId)
   })

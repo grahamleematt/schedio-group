@@ -106,9 +106,11 @@ function LineItemsTableBody({
   const queryClient = useQueryClient()
   const saveMut = useMutation({
     mutationFn: () => {
-      const percents = lineItems.map((_, index) => ({
+      const percents = lineItems.map((item, index) => ({
         index,
         percent: parseDraftPercent(drafts[index]),
+        itemNumber: item.itemNumber,
+        description: item.description,
       }))
       const dirty = percents.filter(({ index, percent }) => {
         const saved = lineItems[index]?.appliedPercent
@@ -148,7 +150,9 @@ function LineItemsTableBody({
   const totalLabel = docType === 'PA' ? 'Scheduled' : 'Billed'
   const saveFailed =
     saveMut.isError || (saveMut.isSuccess && !saveMut.data.ok)
-  const saveOk = saveMut.isSuccess && saveMut.data.ok && !dirty
+  const rowsChanged =
+    saveMut.isSuccess && saveMut.data.ok && saveMut.data.skippedCount > 0
+  const saveOk = saveMut.isSuccess && saveMut.data.ok && !dirty && !rowsChanged
 
   return (
     <>
@@ -264,10 +268,12 @@ function LineItemsTableBody({
         </span>
         <div className="line-items-actions">
           <span className="invite-note" role="status">
-            {saveFailed ? (
+            {saveFailed || rowsChanged ? (
               <span className="invite-note-error">
-                {(saveMut.data && !saveMut.data.ok && saveMut.data.error) ||
-                  'Couldn’t save percentages — try again.'}
+                {rowsChanged
+                  ? 'Some rows changed since you loaded — refresh and reapply.'
+                  : (saveMut.data && !saveMut.data.ok && saveMut.data.error) ||
+                    'Couldn’t save percentages — try again.'}
               </span>
             ) : saveOk ? (
               <>

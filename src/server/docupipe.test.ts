@@ -17,6 +17,7 @@ import {
   listSchemas,
   listWorkflows,
   normalizeExtractedFields,
+  carryAppliedPercents,
   parseReviewBoundingBox,
   registerWebhookEndpoint,
   standardizeV3,
@@ -289,6 +290,103 @@ describe('normalizeExtractedFields', () => {
     expect(out.lineItems).toHaveLength(200)
     expect(out.lineItems![0].itemNumber).toBe('1')
     expect(out.lineItems![199].itemNumber).toBe('200')
+  })
+})
+
+describe('carryAppliedPercents', () => {
+  it('matches by itemNumber across reordered rows', () => {
+    const prev = [
+      { itemNumber: '1', description: 'A', appliedPercent: 100 },
+      { itemNumber: '2', description: 'B', appliedPercent: 75 },
+      { itemNumber: '3', description: 'C', appliedPercent: 50 },
+    ]
+    const next = [
+      { itemNumber: '3', description: 'C', amount: 30 },
+      { itemNumber: '1', description: 'A', amount: 10 },
+      { itemNumber: '2', description: 'B', amount: 20 },
+    ]
+    const out = carryAppliedPercents(prev, next)
+    expect(out?.map((r) => r.appliedPercent)).toEqual([50, 100, 75])
+  })
+
+  it('falls back to normalized description when itemNumbers are absent', () => {
+    const prev = [
+      { description: '  Grading  ', appliedPercent: 80 },
+      { description: 'Paving', appliedPercent: 40 },
+    ]
+    const next = [
+      { description: 'PAVING', amount: 200 },
+      { description: 'grading', amount: 100 },
+    ]
+    const out = carryAppliedPercents(prev, next)
+    expect(out?.[0]?.appliedPercent).toBe(40)
+    expect(out?.[1]?.appliedPercent).toBe(80)
+  })
+
+  it('falls back to same index when lengths match and keys are absent', () => {
+    const prev = [
+      { amount: 1, appliedPercent: 10 },
+      { amount: 2, appliedPercent: 20 },
+    ]
+    const next = [{ amount: 11 }, { amount: 22 }]
+    const out = carryAppliedPercents(prev, next)
+    expect(out?.[0]?.appliedPercent).toBe(10)
+    expect(out?.[1]?.appliedPercent).toBe(20)
+  })
+
+  it('does not match ambiguously when itemNumbers are duplicated', () => {
+    const prev = [
+      { itemNumber: '1', description: 'A', appliedPercent: 100 },
+      { itemNumber: '1', description: 'B', appliedPercent: 50 },
+    ]
+    const next = [
+      { itemNumber: '1', description: 'A', amount: 10 },
+      { itemNumber: '1', description: 'B', amount: 20 },
+    ]
+    // Duplicate itemNumbers → no itemNumber match; descriptions are unique
+    // so description fallback still applies.
+    const withUniqueDesc = carryAppliedPercents(prev, next)
+    expect(withUniqueDesc?.[0]?.appliedPercent).toBe(100)
+    expect(withUniqueDesc?.[1]?.appliedPercent).toBe(50)
+
+    // Ambiguous on both keys: duplicate itemNumbers and duplicate descriptions
+    // → fall through to index only when lengths match.
+    const ambiguousPrev = [
+      { itemNumber: '1', description: 'Same', appliedPercent: 100 },
+      { itemNumber: '1', description: 'Same', appliedPercent: 50 },
+    ]
+    const ambiguousNext = [
+      { itemNumber: '1', description: 'Same', amount: 10 },
+      { itemNumber: '1', description: 'Same', amount: 20 },
+    ]
+    const byIndex = carryAppliedPercents(ambiguousPrev, ambiguousNext)
+    expect(byIndex?.[0]?.appliedPercent).toBe(100)
+    expect(byIndex?.[1]?.appliedPercent).toBe(50)
+
+    // Different lengths + duplicate keys → no index fallback, untouched.
+    const shorterNext = [{ itemNumber: '1', description: 'Same', amount: 10 }]
+    const untouched = carryAppliedPercents(ambiguousPrev, shorterNext)
+    expect(untouched?.[0]?.appliedPercent).toBeUndefined()
+  })
+
+  it('prefers an appliedPercent already present on next', () => {
+    const prev = [{ itemNumber: '1', appliedPercent: 100 }]
+    const next = [{ itemNumber: '1', appliedPercent: 25, amount: 10 }]
+    const out = carryAppliedPercents(prev, next)
+    expect(out?.[0]?.appliedPercent).toBe(25)
+  })
+
+  it('returns next untouched when prev has no applied percents', () => {
+    const prev = [{ itemNumber: '1', description: 'A' }]
+    const next = [{ itemNumber: '1', description: 'A', amount: 10 }]
+    const out = carryAppliedPercents(prev, next)
+    expect(out).toBe(next)
+  })
+
+  it('returns next when prev is empty or undefined', () => {
+    const next = [{ itemNumber: '1', amount: 10 }]
+    expect(carryAppliedPercents(undefined, next)).toBe(next)
+    expect(carryAppliedPercents([], next)).toBe(next)
   })
 })
 
