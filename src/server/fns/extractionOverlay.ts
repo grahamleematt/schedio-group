@@ -1,7 +1,7 @@
 /**
  * In-app extraction overlay data. Fetches the DocuPipe Review object for a
  * document and flattens it into positioned fields (page + normalized bounding
- * box) that `ExtractionOverlayDialog` renders on top of the original file.
+ * box) that the document detail route renders on top of the original file.
  * Replaces the hosted DocuPipe viewer as the primary overlay surface — we
  * control rotation and box placement, and the hosted viewer stays available
  * as a fallback link.

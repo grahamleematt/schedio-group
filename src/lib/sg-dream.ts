@@ -209,6 +209,8 @@ export type DuplicateFlag = 'none' | 'exact' | 'likely'
 export type Document = {
   id: string
   verificationId: string
+  /** Owning entity — present on documents adapted from the server store. */
+  clientId?: string
   sourceKind?: 'upload' | 'egnyte_import'
   docType: DocType
   vendor: string // 4-char vendor code

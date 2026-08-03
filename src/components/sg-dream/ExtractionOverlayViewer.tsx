@@ -10,8 +10,8 @@
  * spot it was actually read from, and Finalize persists the repositioned
  * boxes to the DocuPipe review alongside any value edits.
  *
- * Loaded lazily (client-only) from ExtractionOverlayDialog — react-pdf and the
- * pdf.js worker never enter the SSR bundle.
+ * Loaded lazily (client-only) from the document detail route — react-pdf and
+ * the pdf.js worker never enter the SSR bundle.
  */
 
 import { Minus, Plus, RotateCw } from 'lucide-react'
@@ -21,6 +21,7 @@ import 'react-pdf/dist/Page/AnnotationLayer.css'
 import 'react-pdf/dist/Page/TextLayer.css'
 
 import { formatCurrencyPrecise } from '#/lib/sg-dream'
+import { isLineItemPath, rawFieldValue } from '#/lib/review-edits'
 import {
   clampRectToPage,
   rotateRect,
@@ -72,7 +73,59 @@ export type OverlayCorrections = {
   /** Pending box repositions keyed by field path (base page orientation). */
   boxEdits: Record<string, NormalizedRect>
   onBoxEdit: (field: ExtractionOverlayField, rect: NormalizedRect | null) => void
+  /** Inline validation message per field path (invalid edits block Finalize). */
+  errors: Record<string, string>
   disabled?: boolean
+}
+
+type RailSection = {
+  key: string
+  title: string
+  fields: Array<ExtractionOverlayField>
+}
+
+/**
+ * Triage the rail: low-confidence fields first ("Needs review"), then the
+ * rest grouped by the page they were read from, unlocalized values last.
+ * `line_items.*` leaves are owned by the line-item table, so they never
+ * appear in the rail (their boxes stay drawn on the page).
+ */
+export function buildRailSections(
+  fields: ReadonlyArray<ExtractionOverlayField>,
+): Array<RailSection> {
+  const railFields = fields.filter((f) => !isLineItemPath(f.path))
+  const needsReview = railFields.filter(isLowConfidence)
+  const rest = railFields.filter((f) => !isLowConfidence(f))
+  const byPage = new Map<number, Array<ExtractionOverlayField>>()
+  const unlocalized: Array<ExtractionOverlayField> = []
+  for (const field of rest) {
+    if (field.page && field.rect) {
+      const group = byPage.get(field.page)
+      if (group) group.push(field)
+      else byPage.set(field.page, [field])
+    } else {
+      unlocalized.push(field)
+    }
+  }
+  const sections: Array<RailSection> = []
+  if (needsReview.length > 0) {
+    sections.push({ key: 'needs', title: 'Needs review', fields: needsReview })
+  }
+  for (const page of [...byPage.keys()].sort((a, b) => a - b)) {
+    sections.push({
+      key: `page-${page}`,
+      title: `Page ${page}`,
+      fields: byPage.get(page) ?? [],
+    })
+  }
+  if (unlocalized.length > 0) {
+    sections.push({
+      key: 'unlocalized',
+      title: 'Not localized',
+      fields: unlocalized,
+    })
+  }
+  return sections
 }
 
 export default function ExtractionOverlayViewer({
@@ -98,7 +151,6 @@ export default function ExtractionOverlayViewer({
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
 
   const localized = fields.filter((f) => f.page && f.rect)
-  const unlocalized = fields.filter((f) => !f.page || !f.rect)
 
   const selectField = (field: ExtractionOverlayField) => {
     setSelectedPath(field.path)
@@ -119,10 +171,19 @@ export default function ExtractionOverlayViewer({
       selected={field.path === selectedPath}
       onSelect={() => setSelectedPath(field.path)}
       editedRect={corrections?.boxEdits[field.path]}
-      editable={Boolean(corrections) && !corrections?.disabled}
+      // Line-item values are corrected in the line-item table, so their
+      // boxes stay display-only — dragging one would have no rail affordance
+      // to review or revert the move.
+      editable={
+        Boolean(corrections) &&
+        !corrections?.disabled &&
+        !isLineItemPath(field.path)
+      }
       onCommit={(rect) => corrections?.onBoxEdit(field, rect)}
     />
   )
+
+  const sections = buildRailSections(fields)
 
   return (
     <div className="ovl-layout">
@@ -133,77 +194,113 @@ export default function ExtractionOverlayViewer({
             : 'Click a field to jump to where it was read from the document.'}
         </p>
         <ul className="ovl-field-list">
-          {[...localized, ...unlocalized].map((field) => {
-            const selected = field.path === selectedPath
-            const hasBox = Boolean(field.page && field.rect)
-            const valueDirty = Boolean(
-              corrections && field.path in corrections.edits,
-            )
-            const boxDirty = Boolean(
-              corrections && field.path in corrections.boxEdits,
-            )
-            return (
-              <li key={field.path}>
-                <div
-                  className={`ovl-field${selected ? ' selected' : ''}${valueDirty || boxDirty ? ' dirty' : ''}`}
-                >
-                  <button
-                    type="button"
-                    className="ovl-field-jump"
-                    onClick={() => selectField(field)}
-                    disabled={!hasBox && !selected}
-                  >
-                    <span className="ovl-field-label">
-                      {field.label}
-                      {isLowConfidence(field) ? (
-                        <span className="pill pill-amber">Low</span>
-                      ) : null}
-                      {valueDirty ? (
-                        <span className="pill pill-amber">Edited</span>
-                      ) : null}
-                      {boxDirty ? (
-                        <span className="pill pill-amber">Box moved</span>
-                      ) : null}
-                    </span>
-                    <span className="ovl-field-page">
-                      {hasBox ? `Page ${field.page}` : 'Not localized'}
-                    </span>
-                  </button>
-                  {corrections ? (
-                    <input
-                      className="ovl-field-input mono"
-                      value={
-                        corrections.edits[field.path] ??
-                        String(field.value ?? '')
-                      }
-                      onChange={(e) =>
-                        corrections.onEdit(field, e.target.value)
-                      }
-                      disabled={corrections.disabled}
-                      aria-label={`${field.label} value`}
-                      inputMode={
-                        typeof field.value === 'number' ? 'decimal' : 'text'
-                      }
-                    />
-                  ) : (
-                    <span className="ovl-field-value mono">
-                      {formatFieldValue(field)}
-                    </span>
-                  )}
-                  {boxDirty ? (
-                    <button
-                      type="button"
-                      className="ovl-box-reset"
-                      onClick={() => corrections?.onBoxEdit(field, null)}
-                      disabled={corrections?.disabled}
-                    >
-                      Reset box position
-                    </button>
-                  ) : null}
-                </div>
-              </li>
-            )
-          })}
+          {sections.map((section) => (
+            <li key={section.key} className="ovl-rail-group">
+              <p
+                className={`ovl-rail-title${section.key === 'needs' ? ' needs' : ''}`}
+              >
+                {section.title}
+              </p>
+              <ul className="ovl-field-sublist">
+                {section.fields.map((field) => {
+                  const selected = field.path === selectedPath
+                  const hasBox = Boolean(field.page && field.rect)
+                  const valueDirty = Boolean(
+                    corrections && field.path in corrections.edits,
+                  )
+                  const boxDirty = Boolean(
+                    corrections && field.path in corrections.boxEdits,
+                  )
+                  const error = corrections?.errors[field.path]
+                  return (
+                    <li key={field.path}>
+                      <div
+                        className={`ovl-field${selected ? ' selected' : ''}${valueDirty || boxDirty ? ' dirty' : ''}${error ? ' invalid' : ''}`}
+                      >
+                        <button
+                          type="button"
+                          className="ovl-field-jump"
+                          onClick={() => selectField(field)}
+                          disabled={!hasBox && !selected}
+                        >
+                          <span className="ovl-field-label">
+                            {field.label}
+                            {isLowConfidence(field) ? (
+                              <span className="pill pill-amber">Low</span>
+                            ) : null}
+                            {valueDirty && !error ? (
+                              <span className="pill pill-amber">
+                                Corrected
+                              </span>
+                            ) : null}
+                            {boxDirty ? (
+                              <span className="pill pill-amber">
+                                Box moved
+                              </span>
+                            ) : null}
+                          </span>
+                          <span className="ovl-field-page">
+                            {hasBox ? `Page ${field.page}` : 'Not localized'}
+                          </span>
+                        </button>
+                        {corrections ? (
+                          <input
+                            className={`ovl-field-input mono${error ? ' invalid' : ''}`}
+                            value={
+                              corrections.edits[field.path] ??
+                              String(field.value ?? '')
+                            }
+                            onChange={(e) =>
+                              corrections.onEdit(field, e.target.value)
+                            }
+                            disabled={corrections.disabled}
+                            aria-label={`${field.label} value`}
+                            aria-invalid={Boolean(error)}
+                            inputMode={
+                              typeof field.value === 'number'
+                                ? 'decimal'
+                                : 'text'
+                            }
+                          />
+                        ) : (
+                          <span className="ovl-field-value mono">
+                            {formatFieldValue(field)}
+                          </span>
+                        )}
+                        {error ? (
+                          <span className="ovl-field-error" role="alert">
+                            {error}
+                          </span>
+                        ) : null}
+                        {valueDirty ? (
+                          <button
+                            type="button"
+                            className="ovl-box-reset"
+                            onClick={() =>
+                              corrections?.onEdit(field, rawFieldValue(field))
+                            }
+                            disabled={corrections?.disabled}
+                          >
+                            Revert value
+                          </button>
+                        ) : null}
+                        {boxDirty ? (
+                          <button
+                            type="button"
+                            className="ovl-box-reset"
+                            onClick={() => corrections?.onBoxEdit(field, null)}
+                            disabled={corrections?.disabled}
+                          >
+                            Reset box position
+                          </button>
+                        ) : null}
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            </li>
+          ))}
         </ul>
       </aside>
 

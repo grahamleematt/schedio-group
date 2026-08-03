@@ -90,6 +90,20 @@ function sumBase(
   }, 0)
 }
 
+/** Total approved dollars from the *saved* applied percentages. */
+function sumApproved(
+  items: ReadonlyArray<ExtractedLineItem>,
+  docType: 'INV' | 'PA',
+): number {
+  return items.reduce((sum, item) => {
+    if (typeof item.appliedPercent !== 'number') return sum
+    const base = rowBaseAmount(item, docType)
+    if (typeof base !== 'number') return sum
+    const clamped = Math.min(100, Math.max(0, item.appliedPercent))
+    return sum + (clamped / 100) * base
+  }, 0)
+}
+
 /** Draft-backed body — remounts when saved applied-% values change. */
 function LineItemsTableBody({
   doc,
@@ -335,20 +349,30 @@ export function LineItemsTable({
   const rowCount = lineItems.length
   const withPercent = countSavedPercents(lineItems)
   const billedOrScheduled = sumBase(lineItems, docType)
-  const totalLabel = docType === 'PA' ? 'Scheduled' : 'Billed'
+  const approvedTotal = sumApproved(lineItems, docType)
+  const totalLabel = docType === 'PA' ? 'scheduled' : 'billed'
 
   return (
     <div className="line-items">
       <div className="line-items-head">
         <div className="line-items-summary">
-          <span className="qk">
-            Line items · {rowCount.toLocaleString()} row
-            {rowCount === 1 ? '' : 's'}
-          </span>
-          <span className="line-items-meta mono">
-            {totalLabel} {formatCurrencyPrecise(billedOrScheduled)}
+          <span className="qk">Line items</span>
+          <span className="line-items-meta">
+            {rowCount.toLocaleString()} line item{rowCount === 1 ? '' : 's'}
             <span aria-hidden>·</span>
-            {withPercent.toLocaleString()} with applied %
+            {withPercent > 0 ? (
+              <>
+                {withPercent.toLocaleString()} approved
+                <span aria-hidden>·</span>
+                {formatCurrencyPrecise(approvedTotal)} approved
+              </>
+            ) : (
+              <>
+                {formatCurrencyPrecise(billedOrScheduled)} {totalLabel}
+                <span aria-hidden>·</span>
+                no percentages applied yet
+              </>
+            )}
           </span>
         </div>
         <button

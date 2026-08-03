@@ -1,4 +1,4 @@
-import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 import {
   useMutation,
   useQueryClient,
@@ -15,6 +15,8 @@ import {
 import { useRef, useState } from 'react'
 import type { DragEvent } from 'react'
 import { AppShell } from '#/components/sg-dream/AppShell'
+import { DocumentRow } from '#/components/sg-dream/DocumentRow'
+import { IntakeProgressArc } from '#/components/sg-dream/IntakeProgressArc'
 import { RenameTransform } from '#/components/sg-dream/RenameTransform'
 import { WorkflowBanner } from '#/components/sg-dream/WorkflowBanner'
 import {
@@ -133,7 +135,6 @@ function UploadPage() {
     verificationSnapshotQuery(verification.id),
   )
   const queryClient = useQueryClient()
-  const navigate = useNavigate()
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [importMessage, setImportMessage] = useState<string | null>(null)
@@ -307,15 +308,13 @@ function UploadPage() {
       void queryClient.invalidateQueries({
         queryKey: ['verification', verificationId],
       })
-      // The staged files are now real, queued documents. Clear the draft tray
-      // and move to the processing view where DocuPipe progress streams in.
+      // The staged files are now real, queued documents. Clear the draft
+      // tray — the rows transform in place into live processing rows below
+      // (snapshot polling streams DocuPipe progress in), so the user watches
+      // the same list instead of being bounced to another page.
       if (result.uploaded.length > 0) {
         setStagedFiles([])
         setStageNotice(null)
-        void navigate({
-          to: '/processing',
-          search: { client: client.id, verification: verification.id },
-        })
       }
     },
     onError: (err) => {
@@ -417,6 +416,8 @@ function UploadPage() {
   const hasStaged = stagedFiles.length > 0
   const stagedBytes = stagedFiles.reduce((sum, s) => sum + s.file.size, 0)
   const hasAnalyzed = displayDocs.length > 0
+  const allCompleted =
+    hasAnalyzed && displayDocs.every((d) => d.status === 'completed')
   const canAnalyze = hasStaged && !mutation.isPending && !isStaging
 
   const rail = (
@@ -455,24 +456,6 @@ function UploadPage() {
               <span className="k">Processing</span>
               <span className="v">{inFlight.length}</span>
             </div>
-          ) : null}
-          {hasAnalyzed ? (
-            <button
-              type="button"
-              className="v2-btn mt-2 w-full justify-center"
-              onClick={() =>
-                void navigate({
-                  to: '/processing',
-                  search: {
-                    client: client.id,
-                    verification: verification.id,
-                  },
-                })
-              }
-            >
-              View processing
-              <ArrowRight className="size-4" />
-            </button>
           ) : null}
         </div>
       </section>
@@ -536,9 +519,15 @@ function UploadPage() {
       <WorkflowBanner workflow={client.workflow} />
       <header className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="v2-eyebrow">
-            Step 3 · Upload &amp; duplicate detection
-          </p>
+          <IntakeProgressArc
+            current="upload"
+            clientId={client.id}
+            verificationId={verification.id}
+            enabled={[
+              ...(hasAnalyzed ? (['review'] as const) : []),
+              ...(allCompleted ? (['file'] as const) : []),
+            ]}
+          />
           <h1 className="v2-h1">
             {hasDraftSubmission
               ? 'Continue draft submission'
@@ -707,6 +696,35 @@ function UploadPage() {
                   <Trash2 className="size-4" aria-hidden />
                 </button>
               </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {hasAnalyzed ? (
+        <section className="v2-card mt-4">
+          <header className="v2-card-head">
+            <h3>
+              {allCompleted
+                ? 'Analyzed · ready for review'
+                : 'Analyzing · updates live'}
+            </h3>
+            <span className="sub">
+              {displayDocs.length} document
+              {displayDocs.length === 1 ? '' : 's'} ·{' '}
+              {allCompleted
+                ? 'select any document to review its extraction'
+                : `${inFlight.length} still processing — rows update as DocuPipe works`}
+            </span>
+          </header>
+          <div>
+            {displayDocs.map((doc) => (
+              <DocumentRow
+                key={doc.id}
+                doc={doc}
+                clientId={client.id}
+                verificationId={verification.id}
+              />
             ))}
           </div>
         </section>

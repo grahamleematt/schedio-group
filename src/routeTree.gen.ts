@@ -17,6 +17,7 @@ import { Route as ProcessingRouteImport } from './routes/processing'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LibraryRouteImport } from './routes/library'
 import { Route as IntelligenceRouteImport } from './routes/intelligence'
+import { Route as DocumentRouteImport } from './routes/document'
 import { Route as DeterminationsRouteImport } from './routes/determinations'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ContractsRouteImport } from './routes/contracts'
@@ -80,6 +81,11 @@ const LibraryRoute = LibraryRouteImport.update({
 const IntelligenceRoute = IntelligenceRouteImport.update({
   id: '/intelligence',
   path: '/intelligence',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocumentRoute = DocumentRouteImport.update({
+  id: '/document',
+  path: '/document',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DeterminationsRoute = DeterminationsRouteImport.update({
@@ -216,6 +222,7 @@ export interface FileRoutesByFullPath {
   '/contracts': typeof ContractsRoute
   '/dashboard': typeof DashboardRoute
   '/determinations': typeof DeterminationsRoute
+  '/document': typeof DocumentRoute
   '/intelligence': typeof IntelligenceRoute
   '/library': typeof LibraryRoute
   '/login': typeof LoginRoute
@@ -250,6 +257,7 @@ export interface FileRoutesByTo {
   '/contracts': typeof ContractsRoute
   '/dashboard': typeof DashboardRoute
   '/determinations': typeof DeterminationsRoute
+  '/document': typeof DocumentRoute
   '/intelligence': typeof IntelligenceRoute
   '/library': typeof LibraryRoute
   '/login': typeof LoginRoute
@@ -285,6 +293,7 @@ export interface FileRoutesById {
   '/contracts': typeof ContractsRoute
   '/dashboard': typeof DashboardRoute
   '/determinations': typeof DeterminationsRoute
+  '/document': typeof DocumentRoute
   '/intelligence': typeof IntelligenceRoute
   '/library': typeof LibraryRoute
   '/login': typeof LoginRoute
@@ -321,6 +330,7 @@ export interface FileRouteTypes {
     | '/contracts'
     | '/dashboard'
     | '/determinations'
+    | '/document'
     | '/intelligence'
     | '/library'
     | '/login'
@@ -355,6 +365,7 @@ export interface FileRouteTypes {
     | '/contracts'
     | '/dashboard'
     | '/determinations'
+    | '/document'
     | '/intelligence'
     | '/library'
     | '/login'
@@ -389,6 +400,7 @@ export interface FileRouteTypes {
     | '/contracts'
     | '/dashboard'
     | '/determinations'
+    | '/document'
     | '/intelligence'
     | '/library'
     | '/login'
@@ -424,6 +436,7 @@ export interface RootRouteChildren {
   ContractsRoute: typeof ContractsRoute
   DashboardRoute: typeof DashboardRoute
   DeterminationsRoute: typeof DeterminationsRoute
+  DocumentRoute: typeof DocumentRoute
   IntelligenceRoute: typeof IntelligenceRoute
   LibraryRoute: typeof LibraryRoute
   LoginRoute: typeof LoginRoute
@@ -506,6 +519,13 @@ declare module '@tanstack/react-router' {
       path: '/intelligence'
       fullPath: '/intelligence'
       preLoaderRoute: typeof IntelligenceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/document': {
+      id: '/document'
+      path: '/document'
+      fullPath: '/document'
+      preLoaderRoute: typeof DocumentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/determinations': {
@@ -688,6 +708,7 @@ const rootRouteChildren: RootRouteChildren = {
   ContractsRoute: ContractsRoute,
   DashboardRoute: DashboardRoute,
   DeterminationsRoute: DeterminationsRoute,
+  DocumentRoute: DocumentRoute,
   IntelligenceRoute: IntelligenceRoute,
   LibraryRoute: LibraryRoute,
   LoginRoute: LoginRoute,

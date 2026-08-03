@@ -24,6 +24,7 @@ export function storedToDisplay(doc: StoredDocument): Document {
   return {
     id: doc.id,
     verificationId: doc.verificationId,
+    clientId: doc.clientId,
     sourceKind: doc.sourceKind,
     docType: doc.docType,
     vendor: vendorCode(vendorName),

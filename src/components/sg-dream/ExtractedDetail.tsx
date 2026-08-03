@@ -1,17 +1,19 @@
 /**
- * Shared DocuPipe extraction detail block, rendered identically on the
- * processing/analyze view and in the document library so the two surfaces
- * never drift. Surfaces the high-value extracted fields (document number,
- * dates, billing period, contract reference), the AIA G702 pay-application
- * waterfall with a Current-Payment-Due math check, the specific fields that
- * scored low-confidence, and a link to DocuPipe's Visual Review overlay.
+ * Shared DocuPipe extraction detail block, rendered on the document library
+ * so filed rows carry the full extracted record. Surfaces the high-value
+ * extracted fields (document number, dates, billing period, contract
+ * reference), the AIA G702 pay-application waterfall with a
+ * Current-Payment-Due math check, line items, the specific fields that
+ * scored low-confidence, and a button to the document review page.
  *
- * The header chrome (filing name, vendor, status/duplicate pills, amount)
- * stays per-surface; this component owns only the detail beneath it.
+ * `ExtractedRecord` is the presentational core (facts + waterfall + line
+ * items + confidence notes) reused by the document detail route. Review
+ * actions (generate overlay, re-run extraction, finalize) live in the
+ * detail route's header — this surface only navigates there.
  */
 
-import { Loader2 } from 'lucide-react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
+import { ArrowRight } from 'lucide-react'
 import {
   formatCurrencyPrecise,
   formatDocDate,
@@ -20,13 +22,7 @@ import {
   validatePayApp,
 } from '#/lib/sg-dream'
 import type { Document, PayAppCheck } from '#/lib/sg-dream'
-import { verificationSnapshotQuery } from '#/lib/queries'
-import { ExtractionOverlayDialog } from '#/components/sg-dream/ExtractionOverlayDialog'
 import { LineItemsTable } from '#/components/sg-dream/LineItemsTable'
-import { generateVisualReview } from '#/server/fns/visualReview'
-import { rerunExtraction } from '#/server/fns/rerunExtraction'
-import type { RerunExtractionResult } from '#/server/fns/rerunExtraction'
-import type { DreamSnapshot } from '#/server/store'
 
 export function PayAppCheckPill({ check }: { check: PayAppCheck }) {
   if (check.status === 'ok') {
@@ -48,16 +44,16 @@ export function PayAppCheckPill({ check }: { check: PayAppCheck }) {
   return <span className="pill pill-gray">Waterfall incomplete</span>
 }
 
-export function ExtractedDetail({
+/**
+ * The extracted record for one document: quick facts, the pay-app waterfall
+ * with math check, editable line items, and low-confidence notes. Pure
+ * display plus the line-item percent editor — no review actions.
+ */
+export function ExtractedRecord({
   doc,
   verificationId,
 }: {
   doc: Document
-  /**
-   * When provided, a completed document without a review can mint one on
-   * demand (the "Generate review overlay" button). Drives the snapshot cache
-   * update for this verification after generation.
-   */
   verificationId?: string
 }) {
   const fields = doc.extractedFields
@@ -80,52 +76,6 @@ export function ExtractedDetail({
 
   const lowFields = lowConfidenceFields(doc.fieldConfidence)
   const noScores = Boolean(doc.lowConfidence) && lowFields.length === 0
-
-  const queryClient = useQueryClient()
-  const genMut = useMutation({
-    mutationFn: () =>
-      generateVisualReview({
-        data: { verificationId: verificationId as string, documentId: doc.id },
-      }),
-    onSuccess: (next: DreamSnapshot | null) => {
-      if (verificationId) {
-        queryClient.setQueryData(
-          verificationSnapshotQuery(verificationId).queryKey,
-          next,
-        )
-      }
-    },
-  })
-  const canGenerate =
-    Boolean(verificationId) &&
-    !doc.docupipeReviewId &&
-    doc.status === 'completed'
-  // A no-op success (no standardization to base a review on) leaves the row
-  // without a review ID — surface that rather than spinning forever.
-  const generateUnavailable = genMut.isSuccess && !doc.docupipeReviewId
-
-  const rerunMut = useMutation({
-    mutationFn: () =>
-      rerunExtraction({
-        data: { verificationId: verificationId as string, documentId: doc.id },
-      }),
-    onSuccess: (result: RerunExtractionResult) => {
-      if (verificationId && result.snapshot) {
-        queryClient.setQueryData(
-          verificationSnapshotQuery(verificationId).queryKey,
-          result.snapshot,
-        )
-      }
-    },
-  })
-  // Escalation lever for problem documents: re-run just this document on the
-  // V3 engine's high-effort mode (re-classifying first when it's stuck at
-  // UNK). Terminal documents only — an in-flight doc is already being worked.
-  const canRerun =
-    Boolean(verificationId) &&
-    (doc.status === 'completed' || doc.status === 'error')
-  const rerunFailed =
-    rerunMut.isError || (rerunMut.isSuccess && !rerunMut.data.ok)
 
   return (
     <>
@@ -191,63 +141,35 @@ export function ExtractedDetail({
           field-level scores — engineer review required.
         </p>
       ) : null}
+    </>
+  )
+}
 
-      {doc.docupipeReviewId ? (
-        <ExtractionOverlayDialog
-          verificationId={verificationId ?? doc.verificationId}
-          documentId={doc.id}
-          docupipeReviewId={doc.docupipeReviewId}
-          documentName={doc.renamedName}
-        />
-      ) : canGenerate ? (
-        <span className="qgen">
-          <button
-            type="button"
-            className="qlink"
-            disabled={genMut.isPending}
-            onClick={() => genMut.mutate()}
-          >
-            {genMut.isPending ? (
-              <Loader2 className="size-3 animate-spin" aria-hidden />
-            ) : null}
-            {genMut.isPending
-              ? 'Generating overlay…'
-              : 'Generate review overlay'}
-          </button>
-          {generateUnavailable ? (
-            <span className="qgen-note">
-              No standardization on file — overlay can’t be generated.
-            </span>
-          ) : genMut.isError ? (
-            <span className="qgen-note">Couldn’t generate — try again.</span>
-          ) : null}
-        </span>
-      ) : null}
+export function ExtractedDetail({
+  doc,
+  verificationId,
+}: {
+  doc: Document
+  /** Target verification for the document review page link. */
+  verificationId?: string
+}) {
+  return (
+    <>
+      <ExtractedRecord doc={doc} verificationId={verificationId} />
 
-      {canRerun ? (
-        <span className="qgen">
-          <button
-            type="button"
-            className="qlink"
-            disabled={rerunMut.isPending}
-            onClick={() => rerunMut.mutate()}
-          >
-            {rerunMut.isPending ? (
-              <Loader2 className="size-3 animate-spin" aria-hidden />
-            ) : null}
-            {rerunMut.isPending
-              ? 'Requesting re-run…'
-              : doc.docType === 'UNK'
-                ? 'Re-classify & extract (high effort)'
-                : 'Re-run extraction (high effort)'}
-          </button>
-          {rerunFailed ? (
-            <span className="qgen-note">
-              {(rerunMut.data && !rerunMut.data.ok && rerunMut.data.error) ||
-                'Couldn’t start the re-run — try again.'}
-            </span>
-          ) : null}
-        </span>
+      {doc.clientId ? (
+        <Link
+          to="/document"
+          search={{
+            client: doc.clientId,
+            verification: verificationId ?? doc.verificationId,
+            doc: doc.id,
+          }}
+          className="v2-btn detail-open-btn"
+        >
+          Open document review
+          <ArrowRight className="size-3.5" aria-hidden />
+        </Link>
       ) : null}
     </>
   )

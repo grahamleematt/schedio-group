@@ -1,19 +1,23 @@
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { ArrowRight, FileQuestion, UploadCloud } from 'lucide-react'
+import { useState } from 'react'
+import {
+  ArrowRight,
+  ChevronDown,
+  ChevronRight,
+  FileQuestion,
+  UploadCloud,
+} from 'lucide-react'
 import { AppShell } from '#/components/sg-dream/AppShell'
+import { DocumentRow } from '#/components/sg-dream/DocumentRow'
+import { IntakeProgressArc } from '#/components/sg-dream/IntakeProgressArc'
 import { WorkflowBanner } from '#/components/sg-dream/WorkflowBanner'
 import {
   clients,
-  docTypeLabels,
-  formatCurrencyPrecise,
   getClientById,
   getOpenVerification,
   getVerificationById,
 } from '#/lib/sg-dream'
-import type { Document } from '#/lib/sg-dream'
-import { ExtractedDetail } from '#/components/sg-dream/ExtractedDetail'
-import { RenameTransform } from '#/components/sg-dream/RenameTransform'
 import { storedListToDisplay } from '#/lib/sg-dream-adapter'
 import { portalConfigQuery, verificationSnapshotQuery } from '#/lib/queries'
 import { usePortalConfig } from '#/lib/session'
@@ -62,6 +66,8 @@ export const Route = createFileRoute('/processing')({
 type StepState = 'idle' | 'running' | 'done' | 'paused' | 'error'
 type Step = {
   label: string
+  /** Compact chip label for the progress strip. */
+  short: string
   detail: string
   state: StepState
 }
@@ -109,7 +115,8 @@ function deriveSteps(docs: ReadonlyArray<StoredDocument>): ReadonlyArray<Step> {
   // Step 1 — Receiving (always considered done if at least one doc exists).
   const receiving: Step = {
     label: 'Receiving files',
-    detail: `Secure upload received · ${total} / ${total} files`,
+    short: 'Received',
+    detail: `${total} of ${total} documents received securely`,
     state: 'done',
   }
 
@@ -117,7 +124,8 @@ function deriveSteps(docs: ReadonlyArray<StoredDocument>): ReadonlyArray<Step> {
   // row has a renamed name; pre-extraction this stays pending.
   const naming: Step = {
     label: 'Applying naming convention',
-    detail: `Standard filing names prepared · ${renamedCount} / ${total}`,
+    short: 'Named',
+    detail: `${renamedCount} of ${total} documents renamed to standard filing names`,
     state:
       renamedCount === total ? 'done' : renamedCount > 0 ? 'running' : 'idle',
   }
@@ -128,7 +136,8 @@ function deriveSteps(docs: ReadonlyArray<StoredDocument>): ReadonlyArray<Step> {
   )
   const classification: Step = {
     label: 'Classifying document types',
-    detail: `Document types identified · ${classified} / ${total}`,
+    short: 'Classified',
+    detail: `${classified} of ${total} documents typed (pay app, invoice, change order…)`,
     state: classifiedAll ? 'done' : maxRank >= 2 ? 'running' : 'idle',
   }
 
@@ -137,14 +146,15 @@ function deriveSteps(docs: ReadonlyArray<StoredDocument>): ReadonlyArray<Step> {
   const inFlight = docs.filter((d) => d.status === 'standardizing').length
   const extraction: Step = {
     label: 'Extracting vendor and cost details',
+    short: 'Extracted',
     detail:
       completed === total
-        ? `${completed} / ${total} documents checked${
+        ? `${completed} of ${total} documents extracted${
             capturedTotal > 0
               ? ` · $${capturedTotal.toLocaleString()} captured`
               : ''
           }`
-        : `${completed} / ${total} documents checked${
+        : `${completed} of ${total} documents extracted${
             inFlight > 0 ? ` · ${inFlight} in progress` : ''
           }`,
     state:
@@ -162,12 +172,13 @@ function deriveSteps(docs: ReadonlyArray<StoredDocument>): ReadonlyArray<Step> {
     completed === total ? (flaggedCount > 0 ? 'paused' : 'done') : 'idle'
   const duplicate: Step = {
     label: 'Checking against previously submitted documents',
+    short: 'Duplicates',
     detail:
       flaggedCount > 0
-        ? `Matched against prior filings · ${flaggedCount} need review`
+        ? `${flaggedCount} of ${total} documents match a prior filing — review needed`
         : completed === total
-          ? `Duplicate check complete · no exact or likely matches`
-          : 'Duplicate check waits for vendor, document number, amount, and date',
+          ? `${total} of ${total} documents checked · no matches to prior filings`
+          : 'Documents are checked once vendor, number, amount, and date extract',
     state: duplicateState,
   }
 
@@ -177,12 +188,13 @@ function deriveSteps(docs: ReadonlyArray<StoredDocument>): ReadonlyArray<Step> {
     completed === total && flaggedCount === 0 ? 'done' : 'idle'
   const packageStep: Step = {
     label: 'Assembling submission package',
+    short: 'Package',
     detail:
       completed === total
         ? flaggedCount > 0
-          ? 'Awaiting duplicate decisions before issuing reference'
-          : 'Reference number issued, Schedio notified'
-        : 'Final reference waits for all documents and duplicate decisions',
+          ? 'Held — duplicate decisions come before the reference is issued'
+          : 'All documents packaged · reference issued, Schedio notified'
+        : 'The package assembles once every document clears its checks',
     state: packageState,
   }
 
@@ -191,38 +203,6 @@ function deriveSteps(docs: ReadonlyArray<StoredDocument>): ReadonlyArray<Step> {
   }
 
   return [receiving, naming, classification, extraction, duplicate, packageStep]
-}
-
-function statusPill(status: StoredDocument['status']) {
-  switch (status) {
-    case 'completed':
-      return { label: 'Completed', cls: 'pill pill-green' }
-    case 'standardizing':
-      return { label: 'Extracting', cls: 'pill pill-brand' }
-    case 'classifying':
-      return { label: 'Classifying', cls: 'pill pill-brand' }
-    case 'queued':
-      return { label: 'Queued', cls: 'pill pill-gray' }
-    case 'error':
-      return { label: 'Needs review', cls: 'pill pill-red' }
-  }
-}
-
-function filedStatusPill(custody: StoredDocument['custodyState']) {
-  switch (custody) {
-    case 'classified':
-    case 'relied':
-    case 'locked':
-      return { label: 'Filed', cls: 'pill pill-green' }
-    case 'ready':
-      return { label: 'Ready to file', cls: 'pill pill-brand' }
-    case 'processing':
-      return { label: 'Filing', cls: 'pill pill-amber' }
-    case 'incoming':
-      return { label: 'Received', cls: 'pill pill-brand' }
-    default:
-      return { label: 'Pending', cls: 'pill pill-gray' }
-  }
 }
 
 function ProcessingPage() {
@@ -253,7 +233,12 @@ function ProcessingPage() {
       <AppShell active="submit" crumbs={[{ label: 'Processing' }]}>
         <WorkflowBanner workflow={client.workflow} />
         <header className="mb-4">
-          <p className="v2-eyebrow">Step 4 · Analyzing documents</p>
+          <IntakeProgressArc
+            current="review"
+            clientId={client.id}
+            verificationId={verification.id}
+            enabled={['upload']}
+          />
           <h1 className="v2-h1">Nothing to analyze yet</h1>
         </header>
         <section className="v2-card">
@@ -294,11 +279,18 @@ function ProcessingPage() {
       <WorkflowBanner workflow={client.workflow} />
       <header className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="v2-eyebrow">Step 4 · Analyzing documents</p>
+          <IntakeProgressArc
+            current="review"
+            clientId={client.id}
+            verificationId={verification.id}
+            enabled={['upload', ...(allCompleted ? (['file'] as const) : [])]}
+          />
           <h1 className="v2-h1">
             {allCompleted
               ? 'Analysis complete'
-              : 'Checking submitted documents'}
+              : anyError
+                ? 'Some documents need attention'
+                : 'Checking submitted documents'}
           </h1>
           <p className="v2-lede">
             Schedio is identifying file types, extracting cost details, and
@@ -307,41 +299,17 @@ function ProcessingPage() {
             prepared.
           </p>
         </div>
-        {allCompleted && !paused ? (
+        {allCompleted ? (
           <Link
             to="/confirmation"
             search={{ client: client.id, verification: verification.id }}
             className="v2-btn primary"
           >
-            View confirmation
+            {paused ? 'Review flagged documents' : 'Continue to filing'}
             <ArrowRight className="size-4" />
           </Link>
-        ) : paused ? (
-          <Link
-            to="/confirmation"
-            search={{ client: client.id, verification: verification.id }}
-            className="v2-btn primary"
-          >
-            Review flagged documents
-            <ArrowRight className="size-4" />
-          </Link>
-        ) : (
-          <button type="button" className="v2-btn primary" disabled>
-            {anyError ? 'Check errors below' : 'Processing documents'}
-            <ArrowRight className="size-4" />
-          </button>
-        )}
+        ) : null}
       </header>
-
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <span className="chip mono">Secure upload received</span>
-        <span className="chip mono">Document classification</span>
-        <span className="chip mono">Duplicate check</span>
-        <span className="pill pill-green">
-          <span className="dot" />
-          Original filenames preserved
-        </span>
-      </div>
 
       {paused ? (
         <div className="errbar amber mb-3" role="status">
@@ -368,35 +336,23 @@ function ProcessingPage() {
         </div>
       ) : null}
 
-      <section className="v2-card">
-        <header className="v2-card-head">
-          <h3>Review checks · {docs.length} files</h3>
-          <span className="sub">
-            Each step updates as submitted documents move toward review.
-          </span>
-        </header>
-        <ol className={`plog${allCompleted ? ' is-static' : ''}`}>
-          {steps.map((step, i) => (
-            <PlogStep key={i} step={step} />
-          ))}
-        </ol>
-      </section>
+      <ProgressStrip steps={steps} isStatic={allCompleted} />
 
       <section className="v2-card mt-4">
         <header className="v2-card-head">
-          <h3>Per-document detail</h3>
+          <h3>Documents · {docs.length} files</h3>
           <span className="sub">
-            Standardized filing name, vendor, document number, dates, the
-            pay-app waterfall with a Current-Payment-Due math check, and the
-            fields flagged for review. Original upload names stay visible for
-            auditability.
+            Select a document to see the extraction on the page it was read
+            from, correct values, and finalize. Original upload names stay
+            visible for auditability.
           </span>
         </header>
         <div>
           {displayDocs.map((doc) => (
-            <ProcessingRow
+            <DocumentRow
               key={doc.id}
               doc={doc}
+              clientId={client.id}
               verificationId={verification.id}
             />
           ))}
@@ -407,83 +363,67 @@ function ProcessingPage() {
 }
 
 /**
- * The rich per-file row that streams live while DocuPipe works. This is the
- * canonical processing view: it carries the standardized filing name (with the
- * original kept beneath for audit), source, classified type · vendor, the
- * extracted amount, duplicate flag, Egnyte custody status, and any error, plus
- * the deeper DocuPipe detail — document number, dates, billing period and
- * contract reference; the AIA G702 pay-application waterfall with an automatic
- * Current-Payment-Due math check; the specific fields that scored
- * low-confidence; and a link to DocuPipe's Visual Review overlay.
+ * Compact pipeline summary: one chip per check, expandable into the full
+ * step-by-step log. Keeps the document list as the page's primary content
+ * while live progress stays glanceable.
  */
-function ProcessingRow({
-  doc,
-  verificationId,
+function ProgressStrip({
+  steps,
+  isStatic,
 }: {
-  doc: Document
-  verificationId: string
+  steps: ReadonlyArray<Step>
+  isStatic: boolean
 }) {
-  const status = doc.status
-    ? statusPill(doc.status)
-    : { label: 'Queued', cls: 'pill pill-gray' }
-  const filed = filedStatusPill(doc.custodyState)
-  const dupClass =
-    doc.duplicateFlag === 'exact'
-      ? 'pill-red'
-      : doc.duplicateFlag === 'likely'
-        ? 'pill-amber'
-        : null
-  const hasStandardizedName = doc.renamedName !== doc.originalName
-  const displayName = hasStandardizedName ? doc.renamedName : doc.originalName
-  const typeAndVendor = [docTypeLabels[doc.docType], doc.vendorName]
-    .filter(Boolean)
-    .join(' · ')
-  const sourceLabel =
-    doc.sourceKind === 'egnyte_import' ? 'Imported from Egnyte' : 'Uploaded'
-
+  const [expanded, setExpanded] = useState(false)
+  const doneCount = steps.filter((s) => s.state === 'done').length
   return (
-    <div className="queue-row">
-      <span className="doc-ico" aria-hidden />
-      <div className="qmeta min-w-0">
-        {hasStandardizedName ? (
-          <RenameTransform
-            mode="applied"
-            originalName={doc.originalName}
-            renamedName={doc.renamedName}
-          />
-        ) : (
-          <p className="qtitle truncate">{displayName}</p>
-        )}
-        <div className="qdetail">
-          <span>{sourceLabel}</span>
-          {typeAndVendor ? <span>{typeAndVendor}</span> : null}
-          {dupClass ? (
-            <span className={`pill ${dupClass}`}>
-              {doc.duplicateFlag === 'exact' ? 'Exact match' : 'Likely match'}
+    <section className="v2-card">
+      <button
+        type="button"
+        className="pstrip"
+        aria-expanded={expanded}
+        onClick={() => setExpanded((v) => !v)}
+      >
+        <span className="pstrip-chips">
+          {steps.map((step) => (
+            <span key={step.short} className={stepPill(step.state)}>
+              <span className="dot" />
+              {step.short}
             </span>
-          ) : null}
-          {doc.lowConfidence ? (
-            <span className="pill pill-amber">Low confidence</span>
-          ) : null}
-          <span className={filed.cls}>
-            <span className="dot" />
-            {filed.label}
-          </span>
-        </div>
-
-        <ExtractedDetail doc={doc} verificationId={verificationId} />
-
-        {doc.errorMessage ? <p className="qerror">{doc.errorMessage}</p> : null}
-      </div>
-      <span className="queue-amount mono">
-        {doc.amount > 0 ? formatCurrencyPrecise(doc.amount) : '—'}
-      </span>
-      <span className={status.cls}>
-        <span className="dot" />
-        {status.label}
-      </span>
-    </div>
+          ))}
+        </span>
+        <span className="pstrip-meta">
+          {doneCount} of {steps.length} checks complete
+          {expanded ? (
+            <ChevronDown className="size-3.5" aria-hidden />
+          ) : (
+            <ChevronRight className="size-3.5" aria-hidden />
+          )}
+        </span>
+      </button>
+      {expanded ? (
+        <ol className={`plog${isStatic ? ' is-static' : ''}`}>
+          {steps.map((step, i) => (
+            <PlogStep key={i} step={step} />
+          ))}
+        </ol>
+      ) : null}
+    </section>
   )
+}
+
+function stepPill(state: StepState): string {
+  switch (state) {
+    case 'done':
+      return 'pill pill-green'
+    case 'running':
+    case 'paused':
+      return 'pill pill-amber'
+    case 'error':
+      return 'pill pill-red'
+    case 'idle':
+      return 'pill pill-gray'
+  }
 }
 
 function PlogStep({ step }: { step: Step }) {
