@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { resolve } from 'node:path'
 
 import { defineConfig } from 'vite'
@@ -11,6 +12,11 @@ import viteReact from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 const config = defineConfig({
+  // Only app tests: agent-skill folders (.claude, .agents, agent, ...) vendor
+  // their own *.test.* assets that must never run through this suite.
+  test: {
+    include: ['src/**/*.test.{ts,tsx}', 'scripts/**/*.test.{ts,tsx}'],
+  },
   // Allow tunnel hostnames (ngrok, cloudflared) so DocuPipe webhooks can
   // reach the local dev server without "Invalid Host header" 403s.
   server: {

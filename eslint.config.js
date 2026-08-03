@@ -26,6 +26,14 @@ export default [
       '.output/**',
       'node_modules/**',
       'src/routeTree.gen.ts',
+      // Agent-skill folders vendor JS/TS assets (test corpora, minified libs)
+      // that are not part of the app and don't parse under this config.
+      '.claude/**',
+      '.codex/**',
+      '.cursor/**',
+      '.agents/**',
+      'agent/**',
+      'demo-output/**',
     ],
   },
 ]
