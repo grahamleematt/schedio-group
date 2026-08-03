@@ -12,10 +12,12 @@
  */
 
 import {
+  buildNextVerification,
   clients,
   defaultVendors,
   defaultVerifications,
   formatCutoffLabel,
+  formatRef,
 } from '#/lib/sg-dream'
 import type { Vendor, Verification } from '#/lib/sg-dream'
 import { dbQuery } from '#/server/database'
@@ -145,6 +147,62 @@ export async function listVendorConfigs(): Promise<ReadonlyArray<Vendor>> {
     `,
   )
   return result.rows.map(rowToVendor)
+}
+
+/**
+ * Late-submission rollover: make sure the cycle after `current` exists and is
+ * open, and retire `current` from the open state. Returns the destination
+ * cycle, or `null` when no database is configured — static seeds can't roll,
+ * so the cutoff stays advisory there.
+ *
+ * Idempotent and race-safe: the insert is `on conflict do nothing` and the
+ * status update only touches a row still marked open, so concurrent late
+ * uploads converge on the same next cycle.
+ */
+export async function ensureNextVerification(
+  current: Verification,
+): Promise<Verification | null> {
+  if (!isDatabaseConfigured()) return null
+  await ensureStoreReady()
+  const next = buildNextVerification(current)
+  const workflow =
+    clients.find((c) => c.id === current.clientId)?.workflow ?? 'district_dp'
+  const ref = formatRef({
+    workflow,
+    number: next.number,
+    year: next.year,
+    seq: next.seq,
+  })
+  await dbQuery(
+    `
+      insert into dream_verifications
+        (id, client_id, ref, number, year, period, cutoff_date, status, ref_seq)
+      values ($1, $2, $3, $4, $5, $6, $7, 'open', $8)
+      on conflict (id) do nothing
+    `,
+    [
+      next.id,
+      next.clientId,
+      ref,
+      next.number,
+      next.year,
+      next.period,
+      next.cutoffDateISO,
+      next.seq,
+    ],
+  )
+  await dbQuery(
+    `
+      update dream_verifications
+      set status = 'under_review', updated_at = now()
+      where id = $1 and status = 'open'
+    `,
+    [current.id],
+  )
+  // Read back so an already-existing next cycle (created by a concurrent
+  // upload or edited by Schedio) wins over our locally built row.
+  const persisted = await getVerificationConfigById(next.id)
+  return persisted ?? next
 }
 
 /**

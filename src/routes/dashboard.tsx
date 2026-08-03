@@ -177,9 +177,11 @@ function CustomerIntakeDashboard() {
               : `Ready for first upload · cutoff ${activeVerification.cutoffDate}`}
           </h3>
           <span className={`pill ${daysTone} ml-auto`}>
-            {days <= 0
-              ? 'Cutoff passed'
-              : `${days} day${days === 1 ? '' : 's'} left`}
+            {days < 0
+              ? 'Cutoff passed — new uploads roll to the next cycle'
+              : days === 0
+                ? 'Due today'
+                : `${days} day${days === 1 ? '' : 's'} left`}
           </span>
         </header>
         <div className="v2-card-body">

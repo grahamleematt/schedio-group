@@ -140,7 +140,13 @@ async function resolveRequest(
   const verificationId =
     body?.verificationId ?? url.searchParams.get('verificationId') ?? ''
   const clientId = body?.clientId ?? url.searchParams.get('clientId') ?? ''
-  const context = await resolveIntakeContext({ clientId, verificationId })
+  // Imports create documents, so a past-cutoff target rolls forward to the
+  // next cycle — same late-submission rule as direct uploads.
+  const context = await resolveIntakeContext({
+    clientId,
+    verificationId,
+    rollPastCutoff: true,
+  })
   if (!context) {
     throw new Response(
       JSON.stringify({ error: 'unknown client or verification' }),
@@ -332,6 +338,8 @@ async function runImport(request: Request): Promise<Response> {
     skipped,
     failed,
     unsupportedCount: files.length - importable.length,
+    verificationId: context.verification.id,
+    rolledFrom: context.rolledFrom ?? null,
   })
 }
 

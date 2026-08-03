@@ -1,4 +1,4 @@
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import {
   useMutation,
   useQueryClient,
@@ -20,11 +20,13 @@ import { IntakeProgressArc } from '#/components/sg-dream/IntakeProgressArc'
 import { RenameTransform } from '#/components/sg-dream/RenameTransform'
 import { WorkflowBanner } from '#/components/sg-dream/WorkflowBanner'
 import {
+  buildNextVerification,
   clients,
   displaySubmissionCycle,
   getClientById,
   getOpenVerification,
   getVerificationById,
+  isPastCutoff,
 } from '#/lib/sg-dream'
 import { portalConfigQuery, verificationSnapshotQuery } from '#/lib/queries'
 import { usePortalConfig } from '#/lib/session'
@@ -45,6 +47,13 @@ type EgnyteImportResponse = {
   skipped: Array<unknown>
   failed: Array<{ error: string }>
   unsupportedCount: number
+  /** Cycle the documents actually landed in (differs when a late submission rolled). */
+  verificationId?: string
+}
+
+type UploadResponse = {
+  uploaded: Array<unknown>
+  verificationId?: string
 }
 
 const stateValues = new Set<UploadState>(['normal', 'empty', 'error'])
@@ -135,9 +144,13 @@ function UploadPage() {
     verificationSnapshotQuery(verification.id),
   )
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [importMessage, setImportMessage] = useState<string | null>(null)
+  // Confirmation that a late submission rolled into the next cycle. Survives
+  // the search-param navigation that follows the documents to their new cycle.
+  const [rollNotice, setRollNotice] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   // Files the user has added but not yet analyzed. Browser-only — see StagedFile.
   const [stagedFiles, setStagedFiles] = useState<Array<StagedFile>>([])
@@ -153,6 +166,22 @@ function UploadPage() {
   const displayDocs = storedListToDisplay(storedDocs)
   const hasDraftSubmission = displayDocs.length > 0
   const reviewCycle = displaySubmissionCycle(verification)
+  // Late-submission rollover: when this cycle's cutoff has passed, anything
+  // analyzed now is filed under the next cycle (created server-side on the
+  // first late upload). Preview the destination so the roll is never a
+  // surprise — an already-open later cycle wins, otherwise the cycle the
+  // server will create.
+  const isLateForCycle = isPastCutoff(
+    verification.cutoffDateISO,
+    config.todayISO,
+  )
+  const openVerification = getOpenVerification(config.verifications, clientId)
+  const rollTarget = isLateForCycle
+    ? openVerification.id !== verification.id &&
+      !isPastCutoff(openVerification.cutoffDateISO, config.todayISO)
+      ? openVerification
+      : buildNextVerification(verification)
+    : null
   const submissionStateLabel = hasDraftSubmission
     ? 'Draft submission'
     : 'Not started'
@@ -165,6 +194,23 @@ function UploadPage() {
       d.status === 'classifying' ||
       d.status === 'standardizing',
   )
+
+  /** After a late submission rolled, refresh the schedule and follow the
+   * documents to the cycle they actually landed in. */
+  const followRolledSubmission = (landedId: string) => {
+    setRollNotice(
+      `The ${verification.cutoffDate} cutoff for ${reviewCycle} passed — these files were filed under ${
+        rollTarget ? displaySubmissionCycle(rollTarget) : 'the next review cycle'
+      }.`,
+    )
+    void queryClient.invalidateQueries({
+      queryKey: portalConfigQuery().queryKey,
+    })
+    void navigate({
+      to: '/upload',
+      search: { client: client.id, verification: landedId },
+    })
+  }
 
   const mutation = useMutation({
     mutationFn: async (files: File[]) => {
@@ -182,6 +228,9 @@ function UploadPage() {
 
       const uploaded: Array<unknown> = []
       const failures: Array<string> = []
+      // The server may retarget a late submission to the next cycle; every
+      // response reports where the documents actually landed.
+      let landedVerificationId = verificationId
 
       const BATCH_BUDGET = 4 * 1024 * 1024
       const batches: Array<Array<File>> = []
@@ -225,8 +274,9 @@ function UploadPage() {
           failures.push(`${label}: ${message}`)
           continue
         }
-        const data = (await res.json()) as { uploaded: Array<unknown> }
+        const data = (await res.json()) as UploadResponse
         uploaded.push(...data.uploaded)
+        if (data.verificationId) landedVerificationId = data.verificationId
       }
 
       // Large files: direct-to-Blob, then ingest via blob URL.
@@ -284,8 +334,9 @@ function UploadPage() {
               }
               failures.push(`${label}: ${message}`)
             } else {
-              const data = (await res.json()) as { uploaded: Array<unknown> }
+              const data = (await res.json()) as UploadResponse
               uploaded.push(...data.uploaded)
+              if (data.verificationId) landedVerificationId = data.verificationId
             }
           } catch {
             failures.push(`${label}: network error`)
@@ -297,7 +348,7 @@ function UploadPage() {
       if (uploaded.length === 0 && failures.length > 0) {
         throw new Error(failures.join('; '))
       }
-      return { uploaded, failures }
+      return { uploaded, failures, verificationId: landedVerificationId }
     },
     onSuccess: (result) => {
       setUploadError(
@@ -306,7 +357,7 @@ function UploadPage() {
           : null,
       )
       void queryClient.invalidateQueries({
-        queryKey: ['verification', verificationId],
+        queryKey: ['verification', result.verificationId],
       })
       // The staged files are now real, queued documents. Clear the draft
       // tray — the rows transform in place into live processing rows below
@@ -315,6 +366,9 @@ function UploadPage() {
       if (result.uploaded.length > 0) {
         setStagedFiles([])
         setStageNotice(null)
+      }
+      if (result.uploaded.length > 0 && result.verificationId !== verificationId) {
+        followRolledSubmission(result.verificationId)
       }
     },
     onError: (err) => {
@@ -350,9 +404,13 @@ function UploadPage() {
       setImportMessage(
         `${data.imported.length} imported · ${data.skipped.length} skipped · ${data.failed.length} failed`,
       )
+      const landedId = data.verificationId ?? verificationId
       void queryClient.invalidateQueries({
-        queryKey: ['verification', verificationId],
+        queryKey: ['verification', landedId],
       })
+      if (data.imported.length > 0 && landedId !== verificationId) {
+        followRolledSubmission(landedId)
+      }
     },
     onError: (err) => {
       setImportMessage(null)
@@ -602,6 +660,33 @@ function UploadPage() {
           <div className="min-w-0">
             <p className="m-0 font-semibold">Egnyte import complete</p>
             <p className="m-0 text-[12.5px]">{importMessage}</p>
+          </div>
+        </div>
+      ) : null}
+
+      {rollTarget ? (
+        <div className="errbar amber mb-3" role="status">
+          <span className="icn">!</span>
+          <div className="min-w-0">
+            <p className="m-0 font-semibold">
+              Cutoff passed — late submissions roll forward
+            </p>
+            <p className="m-0 text-[12.5px]">
+              The {verification.cutoffDate} cutoff for {reviewCycle} has
+              passed. Files you analyze now are filed under{' '}
+              <strong>{displaySubmissionCycle(rollTarget)}</strong> (cutoff{' '}
+              {rollTarget.cutoffDate}).
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      {rollNotice && !rollTarget ? (
+        <div className="errbar amber mb-3" role="status">
+          <span className="icn">!</span>
+          <div className="min-w-0">
+            <p className="m-0 font-semibold">Rolled to this review cycle</p>
+            <p className="m-0 text-[12.5px]">{rollNotice}</p>
           </div>
         </div>
       ) : null}

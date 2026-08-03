@@ -110,9 +110,11 @@ function VerificationsPage() {
             <span className="k">Days remaining</span>
             <span className="v">
               <span className={`pill ${daysTone}`}>
-                {days <= 0
+                {days < 0
                   ? 'Cutoff passed'
-                  : `${days} day${days === 1 ? '' : 's'}`}
+                  : days === 0
+                    ? 'Due today'
+                    : `${days} day${days === 1 ? '' : 's'}`}
               </span>
             </span>
           </div>
@@ -133,9 +135,10 @@ function VerificationsPage() {
         </header>
         <div className="v2-card-body space-y-2 text-[12.5px] text-ink-2">
           <p className="m-0">
-            Files should land before <strong>{open.cutoffDate}</strong> for this
-            review cycle. Schedio Group reviews accepted submissions within five
-            business days.
+            Files should land on or before <strong>{open.cutoffDate}</strong>{' '}
+            to make this review cycle — anything submitted after the cutoff
+            automatically rolls into the next cycle. Schedio Group reviews
+            accepted submissions within five business days.
           </p>
           <p className="m-0 text-muted-1">
             Engineer review is required when DocuPipe field confidence falls

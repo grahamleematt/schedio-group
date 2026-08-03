@@ -763,6 +763,59 @@ export function formatCutoffLabel(iso: string): string {
   })
 }
 
+/**
+ * Late means strictly after the cutoff date — files landing on the cutoff
+ * day itself still make the cycle. Keep every surface (countdown pills,
+ * upload gating, rollover) on this one boundary.
+ */
+export function isPastCutoff(cutoffDateISO: string, todayISO: string): boolean {
+  return daysUntilCutoff(cutoffDateISO, todayISO) < 0
+}
+
+/** Same calendar day next month, clamped to the shorter month's last day
+ * (Jan 31 → Feb 28/29). Verifications recur monthly. */
+export function addOneMonthISO(iso: string): string {
+  const [year, month, day] = iso.split('-').map(Number)
+  if (!year || !month || !day) return iso
+  const lastDayOfNextMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate()
+  const next = new Date(Date.UTC(year, month, Math.min(day, lastDayOfNextMonth)))
+  return next.toISOString().slice(0, 10)
+}
+
+/** "Verification No. 01" → "Verification No. 02"; pads to the source width. */
+function incrementPeriodLabel(period: string, nextNumber: number): string {
+  const match = /(\d+)\s*$/.exec(period)
+  if (!match) {
+    return `${period} ${String(nextNumber).padStart(2, '0')}`
+  }
+  const width = Math.max(match[1].length, 2)
+  return period.slice(0, match.index) + String(nextNumber).padStart(width, '0')
+}
+
+/**
+ * The cycle a late submission rolls into: next number, cutoff one month out,
+ * fresh totals. Pure so the server can persist it (`ensureNextVerification`)
+ * and the upload page can preview the destination cycle before it exists.
+ */
+export function buildNextVerification(current: Verification): Verification {
+  const number = current.number + 1
+  const cutoffDateISO = addOneMonthISO(current.cutoffDateISO)
+  return {
+    id: `${current.clientId}-v${number}`,
+    clientId: current.clientId,
+    number,
+    year: Number(cutoffDateISO.slice(0, 4)) || current.year,
+    period: incrementPeriodLabel(current.period, number),
+    cutoffDate: formatCutoffLabel(cutoffDateISO),
+    cutoffDateISO,
+    status: 'open',
+    docsCount: 0,
+    costsSubmitted: 0,
+    costsVerified: 0,
+    seq: 1,
+  }
+}
+
 /* ───────────────────────────── Users & access ───────────────────────────── */
 
 export type AccessRole =

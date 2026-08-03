@@ -105,6 +105,9 @@ async function resolveTarget(
   const context = await resolveIntakeContext({
     clientId: clientIdInput,
     verificationId,
+    // Uploads create documents, so a past-cutoff target rolls forward to the
+    // next cycle (Tim's rule: late submissions join the next verification).
+    rollPastCutoff: true,
   })
   if (!context) {
     return {
@@ -170,7 +173,11 @@ async function processUpload(form: FormData): Promise<Response> {
     )
   }
 
-  return jsonResponse({ uploaded })
+  return jsonResponse({
+    uploaded,
+    verificationId: context.verification.id,
+    rolledFrom: context.rolledFrom ?? null,
+  })
 }
 
 type BlobDescriptor = {
@@ -255,7 +262,11 @@ async function processBlobUpload(
     }
   }
 
-  return jsonResponse({ uploaded })
+  return jsonResponse({
+    uploaded,
+    verificationId: context.verification.id,
+    rolledFrom: context.rolledFrom ?? null,
+  })
 }
 
 export const Route = createFileRoute('/api/uploads')({

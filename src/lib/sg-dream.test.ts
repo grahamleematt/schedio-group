@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  addOneMonthISO,
+  buildNextVerification,
   daysUntilCutoff,
+  defaultVerifications,
   formatCutoffLabel,
+  isPastCutoff,
   lowConfidenceFields,
   payAppWaterfall,
   validatePayApp,
@@ -21,6 +25,72 @@ describe('daysUntilCutoff', () => {
   it('returns 0 for malformed dates instead of NaN', () => {
     expect(daysUntilCutoff('not-a-date', '2026-07-06')).toBe(0)
     expect(daysUntilCutoff('2026-08-03', '')).toBe(0)
+  })
+})
+
+describe('isPastCutoff', () => {
+  it('is not late on the cutoff day itself — only strictly after', () => {
+    expect(isPastCutoff('2026-08-03', '2026-08-02')).toBe(false)
+    expect(isPastCutoff('2026-08-03', '2026-08-03')).toBe(false)
+    expect(isPastCutoff('2026-08-03', '2026-08-04')).toBe(true)
+  })
+})
+
+describe('addOneMonthISO', () => {
+  it('moves to the same day next month', () => {
+    expect(addOneMonthISO('2026-08-03')).toBe('2026-09-03')
+  })
+
+  it('clamps to the last day of a shorter month', () => {
+    expect(addOneMonthISO('2026-01-31')).toBe('2026-02-28')
+    expect(addOneMonthISO('2028-01-31')).toBe('2028-02-29')
+  })
+
+  it('rolls the year over from December', () => {
+    expect(addOneMonthISO('2026-12-15')).toBe('2027-01-15')
+  })
+
+  it('passes malformed input through unchanged', () => {
+    expect(addOneMonthISO('TBD')).toBe('TBD')
+  })
+})
+
+describe('buildNextVerification', () => {
+  const current = defaultVerifications[0]
+
+  it('advances the number, id, and cutoff by one monthly cycle', () => {
+    const next = buildNextVerification(current)
+    expect(next.id).toBe('dawson-trails-md1-v2')
+    expect(next.number).toBe(2)
+    expect(next.cutoffDateISO).toBe(addOneMonthISO(current.cutoffDateISO))
+    expect(next.status).toBe('open')
+  })
+
+  it('increments the trailing number in the period label', () => {
+    expect(buildNextVerification(current).period).toBe('Verification No. 02')
+    expect(buildNextVerification(defaultVerifications[1]).period).toBe(
+      'Developer Reimbursement No. 02',
+    )
+  })
+
+  it('starts the new cycle with fresh totals', () => {
+    const next = buildNextVerification({
+      ...current,
+      docsCount: 12,
+      costsSubmitted: 50_000,
+      costsVerified: 40_000,
+    })
+    expect(next.docsCount).toBe(0)
+    expect(next.costsSubmitted).toBe(0)
+    expect(next.costsVerified).toBe(0)
+  })
+
+  it('takes the year from the new cutoff date', () => {
+    const next = buildNextVerification({
+      ...current,
+      cutoffDateISO: '2026-12-15',
+    })
+    expect(next.year).toBe(2027)
   })
 })
 
