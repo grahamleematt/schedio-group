@@ -33,7 +33,7 @@ const SCHEDIO_CLIENTS: ReadonlyArray<IntelligenceClient> = [
     id: 'dawson-trails-md1',
     organizationId: 'schedio',
     code: 'DT1',
-    name: 'Dawson Trails MD One - District',
+    name: 'Dawson Trails MD 1 - District',
     workflowKind: 'district_direct_pay',
     egnyteRootPath: '/Shared/Clients/Dawson Trails MD One/District',
     createdAt: '2026-05-20T00:00:00.000Z',
@@ -42,7 +42,7 @@ const SCHEDIO_CLIENTS: ReadonlyArray<IntelligenceClient> = [
     id: 'dawson-trails-md1-developer',
     organizationId: 'schedio',
     code: 'DTD',
-    name: 'Dawson Trails MD One - Developer',
+    name: 'Dawson Trails MD 1 - Developer',
     workflowKind: 'developer_reimbursement',
     egnyteRootPath: '/Shared/Clients/Dawson Trails MD One/Developer',
     createdAt: '2026-05-20T00:00:00.000Z',
@@ -667,7 +667,7 @@ async function ensureScopeRows(client: PoolClient): Promise<void> {
           'dawson-trails-md1',
           'schedio',
           'DT1',
-          'Dawson Trails MD One - District',
+          'Dawson Trails MD 1 - District',
           'district_direct_pay',
           '/Shared/Clients/Dawson Trails MD One/District'
         ),
@@ -675,7 +675,7 @@ async function ensureScopeRows(client: PoolClient): Promise<void> {
           'dawson-trails-md1-developer',
           'schedio',
           'DTD',
-          'Dawson Trails MD One - Developer',
+          'Dawson Trails MD 1 - Developer',
           'developer_reimbursement',
           '/Shared/Clients/Dawson Trails MD One/Developer'
         )

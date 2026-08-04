@@ -99,7 +99,7 @@ export const clients: ReadonlyArray<Client> = [
   {
     id: 'dawson-trails-md1',
     code: 'DT1',
-    name: 'Dawson Trails MD One - District',
+    name: 'Dawson Trails MD 1 - District',
     workflow: 'district_dp',
     egnyteRootPath: '/Shared/Clients/Dawson Trails MD One/District',
     entityOwnerName: 'Tim',
@@ -109,7 +109,7 @@ export const clients: ReadonlyArray<Client> = [
   {
     id: 'dawson-trails-md1-developer',
     code: 'DTD',
-    name: 'Dawson Trails MD One - Developer',
+    name: 'Dawson Trails MD 1 - Developer',
     workflow: 'developer_reimb',
     egnyteRootPath: '/Shared/Clients/Dawson Trails MD One/Developer',
     entityOwnerName: 'Tim',

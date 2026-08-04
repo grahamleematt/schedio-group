@@ -13,8 +13,8 @@ This file tracks the current customer review scope.
 
 | Code  | Entity                           | Workflow                | Region          | Status |
 | ----- | -------------------------------- | ----------------------- | --------------- | ------ |
-| `DT1` | Dawson Trails MD One - District  | District Direct Pay     | Castle Rock, CO | Active |
-| `DTD` | Dawson Trails MD One - Developer | Developer Reimbursement | Castle Rock, CO | Active |
+| `DT1` | Dawson Trails MD 1 - District  | District Direct Pay     | Castle Rock, CO | Active |
+| `DTD` | Dawson Trails MD 1 - Developer | Developer Reimbursement | Castle Rock, CO | Active |
 
 ## Starting State
 

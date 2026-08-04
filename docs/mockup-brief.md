@@ -8,8 +8,8 @@ review, not as an Intelligence workbench entry point.
 - User: Tim McCarley.
 - WorkOS account: invited by Schedio Group, mapped in Postgres.
 - Entities:
-  - `Dawson Trails MD One - District`
-  - `Dawson Trails MD One - Developer`
+  - `Dawson Trails MD 1 - District`
+  - `Dawson Trails MD 1 - Developer`
 - Storage custody: Egnyte.
 - Extraction/classification: DocuPipe.
 - App database: Postgres stores entity access, document identity, category,

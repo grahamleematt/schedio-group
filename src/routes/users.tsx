@@ -39,7 +39,11 @@ import {
   verificationSnapshotQuery,
 } from '#/lib/queries'
 import { usePortalConfig } from '#/lib/session'
-import { addPortalUser, revokePendingInvite } from '#/server/fns/manageUsers'
+import {
+  addPortalUser,
+  resendPendingInvite,
+  revokePendingInvite,
+} from '#/server/fns/manageUsers'
 import type { AddPortalUserResult } from '#/server/fns/manageUsers'
 
 type UsersSearch = {
@@ -167,6 +171,17 @@ function UsersPage() {
       revokePendingInvite({ data: { invitationId } }),
     onSuccess: refresh,
   })
+
+  const resendMut = useMutation({
+    mutationFn: (inviteEmail: string) =>
+      resendPendingInvite({ data: { email: inviteEmail } }),
+    onSuccess: refresh,
+  })
+  const resendError =
+    resendMut.isError || (resendMut.isSuccess && !resendMut.data.ok)
+      ? ((resendMut.data && !resendMut.data.ok && resendMut.data.error) ||
+        'Couldn’t resend the invitation — try again.')
+      : null
 
   const toggleEntity = (id: string) => {
     setEntityIds((prev) =>
@@ -356,7 +371,9 @@ function UsersPage() {
       <section className="v2-card mb-3">
         <header className="v2-card-head">
           <h3>Pending invitations · {pendingInvites.length}</h3>
-          <span className="sub">Sent via WorkOS · 7-day window</span>
+          <span className="sub">
+            Sent via WorkOS · invitations expire after 7 days
+          </span>
         </header>
         {pendingInvites.length === 0 ? (
           <div className="v2-card-body flex items-center gap-2 text-[12.5px] text-muted-1">
@@ -366,7 +383,7 @@ function UsersPage() {
               aria-hidden
             />
             No outstanding invitations. People you add appear here until they
-            accept.
+            accept — including expired invites you can resend.
           </div>
         ) : (
           <div className="v2-table-scroll">
@@ -394,30 +411,68 @@ function UsersPage() {
                     </td>
                     <td
                       className="mono whitespace-nowrap"
-                      style={{ color: 'var(--color-amber-base)' }}
+                      style={{
+                        color:
+                          inv.state === 'expired'
+                            ? 'var(--color-red-base)'
+                            : 'var(--color-amber-base)',
+                      }}
                     >
-                      {expiresLabel(inv.expiresAtISO, config.todayISO)}
+                      {inv.state === 'expired'
+                        ? `Expired ${formatInviteDate(inv.expiresAtISO)}`
+                        : expiresLabel(inv.expiresAtISO, config.todayISO)}
                     </td>
                     <td>
                       <div className="flex items-center justify-end gap-2">
-                        <span className="pill pill-amber">
-                          <span className="dot" />
-                          Awaiting acceptance
-                        </span>
-                        <button
-                          type="button"
-                          className="qlink"
-                          disabled={revokeMut.isPending}
-                          onClick={() => revokeMut.mutate(inv.id)}
-                        >
-                          Revoke
-                        </button>
+                        {inv.state === 'expired' ? (
+                          <>
+                            <span className="pill pill-red">
+                              <span className="dot" />
+                              Expired
+                            </span>
+                            <button
+                              type="button"
+                              className="qlink"
+                              disabled={resendMut.isPending}
+                              onClick={() => resendMut.mutate(inv.email)}
+                            >
+                              {resendMut.isPending &&
+                              resendMut.variables === inv.email
+                                ? 'Resending…'
+                                : 'Resend'}
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <span className="pill pill-amber">
+                              <span className="dot" />
+                              Awaiting acceptance
+                            </span>
+                            <button
+                              type="button"
+                              className="qlink"
+                              disabled={revokeMut.isPending}
+                              onClick={() => revokeMut.mutate(inv.id)}
+                            >
+                              Revoke
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            {resendError ? (
+              <p
+                className="m-0 px-4 pb-3 text-[12px] font-semibold"
+                style={{ color: 'var(--color-red-base)' }}
+                role="alert"
+              >
+                {resendError}
+              </p>
+            ) : null}
           </div>
         )}
       </section>

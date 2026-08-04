@@ -28,7 +28,7 @@ export const Route = createFileRoute('/blocked')({
 
 function BlockedPage() {
   const search = Route.useSearch()
-  const conflictingEntity = search.entity ?? 'Dawson Trails MD One - District'
+  const conflictingEntity = search.entity ?? 'Dawson Trails MD 1 - District'
   const conflictingParty = search.conflict ?? 'Apex Construction (vendor)'
   const requestRef = search.request ?? 'REQ-2026-0114'
 

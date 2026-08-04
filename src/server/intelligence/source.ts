@@ -35,7 +35,7 @@ const DAWSON_SCOPES: Record<
     districtId: 'dawson-trails-md1',
     projectId: 'dawson-trails-district-direct-pay',
     importId: 'import-dawson-trails-md1-district',
-    sourceLabel: 'Dawson Trails MD One - District intake package',
+    sourceLabel: 'Dawson Trails MD 1 - District intake package',
     processLabel: 'District Direct Pay',
   },
   developer: {
@@ -44,7 +44,7 @@ const DAWSON_SCOPES: Record<
     districtId: 'dawson-trails-md1',
     projectId: 'dawson-trails-developer-reimbursement',
     importId: 'import-dawson-trails-md1-developer',
-    sourceLabel: 'Dawson Trails MD One - Developer reimbursement package',
+    sourceLabel: 'Dawson Trails MD 1 - Developer reimbursement package',
     processLabel: 'Developer Reimbursement',
   },
 }

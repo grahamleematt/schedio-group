@@ -10,6 +10,7 @@
  */
 
 import { dbQuery } from '#/server/database'
+import type { WorkOS } from '@workos-inc/node'
 
 const ORGANIZATION_ID = 'schedio'
 
@@ -49,6 +50,21 @@ function slugify(name: string): string {
     .normalize('NFKD')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
+}
+
+/** Most recent live (pending) invitation for this email, if one exists. */
+async function findPendingInvitation(
+  workos: WorkOS,
+  organizationId: string,
+  email: string,
+) {
+  const invitations = await workos.userManagement.listInvitations({
+    organizationId,
+    limit: 100,
+  })
+  return invitations.data.find(
+    (inv) => inv.state === 'pending' && inv.email.toLowerCase() === email,
+  )
 }
 
 export async function onboardTeammate(
@@ -163,18 +179,33 @@ export async function onboardTeammate(
       return { ...base, workos: 'member_added' }
     }
     if (membership.status === 'pending') {
-      return { ...base, workos: 'membership_pending' }
+      // Invited but never accepted. "Still pending" is only truthful while a
+      // live invitation exists — WorkOS invitations expire after 7 days, and
+      // the shell user + pending membership outlive them. Once the email has
+      // no live invitation, re-adding must send a fresh one or the person is
+      // stranded with no way back in.
+      const live = await findPendingInvitation(workos, workosOrgId, email)
+      if (live) {
+        return {
+          ...base,
+          workos: 'invitation_pending',
+          invitationExpiresAt: live.expiresAt,
+        }
+      }
+      const invitation = await workos.userManagement.sendInvitation({
+        email,
+        organizationId: workosOrgId,
+      })
+      return {
+        ...base,
+        workos: 'invited',
+        invitationExpiresAt: invitation.expiresAt,
+      }
     }
     return { ...base, workos: 'member_already' }
   }
 
-  const invitations = await workos.userManagement.listInvitations({
-    organizationId: workosOrgId,
-    limit: 100,
-  })
-  const pending = invitations.data.find(
-    (inv) => inv.state === 'pending' && inv.email.toLowerCase() === email,
-  )
+  const pending = await findPendingInvitation(workos, workosOrgId, email)
   if (pending) {
     return {
       ...base,
