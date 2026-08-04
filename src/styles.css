@@ -4476,6 +4476,43 @@ pre code {
   color: var(--color-ink);
   border-color: var(--color-muted-1);
 }
+.ovl-icon-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.ovl-icon-button:disabled:hover {
+  color: var(--color-muted-1);
+  border-color: var(--color-line);
+}
+.ovl-toolbar-divider {
+  width: 1px;
+  height: 20px;
+  margin: 0 2px;
+  background: var(--color-line);
+}
+.ovl-swatches {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 2px;
+}
+.ovl-swatch {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid rgba(255, 255, 255, 0.9);
+  border-radius: 999px;
+  padding: 0;
+  cursor: pointer;
+  box-shadow: 0 0 0 1px var(--color-line);
+}
+.ovl-swatch:hover {
+  box-shadow: 0 0 0 1px var(--color-muted-1);
+}
+.ovl-swatch.active {
+  box-shadow:
+    0 0 0 2px #fff,
+    0 0 0 3.5px var(--color-ink);
+}
 .ovl-scroll {
   min-height: 0;
   overflow: auto;
@@ -4517,16 +4554,19 @@ pre code {
 .ovl-page img {
   display: block;
 }
+/* Highlight hues come from --ovl-hl-* custom properties set on .ovl-layout
+   by the viewer's color picker (amber default) — reviewers flag that on
+   yellow-tinted scans the amber boxes "look like a glob". */
 .ovl-mark {
   position: absolute;
-  border: 1.5px solid rgba(215, 155, 0, 0.9);
+  border: 1.5px solid var(--ovl-hl-border, rgba(215, 155, 0, 0.9));
   border-radius: 3px;
-  background: rgba(255, 214, 90, 0.32);
+  background: var(--ovl-hl-fill, rgba(255, 214, 90, 0.32));
   padding: 0;
   cursor: pointer;
 }
 .ovl-mark:hover {
-  background: rgba(255, 214, 90, 0.48);
+  background: var(--ovl-hl-fill-hover, rgba(255, 214, 90, 0.48));
 }
 .ovl-mark.selected {
   border-color: var(--color-brand-blue);
@@ -4540,12 +4580,12 @@ pre code {
 }
 .ovl-mark.dragging {
   cursor: grabbing;
-  box-shadow: 0 0 0 3px rgba(215, 155, 0, 0.35);
+  box-shadow: 0 0 0 3px var(--ovl-hl-ring, rgba(215, 155, 0, 0.35));
 }
 .ovl-mark.edited {
   border-style: dashed;
-  border-color: rgba(176, 108, 0, 0.95);
-  background: rgba(255, 190, 60, 0.4);
+  border-color: var(--ovl-hl-strong-border, rgba(176, 108, 0, 0.95));
+  background: var(--ovl-hl-strong-fill, rgba(255, 190, 60, 0.4));
 }
 /* The corner handle only appears once the box is large enough on screen to
    have a distinct corner (zoom in to resize small boxes); on a 6px-tall
@@ -4558,7 +4598,7 @@ pre code {
   bottom: -5px;
   width: 10px;
   height: 10px;
-  border: 1.5px solid rgba(176, 108, 0, 0.95);
+  border: 1.5px solid var(--ovl-hl-strong-border, rgba(176, 108, 0, 0.95));
   border-radius: 2px;
   background: #fff;
   cursor: nwse-resize;
@@ -4734,6 +4774,31 @@ pre code {
 }
 .doc-discard-dialog {
   max-width: 430px;
+}
+
+/* Chrome-less pop-out shells (?pane=doc|record) — one half of the review
+   surface in its own window so the PDF and the extracted record can sit on
+   separate monitors. The doc pane fills the window height; the record pane
+   scrolls like a normal page. */
+.doc-popout {
+  height: 100vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 14px 16px;
+  background: var(--color-paper-2);
+}
+.doc-popout .doc-head {
+  position: sticky;
+  top: 0;
+}
+.doc-popout .doc-viewer-card {
+  flex: 1;
+  height: auto;
+  min-height: 480px;
+}
+.doc-popout.record {
+  display: block;
 }
 
 /* ── Intake progress arc (Upload → Review → File) ──────────────────────── */

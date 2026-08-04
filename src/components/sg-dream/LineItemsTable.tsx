@@ -222,7 +222,7 @@ function LineItemsTableBody({
                       </td>
                       <td className="num">
                         {typeof item.percentComplete === 'number'
-                          ? `${item.percentComplete}`
+                          ? `${item.percentComplete.toLocaleString()}%`
                           : '—'}
                       </td>
                     </>

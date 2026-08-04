@@ -26,8 +26,11 @@ import {
   ExternalLink,
   Loader2,
   MoreHorizontal,
+  PictureInPicture2,
   RefreshCw,
+  Redo2,
   ScanSearch,
+  Undo2,
 } from 'lucide-react'
 
 import { AppShell } from '#/components/sg-dream/AppShell'
@@ -77,10 +80,18 @@ const ExtractionOverlayViewer = lazy(
   () => import('#/components/sg-dream/ExtractionOverlayViewer'),
 )
 
+/**
+ * `pane` renders a chrome-less pop-out of one half of the review surface —
+ * `doc` (PDF + field rail + Finalize) or `record` (extracted record with
+ * the line-item table) — so a reviewer can put each on its own monitor.
+ */
+type DocumentPane = 'doc' | 'record'
+
 type DocumentSearch = {
   client: string
   verification: string
   doc: string
+  pane?: DocumentPane
 }
 
 export const Route = createFileRoute('/document')({
@@ -91,6 +102,9 @@ export const Route = createFileRoute('/document')({
         ? s.verification
         : 'dawson-trails-md1-v1',
     doc: typeof s.doc === 'string' ? s.doc : '',
+    ...(s.pane === 'doc' || s.pane === 'record'
+      ? { pane: s.pane as DocumentPane }
+      : {}),
   }),
   loader: async ({ context, location }) => {
     const search = location.search as DocumentSearch
@@ -173,6 +187,7 @@ function DocumentDetailPage() {
     client: clientId,
     verification: verificationId,
     doc: docId,
+    pane,
   } = Route.useSearch()
   const config = usePortalConfig()
   const client = getClientById(clientId)
@@ -192,8 +207,42 @@ function DocumentDetailPage() {
   const [edits, setEdits] = useState<Record<string, string>>({})
   // Pending box repositions keyed by field path (base page orientation).
   const [boxEdits, setBoxEdits] = useState<Record<string, NormalizedRect>>({})
+  // Undo/redo stacks of past/future boxEdits snapshots — every drag, resize,
+  // or reset lands here so a stray box move is one visible click to unwind.
+  const [boxPast, setBoxPast] = useState<
+    Array<Record<string, NormalizedRect>>
+  >([])
+  const [boxFuture, setBoxFuture] = useState<
+    Array<Record<string, NormalizedRect>>
+  >([])
   // Reject pressed while corrections are pending — ask before discarding.
   const [confirmReject, setConfirmReject] = useState(false)
+
+  const applyBoxEdits = (next: Record<string, NormalizedRect>) => {
+    setBoxPast((past) => [...past, boxEdits])
+    setBoxFuture([])
+    setBoxEdits(next)
+  }
+  const undoBoxEdit = () => {
+    if (boxPast.length === 0) return
+    const prev = boxPast[boxPast.length - 1]
+    setBoxPast((past) => past.slice(0, -1))
+    setBoxFuture((future) => [...future, boxEdits])
+    setBoxEdits(prev)
+  }
+  const redoBoxEdit = () => {
+    if (boxFuture.length === 0) return
+    const next = boxFuture[boxFuture.length - 1]
+    setBoxFuture((future) => future.slice(0, -1))
+    setBoxPast((past) => [...past, boxEdits])
+    setBoxEdits(next)
+  }
+  const clearCorrections = () => {
+    setEdits({})
+    setBoxEdits({})
+    setBoxPast([])
+    setBoxFuture([])
+  }
 
   const pendingCount = Object.keys(edits).length + Object.keys(boxEdits).length
   const blocker = useBlocker({
@@ -229,8 +278,7 @@ function DocumentDetailPage() {
         queryKey: extractionOverlayQuery(verification.id, docId).queryKey,
       })
       if (result.ok) {
-        setEdits({})
-        setBoxEdits({})
+        clearCorrections()
       }
     },
   })
@@ -334,8 +382,18 @@ function DocumentDetailPage() {
   const dirtyCount = dirtyEdits.length + dirtyBoxEdits.length
 
   const onEdit = (field: ExtractionOverlayField, raw: string) => {
+    // Typing the original value back clears the correction instead of
+    // leaving a phantom no-op edit. Amount inputs seed with currency
+    // formatting, so numbers compare by parsed value ("$1,234" == 1234);
+    // text compares raw so mid-edit whitespace isn't stripped away.
+    const parsed = parseEdit(field, raw)
+    const clean =
+      raw === rawFieldValue(field) ||
+      (typeof field.value === 'number' &&
+        parsed.ok &&
+        parsed.edit.value === field.value)
     setEdits((prev) => {
-      if (raw === rawFieldValue(field)) {
+      if (clean) {
         if (!(field.path in prev)) return prev
         const { [field.path]: _removed, ...rest } = prev
         return rest
@@ -348,14 +406,13 @@ function DocumentDetailPage() {
     field: ExtractionOverlayField,
     rect: NormalizedRect | null,
   ) => {
-    setBoxEdits((prev) => {
-      if (rect === null) {
-        if (!(field.path in prev)) return prev
-        const { [field.path]: _removed, ...rest } = prev
-        return rest
-      }
-      return { ...prev, [field.path]: rect }
-    })
+    if (rect === null) {
+      if (!(field.path in boxEdits)) return
+      const { [field.path]: _removed, ...rest } = boxEdits
+      applyBoxEdits(rest)
+      return
+    }
+    applyBoxEdits({ ...boxEdits, [field.path]: rect })
   }
 
   const reviewState =
@@ -378,6 +435,58 @@ function DocumentDetailPage() {
     correctionsMut.data.ok &&
     correctionsMut.variables.action === 'reject'
 
+  const isPopout = pane !== undefined
+  const showViewer = pane !== 'record'
+  const showRecord = pane !== 'doc'
+  // Finalize/Reject act on this window's pending corrections, which live
+  // with the field rail — so the record pop-out never offers them.
+  const showReviewActions = pane !== 'record'
+
+  const openPane = (target: 'doc' | 'record') => {
+    const url = `/document?client=${encodeURIComponent(client.id)}&verification=${encodeURIComponent(verification.id)}&doc=${encodeURIComponent(docId)}&pane=${target}`
+    window.open(
+      url,
+      `sg-dream-${target}-${docId}`,
+      'popup=yes,width=1280,height=940',
+    )
+  }
+
+  const viewerToolbarExtra = (
+    <>
+      <button
+        type="button"
+        className="ovl-icon-button"
+        aria-label="Undo box move"
+        title="Undo box move"
+        disabled={boxPast.length === 0 || correctionsMut.isPending}
+        onClick={undoBoxEdit}
+      >
+        <Undo2 className="size-4" aria-hidden />
+      </button>
+      <button
+        type="button"
+        className="ovl-icon-button"
+        aria-label="Redo box move"
+        title="Redo box move"
+        disabled={boxFuture.length === 0 || correctionsMut.isPending}
+        onClick={redoBoxEdit}
+      >
+        <Redo2 className="size-4" aria-hidden />
+      </button>
+      {pane !== 'doc' ? (
+        <button
+          type="button"
+          className="ovl-icon-button"
+          aria-label="Open the document in its own window"
+          title="Pop out — document in its own window"
+          onClick={() => openPane('doc')}
+        >
+          <PictureInPicture2 className="size-4" aria-hidden />
+        </button>
+      ) : null}
+    </>
+  )
+
   const headNote =
     submitError ??
     (errorCount > 0
@@ -393,22 +502,19 @@ function DocumentDetailPage() {
               ? `${dirtyCount} correction${dirtyCount === 1 ? '' : 's'} pending — finalize to apply`
               : null)
 
-  return (
-    <AppShell
-      active="submit"
-      crumbs={[{ label: 'Processing' }, { label: displayName }]}
-    >
-      <WorkflowBanner workflow={client.workflow} />
-
+  const body = (
+    <>
       <header className="doc-head">
-        <Link
-          to="/processing"
-          search={{ client: client.id, verification: verification.id }}
-          className="doc-head-back unstyled-link"
-        >
-          <ArrowLeft className="size-3.5" aria-hidden />
-          All documents
-        </Link>
+        {!isPopout ? (
+          <Link
+            to="/processing"
+            search={{ client: client.id, verification: verification.id }}
+            className="doc-head-back unstyled-link"
+          >
+            <ArrowLeft className="size-3.5" aria-hidden />
+            All documents
+          </Link>
+        ) : null}
         <div className="doc-head-main">
           <div className="doc-head-titles">
             <h1 className="doc-head-title mono">{displayName}</h1>
@@ -439,6 +545,7 @@ function DocumentDetailPage() {
             <span className="doc-head-amount mono">
               {doc.amount > 0 ? formatCurrencyPrecise(doc.amount) : '—'}
             </span>
+            {showReviewActions ? (
             <div className="doc-head-actions">
               {hasReview ? (
                 <>
@@ -536,6 +643,7 @@ function DocumentDetailPage() {
                 </DropdownMenu>
               ) : null}
             </div>
+            ) : null}
           </div>
         </div>
         {headNote ? (
@@ -555,13 +663,15 @@ function DocumentDetailPage() {
               confirmation gate.
             </p>
           </div>
-          <Link
-            to="/processing"
-            search={{ client: client.id, verification: verification.id }}
-            className="v2-btn"
-          >
-            Back to all documents
-          </Link>
+          {!isPopout ? (
+            <Link
+              to="/processing"
+              search={{ client: client.id, verification: verification.id }}
+              className="v2-btn"
+            >
+              Back to all documents
+            </Link>
+          ) : null}
         </div>
       ) : justRejected ? (
         <div className="errbar amber mb-3" role="status">
@@ -573,16 +683,19 @@ function DocumentDetailPage() {
               Schedio Group to resolve this document.
             </p>
           </div>
-          <Link
-            to="/processing"
-            search={{ client: client.id, verification: verification.id }}
-            className="v2-btn"
-          >
-            Back to all documents
-          </Link>
+          {!isPopout ? (
+            <Link
+              to="/processing"
+              search={{ client: client.id, verification: verification.id }}
+              className="v2-btn"
+            >
+              Back to all documents
+            </Link>
+          ) : null}
         </div>
       ) : null}
 
+      {showViewer ? (
       <section className="doc-viewer-card">
         {!hasReview ? (
           <div className="ovl-state ovl-state-fill">
@@ -664,19 +777,33 @@ function DocumentDetailPage() {
                   errors: editErrors,
                   disabled: correctionsMut.isPending,
                 }}
+                toolbarExtra={viewerToolbarExtra}
               />
             </Suspense>
           </ClientOnly>
         )}
       </section>
+      ) : null}
 
-      <section className="v2-card mt-4">
+      {showRecord ? (
+      <section className={`v2-card${showViewer ? ' mt-4' : ''}`}>
         <header className="v2-card-head">
           <h3>Extracted record</h3>
           <span className="sub">
             What SG DREAM read from this document — facts, pay-app math, and
             line items. Corrections you finalize above update this record.
           </span>
+          {!isPopout ? (
+            <button
+              type="button"
+              className="v2-btn"
+              title="Pop out — extracted record in its own window"
+              onClick={() => openPane('record')}
+            >
+              <PictureInPicture2 className="size-3.5" aria-hidden />
+              Pop out
+            </button>
+          ) : null}
         </header>
         <div className="v2-card-body">
           <ExtractedRecord doc={doc} verificationId={verification.id} />
@@ -685,6 +812,7 @@ function DocumentDetailPage() {
           ) : null}
         </div>
       </section>
+      ) : null}
 
       {blocker.status === 'blocked' ? (
         <DiscardDialog
@@ -692,8 +820,7 @@ function DocumentDetailPage() {
           discardLabel="Discard & leave"
           onKeep={() => blocker.reset()}
           onDiscard={() => {
-            setEdits({})
-            setBoxEdits({})
+            clearCorrections()
             blocker.proceed()
           }}
         />
@@ -704,12 +831,29 @@ function DocumentDetailPage() {
           onKeep={() => setConfirmReject(false)}
           onDiscard={() => {
             setConfirmReject(false)
-            setEdits({})
-            setBoxEdits({})
+            clearCorrections()
             correctionsMut.mutate({ action: 'reject' })
           }}
         />
       ) : null}
+    </>
+  )
+
+  if (isPopout) {
+    return (
+      <div className={`doc-popout${pane === 'record' ? ' record' : ''}`}>
+        {body}
+      </div>
+    )
+  }
+
+  return (
+    <AppShell
+      active="submit"
+      crumbs={[{ label: 'Processing' }, { label: displayName }]}
+    >
+      <WorkflowBanner workflow={client.workflow} />
+      {body}
     </AppShell>
   )
 }

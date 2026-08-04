@@ -19,9 +19,15 @@ import { useRef, useState } from 'react'
 import { Document, Page, pdfjs } from 'react-pdf'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
 import 'react-pdf/dist/Page/TextLayer.css'
+import type { CSSProperties, ReactNode } from 'react'
 
 import { formatCurrencyPrecise } from '#/lib/sg-dream'
-import { isLineItemPath, rawFieldValue } from '#/lib/review-edits'
+import {
+  displayFieldValue,
+  isLineItemPath,
+  isMoneyPath,
+  rawFieldValue,
+} from '#/lib/review-edits'
 import {
   clampRectToPage,
   rotateRect,
@@ -46,16 +52,95 @@ function boxDomId(path: string): string {
 
 function formatFieldValue(field: ExtractionOverlayField): string {
   if (typeof field.value === 'number') {
-    // Money fields dominate the schemas; format anything that looks like a
-    // dollar amount and leave small integers (counts, line items) plain.
-    const isMoney =
-      /amount|due|sum|retainage|payments|finish|stored|earned/i.test(field.path)
-    return isMoney
+    return isMoneyPath(field.path)
       ? formatCurrencyPrecise(field.value)
       : field.value.toLocaleString()
   }
   if (typeof field.value === 'boolean') return field.value ? 'Yes' : 'No'
   return String(field.value ?? '')
+}
+
+/**
+ * Configurable box highlight — Tim's ask from the walkthrough: on documents
+ * that are already yellow-tinted, the default amber boxes "look like a
+ * glob". Each option maps to a set of CSS custom properties that the
+ * `.ovl-mark` rules consume; the choice sticks per browser.
+ */
+const HIGHLIGHT_STORAGE_KEY = 'sg-dream.overlay-highlight'
+
+type HighlightOption = {
+  key: string
+  label: string
+  swatch: string
+  vars: CSSProperties
+}
+
+const HIGHLIGHT_OPTIONS: Array<HighlightOption> = [
+  {
+    key: 'amber',
+    label: 'Amber highlights',
+    swatch: 'rgba(215, 155, 0, 0.9)',
+    vars: {
+      '--ovl-hl-border': 'rgba(215, 155, 0, 0.9)',
+      '--ovl-hl-fill': 'rgba(255, 214, 90, 0.32)',
+      '--ovl-hl-fill-hover': 'rgba(255, 214, 90, 0.48)',
+      '--ovl-hl-strong-border': 'rgba(176, 108, 0, 0.95)',
+      '--ovl-hl-strong-fill': 'rgba(255, 190, 60, 0.4)',
+      '--ovl-hl-ring': 'rgba(215, 155, 0, 0.35)',
+    } as CSSProperties,
+  },
+  {
+    key: 'blue',
+    label: 'Blue highlights',
+    swatch: 'rgba(37, 99, 235, 0.9)',
+    vars: {
+      '--ovl-hl-border': 'rgba(37, 99, 235, 0.9)',
+      '--ovl-hl-fill': 'rgba(96, 165, 250, 0.28)',
+      '--ovl-hl-fill-hover': 'rgba(96, 165, 250, 0.44)',
+      '--ovl-hl-strong-border': 'rgba(29, 78, 216, 0.95)',
+      '--ovl-hl-strong-fill': 'rgba(96, 165, 250, 0.42)',
+      '--ovl-hl-ring': 'rgba(37, 99, 235, 0.35)',
+    } as CSSProperties,
+  },
+  {
+    key: 'green',
+    label: 'Green highlights',
+    swatch: 'rgba(22, 163, 74, 0.9)',
+    vars: {
+      '--ovl-hl-border': 'rgba(22, 163, 74, 0.9)',
+      '--ovl-hl-fill': 'rgba(74, 222, 128, 0.28)',
+      '--ovl-hl-fill-hover': 'rgba(74, 222, 128, 0.44)',
+      '--ovl-hl-strong-border': 'rgba(21, 128, 61, 0.95)',
+      '--ovl-hl-strong-fill': 'rgba(74, 222, 128, 0.42)',
+      '--ovl-hl-ring': 'rgba(22, 163, 74, 0.35)',
+    } as CSSProperties,
+  },
+  {
+    key: 'magenta',
+    label: 'Magenta highlights',
+    swatch: 'rgba(219, 39, 119, 0.9)',
+    vars: {
+      '--ovl-hl-border': 'rgba(219, 39, 119, 0.9)',
+      '--ovl-hl-fill': 'rgba(244, 114, 182, 0.26)',
+      '--ovl-hl-fill-hover': 'rgba(244, 114, 182, 0.42)',
+      '--ovl-hl-strong-border': 'rgba(190, 24, 93, 0.95)',
+      '--ovl-hl-strong-fill': 'rgba(244, 114, 182, 0.4)',
+      '--ovl-hl-ring': 'rgba(219, 39, 119, 0.35)',
+    } as CSSProperties,
+  },
+]
+
+function storedHighlightKey(): string {
+  if (typeof window === 'undefined') return HIGHLIGHT_OPTIONS[0].key
+  try {
+    const stored = window.localStorage.getItem(HIGHLIGHT_STORAGE_KEY)
+    if (stored && HIGHLIGHT_OPTIONS.some((o) => o.key === stored)) {
+      return stored
+    }
+  } catch {
+    // Storage unavailable (private mode) — fall back to the default.
+  }
+  return HIGHLIGHT_OPTIONS[0].key
 }
 
 function isLowConfidence(field: ExtractionOverlayField): boolean {
@@ -133,12 +218,15 @@ export default function ExtractionOverlayViewer({
   fields,
   mimeType,
   corrections,
+  toolbarExtra,
 }: {
   fileUrl: string
   fields: ReadonlyArray<ExtractionOverlayField>
   mimeType?: string
   /** When provided, field values in the rail become editable. */
   corrections?: OverlayCorrections
+  /** Extra controls the owner renders into the toolbar (undo, pop-out…). */
+  toolbarExtra?: ReactNode
 }) {
   const [pageCount, setPageCount] = useState(0)
   const [scale, setScale] = useState(0.9)
@@ -149,6 +237,19 @@ export default function ExtractionOverlayViewer({
     Record<number, number>
   >({})
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
+  const [highlightKey, setHighlightKey] = useState(storedHighlightKey)
+  const highlight =
+    HIGHLIGHT_OPTIONS.find((o) => o.key === highlightKey) ??
+    HIGHLIGHT_OPTIONS[0]
+
+  const pickHighlight = (key: string) => {
+    setHighlightKey(key)
+    try {
+      window.localStorage.setItem(HIGHLIGHT_STORAGE_KEY, key)
+    } catch {
+      // Storage unavailable — the choice still applies for this session.
+    }
+  }
 
   const localized = fields.filter((f) => f.page && f.rect)
 
@@ -186,7 +287,7 @@ export default function ExtractionOverlayViewer({
   const sections = buildRailSections(fields)
 
   return (
-    <div className="ovl-layout">
+    <div className="ovl-layout" style={highlight.vars}>
       <aside className="ovl-rail">
         <p className="ovl-rail-hint">
           {corrections
@@ -248,7 +349,7 @@ export default function ExtractionOverlayViewer({
                             className={`ovl-field-input mono${error ? ' invalid' : ''}`}
                             value={
                               corrections.edits[field.path] ??
-                              String(field.value ?? '')
+                              displayFieldValue(field)
                             }
                             onChange={(e) =>
                               corrections.onEdit(field, e.target.value)
@@ -308,6 +409,31 @@ export default function ExtractionOverlayViewer({
         <div className="ovl-toolbar">
           <span>{pageCount > 0 ? `${pageCount} pages` : 'Document'}</span>
           <div>
+            <div
+              className="ovl-swatches"
+              role="group"
+              aria-label="Highlight color"
+            >
+              {HIGHLIGHT_OPTIONS.map((option) => (
+                <button
+                  key={option.key}
+                  type="button"
+                  className={`ovl-swatch${option.key === highlight.key ? ' active' : ''}`}
+                  style={{ background: option.swatch }}
+                  aria-label={option.label}
+                  aria-pressed={option.key === highlight.key}
+                  title={option.label}
+                  onClick={() => pickHighlight(option.key)}
+                />
+              ))}
+            </div>
+            {toolbarExtra ? (
+              <>
+                <span className="ovl-toolbar-divider" aria-hidden />
+                {toolbarExtra}
+              </>
+            ) : null}
+            <span className="ovl-toolbar-divider" aria-hidden />
             <button
               type="button"
               className="ovl-icon-button"

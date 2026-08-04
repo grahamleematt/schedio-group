@@ -4,12 +4,37 @@
  * so the parsing rules are testable without React.
  */
 
+import { formatCurrencyPrecise } from '#/lib/sg-dream'
 import type { ExtractionOverlayField } from '#/server/fns/extractionOverlay'
 import type { ReviewEdit } from '#/server/docupipe'
 
 /** Raw editable representation of a field value (round-trips through Number). */
 export function rawFieldValue(field: ExtractionOverlayField): string {
   return String(field.value ?? '')
+}
+
+/**
+ * Money fields dominate the DocuPipe schemas; anything that looks like a
+ * dollar amount gets currency formatting, while small integers (counts,
+ * item numbers) stay plain.
+ */
+export function isMoneyPath(path: string): boolean {
+  return /amount|due|sum|retainage|payments|finish|stored|earned|value|total|price/i.test(
+    path,
+  )
+}
+
+/**
+ * Display representation used to seed the editable rail inputs: dollar
+ * amounts render as "$1,234.56" the way reviewers are used to seeing them.
+ * `parseEdit` strips the currency formatting back off, so a reviewer can
+ * edit the formatted text in place without producing a phantom correction.
+ */
+export function displayFieldValue(field: ExtractionOverlayField): string {
+  if (typeof field.value === 'number' && isMoneyPath(field.path)) {
+    return formatCurrencyPrecise(field.value)
+  }
+  return rawFieldValue(field)
 }
 
 export type ParsedEdit =
