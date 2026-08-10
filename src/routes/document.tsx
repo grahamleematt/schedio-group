@@ -723,8 +723,9 @@ function DocumentDetailPage() {
           </div>
         ) : !overlay || overlay.fields.length === 0 ? (
           <div className="ovl-state ovl-state-fill">
-            The overlay for this document is still being generated. Try again
-            in a moment, or{' '}
+            <Loader2 className="size-4 animate-spin" aria-hidden />
+            The overlay for this document is still being generated — it will
+            appear here automatically, or{' '}
             <a
               href={hostedViewerHref(doc.docupipeReviewId as string)}
               target="_blank"

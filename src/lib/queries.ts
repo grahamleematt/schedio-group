@@ -113,6 +113,11 @@ export type ExtractionOverlayData = ExtractionOverlay | null
  * only when the dialog opens. Review data changes only through corrections
  * (which invalidate this query explicitly), so a long staleTime avoids
  * refetching per open.
+ *
+ * A review object can exist before DocuPipe finishes hydrating its data —
+ * right after the webhook lands, `getReview` may return zero fields. Never
+ * let that transient empty result stick for the full staleTime: keep polling
+ * until fields arrive, so the viewer self-heals without a manual reload.
  */
 export function extractionOverlayQuery(
   verificationId: string,
@@ -122,7 +127,12 @@ export function extractionOverlayQuery(
     queryKey: ['extraction-overlay', verificationId, documentId] as const,
     queryFn: () =>
       getExtractionOverlay({ data: { verificationId, documentId } }),
-    staleTime: 10 * 60 * 1000,
+    staleTime: (query) =>
+      query.state.data && query.state.data.fields.length > 0
+        ? 10 * 60 * 1000
+        : 0,
+    refetchInterval: (query) =>
+      query.state.data && query.state.data.fields.length > 0 ? false : 4000,
   })
 }
 

@@ -59,24 +59,35 @@ export const getExtractionOverlay = createServerFn({ method: 'GET' })
     (data: { verificationId: string; documentId: string }) => data,
   )
   .handler(async ({ data }): Promise<ExtractionOverlay | null> => {
-    if (!isDocupipeConfigured()) return null
+    // Null returns render as "overlay still being generated" client-side, so
+    // record which branch bailed — it is the only prod-side breadcrumb.
+    const bail = (reason: string) => {
+      console.warn(`[extraction overlay] ${data.documentId}: ${reason}`)
+      return null
+    }
+    if (!isDocupipeConfigured()) return bail('DocuPipe not configured')
 
     const snapshot = await getStore().getSnapshot(data.verificationId)
     const doc = snapshot?.verification.documents.find(
       (d) => d.id === data.documentId,
     )
-    if (!doc) return null
+    if (!doc) return bail(`document not in ${data.verificationId} snapshot`)
     await assertClientAccess(doc.clientId)
-    if (!doc.docupipeReviewId) return null
+    if (!doc.docupipeReviewId) return bail('no review id on document')
 
     const review = await getReview(doc.docupipeReviewId)
-    if (!review) return null
+    if (!review) return bail(`review ${doc.docupipeReviewId} fetch failed`)
 
     const fields = flattenReviewData(review.data)
       // Our AI-built schemas carry sibling `<field>_confidence` numbers; they
       // feed the low-confidence pills, not the overlay rail.
       .filter((f) => !f.path.endsWith('_confidence'))
       .map((f) => ({ ...f, label: labelFor(f.path) }))
+    if (fields.length === 0) {
+      console.warn(
+        `[extraction overlay] ${data.documentId}: review ${doc.docupipeReviewId} returned no fields (data not hydrated yet?)`,
+      )
+    }
 
     const egnytePath =
       doc.egnyteClassifiedPath ?? doc.egnyteIncomingPath ?? doc.egnyteSourcePath
