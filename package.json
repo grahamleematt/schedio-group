@@ -36,7 +36,7 @@
     "@workos/authkit-tanstack-react-start": "^0.8.3",
     "@xyflow/react": "^12.10.2",
     "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
+    "cnfast": "^0.0.8",
     "dagre": "^0.8.5",
     "lucide-react": "^0.577.0",
     "nitro": "^3.0.260311-beta",
@@ -46,7 +46,6 @@
     "react-dom": "^19.2.0",
     "react-pdf": "^10.4.1",
     "svix": "^1.90.0",
-    "tailwind-merge": "^3.0.2",
     "tailwindcss": "^4.1.18",
     "tw-animate-css": "^1.3.6"
   },
