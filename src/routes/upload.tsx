@@ -1,6 +1,12 @@
-import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
+import {
+  Link,
+  createFileRoute,
+  redirect,
+  useNavigate,
+} from '@tanstack/react-router'
 import {
   useMutation,
+  useQuery,
   useQueryClient,
   useSuspenseQuery,
 } from '@tanstack/react-query'
@@ -28,7 +34,11 @@ import {
   getVerificationById,
   isPastCutoff,
 } from '#/lib/sg-dream'
-import { portalConfigQuery, verificationSnapshotQuery } from '#/lib/queries'
+import {
+  egnyteConnectionQuery,
+  portalConfigQuery,
+  verificationSnapshotQuery,
+} from '#/lib/queries'
 import { usePortalConfig } from '#/lib/session'
 import { storedListToDisplay } from '#/lib/sg-dream-adapter'
 
@@ -162,6 +172,12 @@ function UploadPage() {
     client.egnyteRootPath ?? `/Shared/Clients/${client.code}`
   ).replace(/\/$/, '')
   const egnyteIncomingFolder = `${clientRootPath}/Intake/Draft/Incoming`
+  // Import availability: shared service token or this user's own Egnyte
+  // connection. While undetermined (loading) we optimistically show the
+  // import button; the server enforces either way.
+  const egnyteConnection = useQuery(egnyteConnectionQuery())
+  const egnyteImportReady = egnyteConnection.data?.importReady ?? true
+  const egnyteAppConfigured = egnyteConnection.data?.appConfigured ?? true
   const storedDocs = snapshot?.verification.documents ?? []
   const displayDocs = storedListToDisplay(storedDocs)
   const hasDraftSubmission = displayDocs.length > 0
@@ -538,33 +554,48 @@ function UploadPage() {
         </div>
       </section>
 
-      <section className="v2-card">
-        <header className="v2-card-head">
-          <h3>Egnyte intake</h3>
-        </header>
-        <div className="v2-card-body space-y-3 text-[12.5px] text-ink-2">
-          <p className="m-0">
-            Files placed in this folder can be pulled into the same DocuPipe
-            queue without uploading them again.
-          </p>
-          <div className="rounded-md border border-line bg-paper-2 p-2 font-mono text-[11px] leading-snug text-muted-1">
-            {egnyteIncomingFolder}
-          </div>
-          <button
-            type="button"
-            className="v2-btn w-full justify-center"
-            onClick={() => importMutation.mutate()}
-            disabled={importMutation.isPending}
-          >
-            {importMutation.isPending ? (
-              <Loader2 className="size-4 animate-spin" />
+      {egnyteAppConfigured ? (
+        <section className="v2-card">
+          <header className="v2-card-head">
+            <h3>Egnyte intake</h3>
+          </header>
+          <div className="v2-card-body space-y-3 text-[12.5px] text-ink-2">
+            <p className="m-0">
+              Files placed in this folder can be pulled into the same DocuPipe
+              queue without uploading them again.
+            </p>
+            <div className="rounded-md border border-line bg-paper-2 p-2 font-mono text-[11px] leading-snug text-muted-1">
+              {egnyteIncomingFolder}
+            </div>
+            {egnyteImportReady ? (
+              <button
+                type="button"
+                className="v2-btn w-full justify-center"
+                onClick={() => importMutation.mutate()}
+                disabled={importMutation.isPending}
+              >
+                {importMutation.isPending ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <FolderOpen className="size-4" />
+                )}
+                Import from Egnyte
+              </button>
             ) : (
-              <FolderOpen className="size-4" />
+              <>
+                <Link to="/settings" className="v2-btn w-full justify-center">
+                  <FolderOpen className="size-4" />
+                  Connect Egnyte to import
+                </Link>
+                <p className="m-0 text-[12px] text-muted-1">
+                  Link your Egnyte account once under Settings &rarr;
+                  Integrations, then pull documents straight from this folder.
+                </p>
+              </>
             )}
-            Import from Egnyte
-          </button>
-        </div>
-      </section>
+          </div>
+        </section>
+      ) : null}
     </>
   )
 
@@ -598,19 +629,28 @@ function UploadPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            className="v2-btn"
-            onClick={() => importMutation.mutate()}
-            disabled={importMutation.isPending}
-          >
-            {importMutation.isPending ? (
-              <Loader2 className="size-4 animate-spin" />
+          {egnyteAppConfigured ? (
+            egnyteImportReady ? (
+              <button
+                type="button"
+                className="v2-btn"
+                onClick={() => importMutation.mutate()}
+                disabled={importMutation.isPending}
+              >
+                {importMutation.isPending ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="size-4" />
+                )}
+                Import from Egnyte
+              </button>
             ) : (
-              <RefreshCw className="size-4" />
-            )}
-            Import from Egnyte
-          </button>
+              <Link to="/settings" className="v2-btn">
+                <RefreshCw className="size-4" />
+                Connect Egnyte to import
+              </Link>
+            )
+          ) : null}
           <button
             type="button"
             className="v2-btn primary"

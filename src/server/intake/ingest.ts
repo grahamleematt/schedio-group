@@ -9,7 +9,7 @@ import {
   uploadFile,
 } from '#/server/egnyte'
 import type { EgnyteCredentials } from '#/server/egnyte'
-import { isEgnyteConfigured } from '#/server/env'
+import { isEgnyteConfigured, isEgnyteExportEnabled } from '#/server/env'
 import { getStore } from '#/server/store'
 import type { StoredDocument } from '#/server/store'
 
@@ -41,10 +41,15 @@ type IngestInput = {
   egnyteCredentials?: EgnyteCredentials
 }
 
-/** Whether we can stage to Egnyte for this ingest (per-user or service token). */
+/**
+ * Whether we can stage to Egnyte for this ingest (per-user or service token).
+ * The export kill switch overrides both — while Egnyte space is unavailable,
+ * uploads stay portal-side and nothing is written into Incoming/.
+ */
 function canStageEgnyte(input: {
   egnyteCredentials?: EgnyteCredentials
 }): boolean {
+  if (!isEgnyteExportEnabled()) return false
   return Boolean(input.egnyteCredentials) || isEgnyteConfigured()
 }
 

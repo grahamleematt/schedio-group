@@ -22,7 +22,7 @@ import type { SessionUser } from '#/server/fns/getSessionUser'
 import { getExtractionOverlay } from '#/server/fns/extractionOverlay'
 import type { ExtractionOverlay } from '#/server/fns/extractionOverlay'
 import { getEgnyteConnection } from '#/server/fns/getEgnyteConnection'
-import type { EgnyteConnectionStatus } from '#/server/egnyteConnections'
+import type { EgnyteConnectionInfo } from '#/server/fns/getEgnyteConnection'
 import { getUserDirectory } from '#/server/fns/getUserDirectory'
 import { getPendingInvites } from '#/server/fns/manageUsers'
 import type { PendingInvite } from '#/server/fns/manageUsers'
@@ -63,7 +63,7 @@ export function portalConfigQuery() {
   })
 }
 
-export type EgnyteConnectionData = EgnyteConnectionStatus
+export type EgnyteConnectionData = EgnyteConnectionInfo
 
 /**
  * The signed-in user's Egnyte connection status (per-user link, not the shared

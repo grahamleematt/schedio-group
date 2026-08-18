@@ -20,7 +20,7 @@
 
 import { clients as configuredClients, renamed } from '#/lib/sg-dream'
 import type { Client, DocType, Verification } from '#/lib/sg-dream'
-import { isEgnyteConfigured } from '#/server/env'
+import { isEgnyteConfigured, isEgnyteExportEnabled } from '#/server/env'
 import { getVerificationConfigById } from '#/server/portalConfig'
 import {
   createFolderIfMissing,
@@ -172,8 +172,13 @@ export async function fileDocumentToEgnyte(
     }
   }
 
+  // Export kill switch: while Egnyte space is unavailable the promotion is
+  // simulated portal-side; the plan (renamed name + classified path) is kept
+  // so a real re-file is possible once export is re-enabled.
   const canFileForReal =
-    isEgnyteConfigured() && Boolean(stored.egnyteIncomingPath)
+    isEgnyteExportEnabled() &&
+    isEgnyteConfigured() &&
+    Boolean(stored.egnyteIncomingPath)
   if (!canFileForReal) {
     return {
       custodyState: 'classified',

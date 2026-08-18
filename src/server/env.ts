@@ -207,6 +207,17 @@ export function isEgnyteAppConfigured(): boolean {
   )
 }
 
+/**
+ * Kill switch for the export direction of the Egnyte integration: staging
+ * uploads into Incoming/ and filing classified copies. While Schedio's Egnyte
+ * space is unavailable, set `EGNYTE_EXPORT_ENABLED=false` — imports keep
+ * working, staging is skipped, and filing falls back to the simulated
+ * (portal-only) promotion. Absent/anything-else means enabled.
+ */
+export function isEgnyteExportEnabled(): boolean {
+  return readOptional('EGNYTE_EXPORT_ENABLED') !== 'false'
+}
+
 export function isDatabaseConfigured(): boolean {
   return Boolean(readOptional('DATABASE_URL'))
 }

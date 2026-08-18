@@ -3,13 +3,17 @@ import { createFileRoute } from '@tanstack/react-router'
 import { isSubmissionLocked } from '#/lib/sg-dream'
 
 import { assertClientAccess, authzJsonError } from '#/server/authz'
+import type { PortalUser } from '#/server/authz'
 import {
   downloadFile,
   egnyteFileWebUrlById,
   egnyteWebUrl,
   listFolder,
 } from '#/server/egnyte'
+import type { EgnyteCredentials, EgnyteListedFile } from '#/server/egnyte'
+import { buildEgnyteCredentialsForUser } from '#/server/egnyteConnections'
 import {
+  isEgnyteAppConfigured,
   isEgnyteConfigured,
   isIntakePipelineEnabled,
   isStrictMode,
@@ -23,7 +27,6 @@ import {
   finishImportJob,
   recordImportFile,
 } from '#/server/intake/importJobs'
-import type { EgnyteListedFile } from '#/server/egnyte'
 
 const SUPPORTED_EXTENSIONS = new Set([
   'pdf',
@@ -89,9 +92,35 @@ function fileWebUrl(file: EgnyteListedFile): string {
     : egnyteWebUrl(file.path)
 }
 
+/**
+ * Credentials for reading from Egnyte: the shared service token when
+ * configured, otherwise the requesting user's own connection (the Connect
+ * Egnyte flow in Settings). `undefined` means "use the service env token".
+ */
+async function resolveReadCredentials(
+  user: PortalUser,
+): Promise<EgnyteCredentials | undefined> {
+  if (isEgnyteConfigured()) return undefined
+  if (isEgnyteAppConfigured()) {
+    const userCreds = await buildEgnyteCredentialsForUser(user.id)
+    if (userCreds) return userCreds
+    throw new Response(
+      JSON.stringify({
+        error:
+          'Egnyte is not connected. Link your Egnyte account under Settings → Integrations, then import again.',
+      }),
+      { status: 503, headers: { 'content-type': 'application/json' } },
+    )
+  }
+  throw new Response(JSON.stringify({ error: 'Egnyte is not configured' }), {
+    status: 503,
+    headers: { 'content-type': 'application/json' },
+  })
+}
+
 async function crawlFolder(
   path: string,
-  input: { maxFiles?: number } = {},
+  input: { maxFiles?: number; creds?: EgnyteCredentials } = {},
 ): Promise<Array<EgnyteListedFile>> {
   const maxFiles = input.maxFiles ?? 250
   const files: Array<EgnyteListedFile> = []
@@ -99,10 +128,13 @@ async function crawlFolder(
   while (queue.length > 0 && files.length < maxFiles) {
     const current = queue.shift()
     if (!current) break
-    const listing = await listFolder({
-      path: current,
-      includeCustomMetadata: true,
-    })
+    const listing = await listFolder(
+      {
+        path: current,
+        includeCustomMetadata: true,
+      },
+      input.creds,
+    )
     files.push(...listing.files.slice(0, maxFiles - files.length))
     for (const folder of listing.folders) {
       if (folder.name.toLowerCase() === 'classified') continue
@@ -137,6 +169,7 @@ async function resolveRequest(
 ): Promise<{
   context: NonNullable<Awaited<ReturnType<typeof resolveIntakeContext>>>
   sourcePath: string
+  user: PortalUser
 }> {
   const url = new URL(request.url)
   const verificationId =
@@ -179,12 +212,12 @@ async function resolveRequest(
       },
     )
   }
-  await assertClientAccess(context.client.id)
+  const user = await assertClientAccess(context.client.id)
   // Strict mode ignores any caller-supplied source path and locks imports to
   // the resolved entity intake folder, so Tim can't accidentally (or a caller
   // maliciously) import from an arbitrary Egnyte location.
   if (isStrictMode()) {
-    return { context, sourcePath: context.incomingFolder }
+    return { context, sourcePath: context.incomingFolder, user }
   }
   return {
     context,
@@ -192,14 +225,13 @@ async function resolveRequest(
       body?.sourcePath ??
       url.searchParams.get('sourcePath') ??
       context.incomingFolder,
+    user,
   }
 }
 
 async function previewImport(request: Request): Promise<Response> {
-  if (!isEgnyteConfigured()) {
-    return jsonResponse({ error: 'Egnyte is not configured' }, 503)
-  }
-  const { context, sourcePath } = await resolveRequest(request)
+  const { context, sourcePath, user } = await resolveRequest(request)
+  const creds = await resolveReadCredentials(user)
   const store = getStore()
   await store.ensureVerification({
     verificationId: context.verification.id,
@@ -207,7 +239,7 @@ async function previewImport(request: Request): Promise<Response> {
     ref: context.verificationRef,
   })
   const snapshot = await store.getSnapshot(context.verification.id)
-  const files = await crawlFolder(sourcePath)
+  const files = await crawlFolder(sourcePath, { creds })
   const preview: Array<ImportPreviewFile> = files.map((file) => ({
     ...file,
     supported: isSupported(file),
@@ -233,11 +265,9 @@ async function runImport(request: Request): Promise<Response> {
       503,
     )
   }
-  if (!isEgnyteConfigured()) {
-    return jsonResponse({ error: 'Egnyte is not configured' }, 503)
-  }
   const body = (await request.json().catch(() => ({}))) as ImportRequest
-  const { context, sourcePath } = await resolveRequest(request, body)
+  const { context, sourcePath, user } = await resolveRequest(request, body)
+  const creds = await resolveReadCredentials(user)
   const store = getStore()
   await store.ensureVerification({
     verificationId: context.verification.id,
@@ -245,7 +275,6 @@ async function runImport(request: Request): Promise<Response> {
     ref: context.verificationRef,
   })
 
-  const user = await assertClientAccess(context.client.id)
   const jobId = newDocumentId('eg-import')
   await createImportJob({
     id: jobId,
@@ -257,7 +286,7 @@ async function runImport(request: Request): Promise<Response> {
 
   const snapshot = await store.getSnapshot(context.verification.id)
   const existingDocs = snapshot?.verification.documents ?? []
-  const files = await crawlFolder(sourcePath)
+  const files = await crawlFolder(sourcePath, { creds })
   const importable = files.filter(isSupported)
 
   const imported: Array<StoredDocument> = []
@@ -280,7 +309,7 @@ async function runImport(request: Request): Promise<Response> {
       continue
     }
     try {
-      const downloaded = await downloadFile({ path: file.path })
+      const downloaded = await downloadFile({ path: file.path }, creds)
       const doc = await ingestDocument({
         context,
         filename: file.name,
@@ -290,6 +319,7 @@ async function runImport(request: Request): Promise<Response> {
         sizeBytes: file.sizeBytes,
         sourceKind: 'egnyte_import',
         importJobId: jobId,
+        egnyteCredentials: creds,
         egnyteIdentity: {
           path: file.path,
           entryId: file.entryId,

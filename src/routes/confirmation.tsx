@@ -379,12 +379,14 @@ function ConfirmationPage() {
                     style={{ color: 'var(--wf-strong)' }}
                     aria-hidden
                   />
-                  File {readyDocs.length} document
-                  {readyDocs.length === 1 ? '' : 's'} to Egnyte
+                  {portalConfig.egnyteExportEnabled
+                    ? `File ${readyDocs.length} document${readyDocs.length === 1 ? '' : 's'} to Egnyte`
+                    : `Approve ${readyDocs.length} document${readyDocs.length === 1 ? '' : 's'}`}
                 </p>
                 <p className="text-muted-1 m-0 mt-1 text-[12.5px]">
-                  Review looks good? File the standardized copies into Egnyte.
-                  Originals stay in the upload location.
+                  {portalConfig.egnyteExportEnabled
+                    ? 'Review looks good? File the standardized copies into Egnyte. Originals stay in the upload location.'
+                    : 'Review looks good? Approve the standardized copies. Egnyte filing is paused right now — copies will move into Egnyte once storage is restored.'}
                 </p>
                 {destinationRoot ? (
                   <p className="m-0 mt-2 text-[11.5px] text-ink-2">
@@ -413,7 +415,13 @@ function ConfirmationPage() {
                 ) : (
                   <UploadCloud className="size-4" aria-hidden />
                 )}
-                {fileMut.isPending ? 'Filing…' : 'File to Egnyte'}
+                {fileMut.isPending
+                  ? portalConfig.egnyteExportEnabled
+                    ? 'Filing…'
+                    : 'Approving…'
+                  : portalConfig.egnyteExportEnabled
+                    ? 'File to Egnyte'
+                    : 'Approve documents'}
               </button>
             </div>
           </div>
@@ -421,7 +429,10 @@ function ConfirmationPage() {
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <span className="pill pill-green">
               <span className="dot" />
-              Filed to Egnyte · {filedCount} document
+              {portalConfig.egnyteExportEnabled
+                ? 'Filed to Egnyte'
+                : 'Approved (Egnyte filing paused)'}{' '}
+              · {filedCount} document
               {filedCount === 1 ? '' : 's'}
             </span>
             {destinationRoot ? (

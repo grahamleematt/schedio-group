@@ -13,6 +13,7 @@ import { createServerFn } from '@tanstack/react-start'
 
 import type { Vendor, Verification } from '#/lib/sg-dream'
 import { AuthzError, resolvePortalUser } from '#/server/authz'
+import { isEgnyteExportEnabled } from '#/server/env'
 import {
   listVendorConfigs,
   listVerificationConfigs,
@@ -24,6 +25,11 @@ export type PortalConfig = {
   todayISO: string
   verifications: ReadonlyArray<Verification>
   vendors: ReadonlyArray<Vendor>
+  /**
+   * False while Egnyte export (staging + filing) is paused for lack of space.
+   * The confirmation page swaps its "File to Egnyte" copy accordingly.
+   */
+  egnyteExportEnabled: boolean
 }
 
 export const getPortalConfig = createServerFn({ method: 'GET' }).handler(
@@ -35,8 +41,9 @@ export const getPortalConfig = createServerFn({ method: 'GET' }).handler(
       if (!(err instanceof AuthzError)) throw err
     }
     const todayISO = todayISOInDenver()
+    const egnyteExportEnabled = isEgnyteExportEnabled()
     if (permitted.length === 0) {
-      return { todayISO, verifications: [], vendors: [] }
+      return { todayISO, verifications: [], vendors: [], egnyteExportEnabled }
     }
     const [verifications, vendors] = await Promise.all([
       listVerificationConfigs(),
@@ -45,6 +52,7 @@ export const getPortalConfig = createServerFn({ method: 'GET' }).handler(
     const allowed = new Set(permitted)
     return {
       todayISO,
+      egnyteExportEnabled,
       verifications: verifications.filter((v) => allowed.has(v.clientId)),
       vendors: vendors.filter((v) => allowed.has(v.clientId)),
     }
