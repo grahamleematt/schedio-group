@@ -52,9 +52,12 @@ export function PayAppCheckPill({ check }: { check: PayAppCheck }) {
 export function ExtractedRecord({
   doc,
   verificationId,
+  readOnly = false,
 }: {
   doc: Document
   verificationId?: string
+  /** Hides the reviewer-only Applied % editor (client roles). */
+  readOnly?: boolean
 }) {
   const fields = doc.extractedFields
 
@@ -126,7 +129,11 @@ export function ExtractedRecord({
         </div>
       ) : null}
 
-      <LineItemsTable doc={doc} verificationId={verificationId} />
+      <LineItemsTable
+        doc={doc}
+        verificationId={verificationId}
+        readOnly={readOnly}
+      />
 
       {lowFields.length > 0 ? (
         <p className="qconf">
@@ -148,14 +155,21 @@ export function ExtractedRecord({
 export function ExtractedDetail({
   doc,
   verificationId,
+  readOnly = false,
 }: {
   doc: Document
   /** Target verification for the document review page link. */
   verificationId?: string
+  /** Hides the reviewer-only Applied % editor (client roles). */
+  readOnly?: boolean
 }) {
   return (
     <>
-      <ExtractedRecord doc={doc} verificationId={verificationId} />
+      <ExtractedRecord
+        doc={doc}
+        verificationId={verificationId}
+        readOnly={readOnly}
+      />
 
       {doc.clientId ? (
         <Link

@@ -22,7 +22,7 @@ import { randomUUID } from 'node:crypto'
 
 import { createServerFn } from '@tanstack/react-start'
 
-import { assertClientAccess, resolvePortalUser } from '#/server/authz'
+import { assertInternalClientAccess, resolvePortalUser } from '#/server/authz'
 import {
   classifyDocument,
   getClassMap,
@@ -99,7 +99,7 @@ export const rerunExtraction = createServerFn({ method: 'POST' })
     if (!doc) {
       return { ok: false, snapshot: null, error: 'unknown document' }
     }
-    const user = await assertClientAccess(doc.clientId)
+    const user = await assertInternalClientAccess(doc.clientId)
 
     if (!isDocupipeConfigured() || !doc.docupipeDocumentId) {
       return {

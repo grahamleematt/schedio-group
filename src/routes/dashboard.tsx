@@ -3,6 +3,7 @@ import { useSuspenseQuery } from '@tanstack/react-query'
 import { UploadCloud } from 'lucide-react'
 import { AppShell } from '#/components/sg-dream/AppShell'
 import { DocumentInventoryTiles } from '#/components/sg-dream/DocumentInventoryTiles'
+import { FinalizeSubmissionPanel } from '#/components/sg-dream/FinalizeSubmissionPanel'
 import { VerificationSummaryTable } from '#/components/sg-dream/VerificationSummaryTable'
 import { WhatHappensNext } from '#/components/sg-dream/WhatHappensNext'
 import { DashboardActions } from '#/components/sg-dream/DashboardActions'
@@ -20,11 +21,13 @@ import {
   getVendorsByClient,
   getVerificationById,
   getVerificationsByClient,
+  isInternalUser,
+  isSubmissionLocked,
   summarizeDocTypes,
   workflowConfigs,
 } from '#/lib/sg-dream'
 import { portalConfigQuery, verificationSnapshotQuery } from '#/lib/queries'
-import { usePortalConfig } from '#/lib/session'
+import { usePortalConfig, useSessionUser } from '#/lib/session'
 import {
   liveVerificationTotals,
   storedListToDisplay,
@@ -86,6 +89,11 @@ function CustomerIntakeDashboard() {
   const { client: clientId, verification: verificationId } = Route.useSearch()
 
   const config = usePortalConfig()
+  const user = useSessionUser()
+  // Internal (Schedio staff) users get the full operational dashboard;
+  // client roles get the simplified intake view — counts and dollars, not
+  // contract utilization internals.
+  const internal = isInternalUser(user)
   const client = getClientById(clientId)
   const activeVerification =
     (verificationId
@@ -112,6 +120,7 @@ function CustomerIntakeDashboard() {
     fallbackCostsSubmitted: activeVerification.costsSubmitted,
   })
   const hasDraftSubmission = liveTotals.docsCount > 0
+  const locked = isSubmissionLocked(activeVerification, docs)
   const reviewCycle = displaySubmissionCycle(activeVerification)
   const days = daysUntilCutoff(
     activeVerification.cutoffDateISO,
@@ -150,31 +159,38 @@ function CustomerIntakeDashboard() {
             Schedio review progress for this entity.
           </p>
         </div>
-        <Link
-          to="/upload"
-          search={{
-            client: client.id,
-            verification: activeVerification.id,
-          }}
-          className="v2-btn primary"
-        >
-          <UploadCloud className="size-4" />
-          Submit documents
-        </Link>
+        {!locked ? (
+          <Link
+            to="/upload"
+            search={{
+              client: client.id,
+              verification: activeVerification.id,
+            }}
+            className="v2-btn primary"
+          >
+            <UploadCloud className="size-4" />
+            Submit documents
+          </Link>
+        ) : null}
       </header>
 
       <section className="v2-card" aria-label="Current submission">
         <header className="v2-card-head">
           <span className="pill pill-wf">
             <span className="dot" />
-            {hasDraftSubmission
-              ? 'Draft submission'
-              : 'No active submission'} · {reviewCycle}
+            {locked
+              ? 'Finalized submission'
+              : hasDraftSubmission
+                ? 'Draft submission'
+                : 'No active submission'}{' '}
+            · {reviewCycle}
           </span>
           <h3>
-            {hasDraftSubmission
-              ? `Draft submission · cutoff ${activeVerification.cutoffDate}`
-              : `Ready for first upload · cutoff ${activeVerification.cutoffDate}`}
+            {locked
+              ? `Submission finalized · in Schedio's review queue`
+              : hasDraftSubmission
+                ? `Draft submission · cutoff ${activeVerification.cutoffDate}`
+                : `Ready for first upload · cutoff ${activeVerification.cutoffDate}`}
           </h3>
           <span className={`pill ${daysTone} ml-auto`}>
             {days < 0
@@ -210,7 +226,7 @@ function CustomerIntakeDashboard() {
                   : 'Awaiting extracted invoice + pay-app amounts'}
               </div>
             </div>
-            {hasContracts ? (
+            {internal && hasContracts ? (
               <div className="v2-stat">
                 <div className="k">Authorization value</div>
                 <div className="v">
@@ -234,13 +250,15 @@ function CustomerIntakeDashboard() {
       </section>
 
       <div className="mt-4 space-y-4">
+        <FinalizeSubmissionPanel verification={activeVerification} docs={docs} />
+
         <DocumentInventoryTiles
           summaries={summaries}
           clientId={client.id}
           verificationId={activeVerification.id}
         />
 
-        {isStacked && hasContracts ? (
+        {internal && isStacked && hasContracts ? (
           <section className="v2-card" aria-label="Contract tracking">
             <header className="v2-card-head">
               <h3>Contract tracking</h3>

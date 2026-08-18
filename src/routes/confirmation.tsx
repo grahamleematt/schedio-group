@@ -7,6 +7,7 @@ import {
 import { ArrowRight, FolderOpen, Loader2, UploadCloud } from 'lucide-react'
 import { AppShell } from '#/components/sg-dream/AppShell'
 import { DuplicateAlertPanel } from '#/components/sg-dream/DuplicateAlertPanel'
+import { FinalizeSubmissionPanel } from '#/components/sg-dream/FinalizeSubmissionPanel'
 import { WorkflowBanner } from '#/components/sg-dream/WorkflowBanner'
 import {
   clients,
@@ -474,6 +475,12 @@ function ConfirmationPage() {
           </Link>
         </div>
       </section>
+
+      {!reviewNeeded ? (
+        <div className="mt-4">
+          <FinalizeSubmissionPanel verification={verification} docs={docs} />
+        </div>
+      ) : null}
 
       <section className="v2-card mt-4">
         <header className="v2-card-head flex items-center justify-between gap-3">

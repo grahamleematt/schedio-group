@@ -205,6 +205,12 @@ async function ensureSchema(): Promise<void> {
       add column if not exists costs_verified numeric not null default 0,
       add column if not exists ref_seq integer not null default 1;
 
+    -- Additive migration: submission finalize/lock bookkeeping. Mirrors
+    -- db/intelligence/011_submission_finalize.sql.
+    alter table dream_verifications
+      add column if not exists submitted_at timestamptz,
+      add column if not exists submitted_by text;
+
     create table if not exists dream_vendors (
       id text primary key,
       client_id text not null,

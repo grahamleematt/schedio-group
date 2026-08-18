@@ -11,10 +11,15 @@ import {
   getClientById,
   getOpenVerification,
   getVendorsByClient,
+  isInternalUser,
   liveSpendByVendor,
 } from '#/lib/sg-dream'
 import type { Vendor } from '#/lib/sg-dream'
-import { portalConfigQuery, verificationSnapshotQuery } from '#/lib/queries'
+import {
+  portalConfigQuery,
+  sessionUserQuery,
+  verificationSnapshotQuery,
+} from '#/lib/queries'
 import { usePortalConfig } from '#/lib/session'
 import { storedListToDisplay } from '#/lib/sg-dream-adapter'
 
@@ -31,6 +36,15 @@ export const Route = createFileRoute('/contracts')({
     const known = clients.find((c) => c.id === search.client)
     if (!known) {
       throw redirect({ to: '/clients' })
+    }
+    // Internal-only surface: authorization values and vendor utilization stay
+    // with Schedio staff (the nav entry is hidden for client roles too).
+    const user = await context.queryClient.ensureQueryData(sessionUserQuery())
+    if (!user) {
+      throw redirect({ to: '/login' })
+    }
+    if (!isInternalUser(user)) {
+      throw redirect({ to: '/dashboard', search: { client: known.id } })
     }
     const { verifications } =
       await context.queryClient.ensureQueryData(portalConfigQuery())

@@ -2,6 +2,7 @@ import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowRight, UploadCloud } from 'lucide-react'
 import { AppShell } from '#/components/sg-dream/AppShell'
+import { FinalizeSubmissionPanel } from '#/components/sg-dream/FinalizeSubmissionPanel'
 import { WorkflowBanner } from '#/components/sg-dream/WorkflowBanner'
 import {
   clients,
@@ -14,6 +15,7 @@ import {
   getOpenVerification,
   getStatusLabel,
   getVerificationsByClient,
+  isSubmissionLocked,
   liveSpendByVendor,
 } from '#/lib/sg-dream'
 import { portalConfigQuery, verificationSnapshotQuery } from '#/lib/queries'
@@ -57,12 +59,14 @@ function VerificationsPage() {
   const previous = all.filter((v) => v.id !== open.id)
   const snapshotQuery = useQuery(verificationSnapshotQuery(open.id))
   const snapshot = snapshotQuery.data
+  const displayDocs = storedListToDisplay(
+    snapshot?.verification.documents ?? [],
+  )
+  const locked = isSubmissionLocked(open, displayDocs)
   const contractSummary = computeContractSummary(
     config.vendors,
     client.id,
-    liveSpendByVendor(
-      storedListToDisplay(snapshot?.verification.documents ?? []),
-    ),
+    liveSpendByVendor(displayDocs),
   )
   const hasContracts = contractSummary.authorized > 0
   const liveTotals = liveVerificationTotals({
@@ -73,9 +77,11 @@ function VerificationsPage() {
   const docsCount = liveTotals.docsCount
   const reviewCycle = displaySubmissionCycle(open)
   const hasDraftSubmission = docsCount > 0
-  const submissionLabel = hasDraftSubmission
-    ? `Draft submission · ${docsCount} document${docsCount === 1 ? '' : 's'}`
-    : 'No active submission'
+  const submissionLabel = locked
+    ? `Finalized · ${docsCount} document${docsCount === 1 ? '' : 's'} locked`
+    : hasDraftSubmission
+      ? `Draft submission · ${docsCount} document${docsCount === 1 ? '' : 's'}`
+      : 'No active submission'
   const referenceStatus = hasDraftSubmission
     ? 'Assigned after Schedio review'
     : 'Pending first upload'
@@ -167,29 +173,46 @@ function VerificationsPage() {
             draft is accepted, Schedio assigns the official reference.
           </p>
         </div>
-        <Link
-          to="/upload"
-          search={{ client: client.id, verification: open.id }}
-          className="v2-btn primary"
-        >
-          <UploadCloud className="size-4" />
-          {hasDraftSubmission ? 'Continue submission' : 'Start submission'}
-        </Link>
+        {!locked ? (
+          <Link
+            to="/upload"
+            search={{ client: client.id, verification: open.id }}
+            className="v2-btn primary"
+          >
+            <UploadCloud className="size-4" />
+            {hasDraftSubmission ? 'Continue submission' : 'Start submission'}
+          </Link>
+        ) : null}
       </header>
+
+      {locked ? (
+        <div className="mb-4">
+          <FinalizeSubmissionPanel
+            verification={open}
+            docs={displayDocs}
+            variant="banner"
+          />
+        </div>
+      ) : null}
 
       <section className="v2-card mb-4">
         <header className="v2-card-head">
           <span className="pill pill-wf">
             <span className="dot" />
-            {hasDraftSubmission ? 'Draft' : 'Not started'} · {reviewCycle}
+            {locked ? 'Finalized' : hasDraftSubmission ? 'Draft' : 'Not started'}{' '}
+            · {reviewCycle}
           </span>
           <h3>
-            {hasDraftSubmission
-              ? `Draft submission · cutoff ${open.cutoffDate}`
-              : `No active submission yet · cutoff ${open.cutoffDate}`}
+            {locked
+              ? `Finalized submission · in Schedio's review queue`
+              : hasDraftSubmission
+                ? `Draft submission · cutoff ${open.cutoffDate}`
+                : `No active submission yet · cutoff ${open.cutoffDate}`}
           </h3>
-          <span className="pill pill-gray ml-auto">
-            {hasDraftSubmission ? 'Draft' : 'Empty'}
+          <span
+            className={`pill ${locked ? 'pill-green' : 'pill-gray'} ml-auto`}
+          >
+            {locked ? 'Locked' : hasDraftSubmission ? 'Draft' : 'Empty'}
           </span>
         </header>
         <div className="v2-card-body">

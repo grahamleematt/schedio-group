@@ -133,7 +133,7 @@ export type User = {
   initials: string
   name: string
   email: string
-  role: 'entity_owner' | 'client_mgr' | 'client_viewer'
+  role: AccessRole
   permittedClientIds: ReadonlyArray<string>
   /** Grants the Users & access admin page (invite/manage teammates). */
   canManageUsers: boolean
@@ -165,6 +165,8 @@ export type Verification = {
   costsSubmitted: number
   costsVerified: number // 0 until approved
   seq: number // last-used doc sequence used for ref generation
+  /** Set when the client finalized (locked) the submission from the portal. */
+  submittedAtISO?: string
 }
 
 /**
@@ -377,6 +379,35 @@ export function getOpenVerification(
 ): Verification {
   const all = getVerificationsByClient(verifications, clientId)
   return all.find((v) => v.status === 'open') ?? all[0]
+}
+
+/**
+ * A submission is locked once finalized: the verification left the `open`
+ * state, or (when no database is configured and status can't persist) every
+ * document sits in the `locked` custody state. Locked submissions reject new
+ * uploads and deletions until reopened.
+ */
+export function isSubmissionLocked(
+  verification: Verification,
+  docs: ReadonlyArray<Pick<Document, 'custodyState'>>,
+): boolean {
+  if (verification.status !== 'open') return true
+  return docs.length > 0 && docs.every((d) => d.custodyState === 'locked')
+}
+
+/**
+ * Reopen rule from the Aug 10 meeting: clients can unlock their own finalized
+ * submission until the cutoff date; after the cutoff (or once Schedio has
+ * approved the cycle) only internal roles can reopen.
+ */
+export function canReopenSubmission(input: {
+  verification: Verification
+  todayISO: string
+  internal: boolean
+}): boolean {
+  if (input.verification.status === 'approved') return false
+  if (input.internal) return true
+  return !isPastCutoff(input.verification.cutoffDateISO, input.todayISO)
 }
 
 /**
@@ -709,6 +740,8 @@ export type DocTypeSummary = {
   label: string
   count: number
   flaggedCount: number
+  /** Sum of extracted document amounts for this type (0 when none). */
+  amount: number
 }
 
 export function summarizeDocTypes(
@@ -721,6 +754,7 @@ export function summarizeDocTypes(
       label: docTypeLabels[docType],
       count: inType.length,
       flaggedCount: inType.filter((d) => d.duplicateFlag !== 'none').length,
+      amount: inType.reduce((sum, d) => sum + (d.amount || 0), 0),
     }
   })
 }
@@ -831,6 +865,27 @@ export const accessRoleLabels: Record<AccessRole, string> = {
   entity_owner: 'Entity Owner',
   client_mgr: 'Client Mgr',
   client_viewer: 'Client Viewer',
+}
+
+/**
+ * Schedio-internal staff roles. Internal users see the full operational
+ * detail (pipeline stages, contract utilization, extraction corrections);
+ * client roles get the simplified intake surfaces — the cake, not the
+ * kitchen.
+ */
+export function isInternalRole(role: AccessRole): boolean {
+  return role === 'sg_admin' || role === 'sg_pm'
+}
+
+/**
+ * Whether this signed-in user gets the internal (full-detail) portal views.
+ * Admins are internal regardless of role so existing admin accounts keep
+ * full detail even before their role row is migrated to `sg_admin`.
+ */
+export function isInternalUser(
+  user: Pick<User, 'role' | 'canManageUsers'>,
+): boolean {
+  return isInternalRole(user.role) || user.canManageUsers
 }
 
 export type MfaState = 'enabled' | 'not_set'

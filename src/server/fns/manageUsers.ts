@@ -8,6 +8,8 @@
 
 import { createServerFn } from '@tanstack/react-start'
 
+import { accessRoleLabels, isInternalRole } from '#/lib/sg-dream'
+import type { AccessRole } from '#/lib/sg-dream'
 import { AuthzError, resolvePortalUser } from '#/server/authz'
 import { onboardTeammate } from '#/server/team'
 import type { OnboardResult } from '#/server/team'
@@ -82,15 +84,30 @@ export type AddPortalUserResult =
 
 export const addPortalUser = createServerFn({ method: 'POST' })
   .inputValidator(
-    (data: { email: string; name: string; entities: Array<string> }) => data,
+    (data: {
+      email: string
+      name: string
+      entities: Array<string>
+      role: AccessRole
+    }) => {
+      if (!(data.role in accessRoleLabels)) {
+        throw new Error('Unknown access role')
+      }
+      return data
+    },
   )
   .handler(async ({ data }): Promise<AddPortalUserResult> => {
     const admin = await requireAdmin()
     try {
+      // Schedio-internal roles always get every entity (they work across
+      // clients); sg_admin additionally gets the Users & access page.
+      const internal = isInternalRole(data.role)
       const result = await onboardTeammate({
         email: data.email,
         name: data.name,
-        entities: data.entities,
+        entities: internal ? null : data.entities,
+        role: data.role,
+        isAdmin: data.role === 'sg_admin' ? true : undefined,
         grantedBy: `admin:${admin.id}`,
       })
       return { ok: true, result }

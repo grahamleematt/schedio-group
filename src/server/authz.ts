@@ -1,5 +1,10 @@
-import { currentUser, initialsFromName } from '#/lib/sg-dream'
-import type { User } from '#/lib/sg-dream'
+import {
+  accessRoleLabels,
+  currentUser,
+  initialsFromName,
+  isInternalUser,
+} from '#/lib/sg-dream'
+import type { AccessRole, User } from '#/lib/sg-dream'
 import { dbQuery } from '#/server/database'
 import {
   isDatabaseConfigured,
@@ -119,8 +124,15 @@ function isAuthBypassEnabled(): boolean {
 
 export async function resolvePortalUser(): Promise<PortalUser> {
   // Demo/dev bypass: skip WorkOS entirely and resolve to the seeded Tim portal
-  // user. Never enable in strict mode.
+  // user. Never enable in strict mode. SG_DREAM_AUTH_BYPASS_ROLE optionally
+  // overrides the persona's role (e.g. `client_viewer`) so the client-facing
+  // views can be exercised locally without a second WorkOS account.
   if (isAuthBypassEnabled() && !isStrictMode()) {
+    const roleOverride = process.env.SG_DREAM_AUTH_BYPASS_ROLE
+    if (roleOverride && roleOverride in accessRoleLabels) {
+      const role = roleOverride as AccessRole
+      return { ...currentUser, role, canManageUsers: role === 'sg_admin' }
+    }
     return { ...currentUser }
   }
 
@@ -151,6 +163,21 @@ export async function assertClientAccess(
   const user = await resolvePortalUser()
   if (!user.permittedClientIds.includes(clientId)) {
     throw new AuthzError(403, 'client access denied')
+  }
+  return user
+}
+
+/**
+ * Entity access AND Schedio-internal standing. Guards the extraction
+ * correction surfaces (value/box edits, applied %, re-runs) — Tim's rule:
+ * corrections are their own permission, not something clients do.
+ */
+export async function assertInternalClientAccess(
+  clientId: string,
+): Promise<PortalUser> {
+  const user = await assertClientAccess(clientId)
+  if (!isInternalUser(user)) {
+    throw new AuthzError(403, 'extraction corrections require Schedio access')
   }
   return user
 }

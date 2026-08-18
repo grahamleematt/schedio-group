@@ -22,10 +22,12 @@ import {
   UserPlus,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { FeedbackDialog } from '#/components/sg-dream/FeedbackDialog'
 import type { Client, User, Verification, Workflow } from '#/lib/sg-dream'
 import {
   accessRoleLabels,
   initialsFromName,
+  isInternalUser,
   workflowConfigs,
 } from '#/lib/sg-dream'
 import type { SidebarCounts } from '#/lib/session'
@@ -109,9 +111,10 @@ export function Sidebar({
       count: counts.library,
       preserveVerification: true,
     },
-    // Contract tracking is a stacked-dashboard (District Direct Pay) surface;
-    // it only appears for workflows that carry vendor contract authorizations.
-    ...(config.dashboardKind === 'stacked'
+    // Contract tracking is a stacked-dashboard (District Direct Pay) surface,
+    // and an internal one — authorization values and vendor utilization stay
+    // with Schedio staff, matching the dashboard's role split.
+    ...(config.dashboardKind === 'stacked' && isInternalUser(user)
       ? [
           {
             id: 'contracts' as const,
@@ -177,6 +180,10 @@ export function Sidebar({
           baseSearch={baseSearch}
         />
       ) : null}
+      <nav className="nav-section" aria-label="Support">
+        <h6>Support</h6>
+        <FeedbackDialog client={client} />
+      </nav>
       <div className="nav-foot">
         <div className="avatar" aria-hidden>
           {avatarInitials}

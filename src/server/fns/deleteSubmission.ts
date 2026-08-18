@@ -21,7 +21,7 @@ import { randomUUID } from 'node:crypto'
 import { createServerFn } from '@tanstack/react-start'
 
 import { clients as configuredClients, formatRef } from '#/lib/sg-dream'
-import { assertClientAccess } from '#/server/authz'
+import { AuthzError, assertClientAccess } from '#/server/authz'
 import { getVerificationConfigById } from '#/server/portalConfig'
 import { getStore } from '#/server/store'
 import type {
@@ -32,19 +32,40 @@ import type {
 
 async function seedMetadata(
   verificationId: string,
-): Promise<{ clientId: string; ref: string } | null> {
+): Promise<{ clientId: string; ref: string; open: boolean } | null> {
   const verification = await getVerificationConfigById(verificationId)
   if (!verification) return null
   const client = configuredClients.find((c) => c.id === verification.clientId)
   if (!client) return null
   return {
     clientId: client.id,
+    open: verification.status === 'open',
     ref: formatRef({
       workflow: client.workflow,
       number: verification.number,
       year: verification.year,
       seq: verification.seq,
     }),
+  }
+}
+
+/**
+ * A finalized (locked) submission can't lose documents until it is reopened —
+ * checked against both the verification status and the document custody state
+ * (the latter carries the lock when no database persists status).
+ */
+function assertNotFinalized(input: {
+  open: boolean | undefined
+  documents: ReadonlyArray<StoredDocument>
+}): void {
+  const custodyLocked =
+    input.documents.length > 0 &&
+    input.documents.every((d) => d.custodyState === 'locked')
+  if (input.open === false || custodyLocked) {
+    throw new AuthzError(
+      409,
+      'submission is finalized — reopen it before removing documents',
+    )
   }
 }
 
@@ -98,6 +119,10 @@ export const deleteSubmissionDocument = createServerFn({ method: 'POST' })
       (d) => d.id === data.documentId,
     )
     if (!target) return snapshot
+    assertNotFinalized({
+      open: metadata?.open,
+      documents: snapshot?.verification.documents ?? [],
+    })
 
     const removed = await store.deleteDocument(data.documentId)
     if (removed) {
@@ -124,6 +149,11 @@ export const clearSubmission = createServerFn({ method: 'POST' })
     if (!clientId) return null
 
     const user = await assertClientAccess(clientId)
+    const current = await store.getSnapshot(data.verificationId)
+    assertNotFinalized({
+      open: metadata?.open,
+      documents: current?.verification.documents ?? [],
+    })
     const removed = await store.deleteVerificationDocuments(data.verificationId)
     if (removed.length > 0) {
       await store.appendAuditEvent(

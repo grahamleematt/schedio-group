@@ -104,6 +104,116 @@ function sumApproved(
   }, 0)
 }
 
+/**
+ * Client-facing line items: the same table with the *saved* Applied % and
+ * approved amounts rendered as plain values — no editor, no save.
+ */
+function ReadOnlyLineItems({
+  docType,
+  lineItems,
+}: {
+  docType: 'INV' | 'PA'
+  lineItems: ReadonlyArray<ExtractedLineItem>
+}) {
+  const billedOrScheduled = sumBase(lineItems, docType)
+  const totalApproved = sumApproved(lineItems, docType)
+  const totalLabel = docType === 'PA' ? 'Scheduled' : 'Billed'
+  return (
+    <>
+      <div className="line-items-scroll v2-table-scroll">
+        <table className="v2-tbl line-items-table">
+          <thead>
+            <tr>
+              <th scope="col">#</th>
+              <th scope="col">Description</th>
+              {docType === 'PA' ? (
+                <>
+                  <th scope="col" className="num">
+                    Scheduled value
+                  </th>
+                  <th scope="col" className="num">
+                    % complete
+                  </th>
+                </>
+              ) : (
+                <>
+                  <th scope="col">Task order</th>
+                  <th scope="col" className="num">
+                    Amount
+                  </th>
+                </>
+              )}
+              <th scope="col" className="num">
+                Applied %
+              </th>
+              <th scope="col" className="num">
+                Approved amount
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {lineItems.map((item, index) => {
+              const saved =
+                typeof item.appliedPercent === 'number'
+                  ? String(item.appliedPercent)
+                  : undefined
+              const approved = approvedAmount(item, docType, saved)
+              return (
+                <tr key={`${item.itemNumber ?? 'row'}-${index}`}>
+                  <td className="mono line-items-num">
+                    {item.itemNumber ?? String(index + 1)}
+                  </td>
+                  <td className="line-items-desc">
+                    {item.description ?? '—'}
+                  </td>
+                  {docType === 'PA' ? (
+                    <>
+                      <td className="num">
+                        {typeof item.scheduledValue === 'number'
+                          ? formatCurrencyPrecise(item.scheduledValue)
+                          : '—'}
+                      </td>
+                      <td className="num">
+                        {typeof item.percentComplete === 'number'
+                          ? `${item.percentComplete.toLocaleString()}%`
+                          : '—'}
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="mono">
+                        {item.taskOrderReference ?? '—'}
+                      </td>
+                      <td className="num">
+                        {typeof item.amount === 'number'
+                          ? formatCurrencyPrecise(item.amount)
+                          : '—'}
+                      </td>
+                    </>
+                  )}
+                  <td className="num">{saved ? `${saved}%` : '—'}</td>
+                  <td className="num">
+                    {typeof approved === 'number'
+                      ? formatCurrencyPrecise(approved)
+                      : '—'}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="line-items-footer">
+        <span className="line-items-footer-totals mono">
+          Approved {formatCurrencyPrecise(totalApproved)}
+          <span aria-hidden>·</span>
+          {totalLabel} {formatCurrencyPrecise(billedOrScheduled)}
+        </span>
+      </div>
+    </>
+  )
+}
+
 /** Draft-backed body — remounts when saved applied-% values change. */
 function LineItemsTableBody({
   doc,
@@ -329,9 +439,12 @@ function LineItemsTableBody({
 export function LineItemsTable({
   doc,
   verificationId,
+  readOnly = false,
 }: {
   doc: Document
   verificationId?: string
+  /** Renders saved Applied % as plain text — no inputs, no save (clients). */
+  readOnly?: boolean
 }) {
   const lineItems = doc.extractedFields?.lineItems
   const [expanded, setExpanded] = useState(false)
@@ -391,12 +504,16 @@ export function LineItemsTable({
       </div>
 
       {expanded ? (
-        <LineItemsTableBody
-          key={doc.id}
-          doc={doc}
-          verificationId={verificationId}
-          lineItems={lineItems}
-        />
+        readOnly ? (
+          <ReadOnlyLineItems docType={docType} lineItems={lineItems} />
+        ) : (
+          <LineItemsTableBody
+            key={doc.id}
+            doc={doc}
+            verificationId={verificationId}
+            lineItems={lineItems}
+          />
+        )
       ) : null}
     </div>
   )

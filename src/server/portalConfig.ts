@@ -36,6 +36,7 @@ type VerificationConfigRow = {
   costs_submitted: string | number
   costs_verified: string | number
   ref_seq: number
+  submitted_at: string | null
 }
 
 type VendorRow = {
@@ -73,6 +74,7 @@ function rowToVerification(row: VerificationConfigRow): Verification {
     costsSubmitted: toNumber(row.costs_submitted),
     costsVerified: toNumber(row.costs_verified),
     seq: row.ref_seq,
+    submittedAtISO: row.submitted_at ?? undefined,
   }
 }
 
@@ -108,7 +110,9 @@ export async function listVerificationConfigs(): Promise<
       select
         id, client_id, number, year, period,
         to_char(cutoff_date, 'YYYY-MM-DD') as cutoff_date,
-        status, docs_count, costs_submitted, costs_verified, ref_seq
+        status, docs_count, costs_submitted, costs_verified, ref_seq,
+        to_char(submitted_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+          as submitted_at
       from dream_verifications
       where number is not null and cutoff_date is not null
       order by client_id, number

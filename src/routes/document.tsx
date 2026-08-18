@@ -56,6 +56,7 @@ import {
   getClientById,
   getOpenVerification,
   getVerificationById,
+  isInternalUser,
 } from '#/lib/sg-dream'
 import type { Document } from '#/lib/sg-dream'
 import { storedToDisplay } from '#/lib/sg-dream-adapter'
@@ -64,7 +65,7 @@ import {
   portalConfigQuery,
   verificationSnapshotQuery,
 } from '#/lib/queries'
-import { usePortalConfig } from '#/lib/session'
+import { usePortalConfig, useSessionUser } from '#/lib/session'
 import { parseEdit, rawFieldValue } from '#/lib/review-edits'
 import { submitReviewCorrections } from '#/server/fns/reviewCorrections'
 import type { ReviewCorrectionsResult } from '#/server/fns/reviewCorrections'
@@ -190,6 +191,10 @@ function DocumentDetailPage() {
     pane,
   } = Route.useSearch()
   const config = usePortalConfig()
+  const user = useSessionUser()
+  // Corrections are a Schedio-internal permission (enforced server-side too):
+  // clients see the overlay and extracted values read-only.
+  const internal = isInternalUser(user)
   const client = getClientById(clientId)
   const verification =
     getVerificationById(config.verifications, verificationId, clientId) ??
@@ -439,8 +444,9 @@ function DocumentDetailPage() {
   const showViewer = pane !== 'record'
   const showRecord = pane !== 'doc'
   // Finalize/Reject act on this window's pending corrections, which live
-  // with the field rail — so the record pop-out never offers them.
-  const showReviewActions = pane !== 'record'
+  // with the field rail — so the record pop-out never offers them. Clients
+  // never see review actions at all.
+  const showReviewActions = internal && pane !== 'record'
 
   const openPane = (target: 'doc' | 'record') => {
     const url = `/document?client=${encodeURIComponent(client.id)}&verification=${encodeURIComponent(verification.id)}&doc=${encodeURIComponent(docId)}&pane=${target}`
@@ -453,26 +459,30 @@ function DocumentDetailPage() {
 
   const viewerToolbarExtra = (
     <>
-      <button
-        type="button"
-        className="ovl-icon-button"
-        aria-label="Undo box move"
-        title="Undo box move"
-        disabled={boxPast.length === 0 || correctionsMut.isPending}
-        onClick={undoBoxEdit}
-      >
-        <Undo2 className="size-4" aria-hidden />
-      </button>
-      <button
-        type="button"
-        className="ovl-icon-button"
-        aria-label="Redo box move"
-        title="Redo box move"
-        disabled={boxFuture.length === 0 || correctionsMut.isPending}
-        onClick={redoBoxEdit}
-      >
-        <Redo2 className="size-4" aria-hidden />
-      </button>
+      {internal ? (
+        <>
+          <button
+            type="button"
+            className="ovl-icon-button"
+            aria-label="Undo box move"
+            title="Undo box move"
+            disabled={boxPast.length === 0 || correctionsMut.isPending}
+            onClick={undoBoxEdit}
+          >
+            <Undo2 className="size-4" aria-hidden />
+          </button>
+          <button
+            type="button"
+            className="ovl-icon-button"
+            aria-label="Redo box move"
+            title="Redo box move"
+            disabled={boxFuture.length === 0 || correctionsMut.isPending}
+            onClick={redoBoxEdit}
+          >
+            <Redo2 className="size-4" aria-hidden />
+          </button>
+        </>
+      ) : null}
       {pane !== 'doc' ? (
         <button
           type="button"
@@ -770,14 +780,18 @@ function DocumentDetailPage() {
                 )}&doc=${encodeURIComponent(docId)}`}
                 fields={overlay.fields}
                 mimeType={overlay.mimeType}
-                corrections={{
-                  edits,
-                  onEdit,
-                  boxEdits,
-                  onBoxEdit,
-                  errors: editErrors,
-                  disabled: correctionsMut.isPending,
-                }}
+                corrections={
+                  internal
+                    ? {
+                        edits,
+                        onEdit,
+                        boxEdits,
+                        onBoxEdit,
+                        errors: editErrors,
+                        disabled: correctionsMut.isPending,
+                      }
+                    : undefined
+                }
                 toolbarExtra={viewerToolbarExtra}
               />
             </Suspense>
@@ -791,8 +805,11 @@ function DocumentDetailPage() {
         <header className="v2-card-head">
           <h3>Extracted record</h3>
           <span className="sub">
-            What SG DREAM read from this document — facts, pay-app math, and
-            line items. Corrections you finalize above update this record.
+            {internal
+              ? `What SG DREAM read from this document — facts, pay-app math, and
+                line items. Corrections you finalize above update this record.`
+              : `What SG DREAM read from this document — facts, pay-app math, and
+                line items.`}
           </span>
           {!isPopout ? (
             <button
@@ -807,7 +824,11 @@ function DocumentDetailPage() {
           ) : null}
         </header>
         <div className="v2-card-body">
-          <ExtractedRecord doc={doc} verificationId={verification.id} />
+          <ExtractedRecord
+            doc={doc}
+            verificationId={verification.id}
+            readOnly={!internal}
+          />
           {doc.errorMessage ? (
             <p className="qerror">{doc.errorMessage}</p>
           ) : null}

@@ -11,6 +11,7 @@ import {
   Receipt,
 } from 'lucide-react'
 import type { DocType, DocTypeSummary } from '#/lib/sg-dream'
+import { formatCurrency } from '#/lib/sg-dream'
 import { cn } from '#/lib/utils'
 
 const icons: Record<DocType, typeof FileText> = {
@@ -130,6 +131,11 @@ export function DocumentInventoryTiles({
                   <p className="text-xs font-semibold text-text-strong">
                     {s.label}
                   </p>
+                  {s.amount > 0 ? (
+                    <p className="mt-0.5 font-mono text-[11px] font-semibold text-text-muted">
+                      {formatCurrency(s.amount)}
+                    </p>
+                  ) : null}
                 </div>
               </>
             )

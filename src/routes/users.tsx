@@ -26,11 +26,20 @@ import {
 } from '#/components/ui/dropdown-menu'
 import { Input } from '#/components/ui/input'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '#/components/ui/select'
+import {
   accessRoleLabels,
   clients,
   getClientById,
   getOpenVerification,
+  isInternalRole,
 } from '#/lib/sg-dream'
+import type { AccessRole } from '#/lib/sg-dream'
 import {
   pendingInvitesQuery,
   portalConfigQuery,
@@ -112,6 +121,14 @@ function successCopy(result: AddPortalUserResult & { ok: true }): string {
   return 'Access granted — they already have an account and can sign in now.'
 }
 
+const roleDescriptions: Record<AccessRole, string> = {
+  sg_admin: 'Schedio staff · all entities · manages users',
+  sg_pm: 'Schedio staff · all entities · full detail',
+  entity_owner: 'Client · approves and submits',
+  client_mgr: 'Client · uploads documents',
+  client_viewer: 'Client · read-only',
+}
+
 function entityAccessLabel(entityIds: ReadonlyArray<string>): string {
   if (entityIds.length === 0) return 'Select entities'
   if (entityIds.length === clients.length) return 'All entities'
@@ -147,20 +164,25 @@ function UsersPage() {
 
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
+  const [role, setRole] = useState<AccessRole>('entity_owner')
   const [entityIds, setEntityIds] = useState<ReadonlyArray<string>>(
     clients.map((c) => c.id),
   )
+  // Schedio-internal roles always span every entity; the server grants all
+  // regardless of the picker, so reflect that in the UI too.
+  const internalRole = isInternalRole(role)
 
   const addMut = useMutation({
     mutationFn: () =>
       addPortalUser({
-        data: { email, name, entities: [...entityIds] },
+        data: { email, name, entities: [...entityIds], role },
       }),
     onSuccess: (result: AddPortalUserResult) => {
       refresh()
       if (result.ok) {
         setName('')
         setEmail('')
+        setRole('entity_owner')
         setEntityIds(clients.map((c) => c.id))
       }
     },
@@ -192,7 +214,7 @@ function UsersPage() {
   const canSubmit =
     name.trim().length > 0 &&
     email.includes('@') &&
-    entityIds.length > 0 &&
+    (internalRole || entityIds.length > 0) &&
     !addMut.isPending
   const addResult = addMut.data
   const addError = addMut.isError
@@ -290,49 +312,84 @@ function UsersPage() {
             </label>
           </div>
 
-          <div className="invite-field">
-            <span className="field-label" id="entity-access-label">
-              Entity access
-            </span>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                type="button"
+          <div className="invite-form-grid">
+            <div className="invite-field">
+              <span className="field-label" id="invite-role-label">
+                Role
+              </span>
+              <Select
+                value={role}
+                onValueChange={(value) => setRole(value as AccessRole)}
                 disabled={addMut.isPending}
-                aria-labelledby="entity-access-label"
-                className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 flex h-9 w-full items-center justify-between gap-2 rounded-md border px-3 text-left text-sm outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <span className="min-w-0 truncate font-semibold text-ink">
-                  {entityAccessLabel(entityIds)}
-                </span>
-                <ChevronDown
-                  className="text-muted-foreground size-4 shrink-0 opacity-50"
-                  aria-hidden
-                />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="start"
-                className="w-(--radix-dropdown-menu-trigger-width) min-w-64"
-              >
-                {clients.map((c) => (
-                  <DropdownMenuCheckboxItem
-                    key={c.id}
-                    checked={entityIds.includes(c.id)}
-                    onCheckedChange={() => toggleEntity(c.id)}
-                    className="gap-2.5"
-                  >
-                    <span
-                      className="grid size-6 shrink-0 place-items-center rounded-2 bg-(--color-brand-blue) font-mono text-[9.5px] font-bold text-white"
-                      aria-hidden
+                <SelectTrigger
+                  className="w-full"
+                  aria-labelledby="invite-role-label"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(
+                    Object.entries(accessRoleLabels) as Array<
+                      [AccessRole, string]
                     >
-                      {c.code}
-                    </span>
-                    <span className="min-w-0 truncate font-semibold">
-                      {c.name}
-                    </span>
-                  </DropdownMenuCheckboxItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                  ).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      <span className="font-semibold">{label}</span>
+                      <span className="text-muted-1 text-[11px]">
+                        {roleDescriptions[value]}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="invite-field">
+              <span className="field-label" id="entity-access-label">
+                Entity access
+              </span>
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  type="button"
+                  disabled={addMut.isPending || internalRole}
+                  aria-labelledby="entity-access-label"
+                  className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 flex h-9 w-full items-center justify-between gap-2 rounded-md border px-3 text-left text-sm outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <span className="min-w-0 truncate font-semibold text-ink">
+                    {internalRole
+                      ? 'All entities · SG internal'
+                      : entityAccessLabel(entityIds)}
+                  </span>
+                  <ChevronDown
+                    className="text-muted-foreground size-4 shrink-0 opacity-50"
+                    aria-hidden
+                  />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="start"
+                  className="w-(--radix-dropdown-menu-trigger-width) min-w-64"
+                >
+                  {clients.map((c) => (
+                    <DropdownMenuCheckboxItem
+                      key={c.id}
+                      checked={entityIds.includes(c.id)}
+                      onCheckedChange={() => toggleEntity(c.id)}
+                      className="gap-2.5"
+                    >
+                      <span
+                        className="grid size-6 shrink-0 place-items-center rounded-2 bg-(--color-brand-blue) font-mono text-[9.5px] font-bold text-white"
+                        aria-hidden
+                      >
+                        {c.code}
+                      </span>
+                      <span className="min-w-0 truncate font-semibold">
+                        {c.name}
+                      </span>
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
 
           <div className="invite-actions">

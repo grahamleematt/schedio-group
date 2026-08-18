@@ -247,6 +247,15 @@ export function isVercel(): boolean {
 }
 
 /**
+ * Slack incoming-webhook URL for the in-app Help & feedback widget. Optional:
+ * feedback is always persisted to Postgres; Slack is the notification channel
+ * layered on top when configured.
+ */
+export function getSlackFeedbackWebhookUrl(): string | undefined {
+  return readOptional('SLACK_FEEDBACK_WEBHOOK_URL')
+}
+
+/**
  * Vercel Blob is the escape hatch for documents larger than the ~4.5 MB
  * serverless request-body cap: the browser uploads them directly to Blob, then
  * our server fetches + ingests them. The read-write token is auto-injected when

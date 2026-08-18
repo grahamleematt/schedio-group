@@ -24,6 +24,8 @@ type DocumentLibraryProps = {
   onDelete?: (doc: Document) => void
   /** Id of the document whose delete is currently in flight (shows a spinner). */
   pendingDeleteId?: string
+  /** Client roles: extracted detail renders without the Applied % editor. */
+  readOnly?: boolean
 }
 
 function filedPill(custody: Document['custodyState']) {
@@ -59,6 +61,7 @@ export function DocumentLibrary({
   onToggleCategory,
   onDelete,
   pendingDeleteId,
+  readOnly,
 }: DocumentLibraryProps) {
   const normalizedQuery = query.trim().toLowerCase()
 
@@ -191,6 +194,7 @@ export function DocumentLibrary({
                       verificationId={verificationId}
                       onDelete={onDelete}
                       pendingDeleteId={pendingDeleteId}
+                      readOnly={readOnly}
                     />
                   ))}
                 </div>
@@ -208,11 +212,13 @@ function LibraryRow({
   verificationId,
   onDelete,
   pendingDeleteId,
+  readOnly,
 }: {
   doc: Document
   verificationId?: string
   onDelete?: (doc: Document) => void
   pendingDeleteId?: string
+  readOnly?: boolean
 }) {
   const isFlagged = doc.duplicateFlag !== 'none'
   const hasStandardizedName = doc.renamedName !== doc.originalName
@@ -276,7 +282,11 @@ function LibraryRow({
           </p>
         ) : null}
 
-        <ExtractedDetail doc={doc} verificationId={verificationId} />
+        <ExtractedDetail
+          doc={doc}
+          verificationId={verificationId}
+          readOnly={readOnly}
+        />
 
         {doc.egnyteWebUrl ? (
           <a

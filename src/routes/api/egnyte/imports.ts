@@ -1,5 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 
+import { isSubmissionLocked } from '#/lib/sg-dream'
+
 import { assertClientAccess, authzJsonError } from '#/server/authz'
 import {
   downloadFile,
@@ -152,6 +154,27 @@ async function resolveRequest(
       JSON.stringify({ error: 'unknown client or verification' }),
       {
         status: 404,
+        headers: { 'content-type': 'application/json' },
+      },
+    )
+  }
+  // Same finalize gate as direct uploads: a locked submission rejects new
+  // documents until it is reopened. Custody carries the lock when no
+  // database persists verification status.
+  const existing = await getStore().getSnapshot(context.verification.id)
+  if (
+    isSubmissionLocked(
+      context.verification,
+      existing?.verification.documents ?? [],
+    )
+  ) {
+    throw new Response(
+      JSON.stringify({
+        error:
+          'This submission has been finalized. Reopen it to import more documents.',
+      }),
+      {
+        status: 409,
         headers: { 'content-type': 'application/json' },
       },
     )

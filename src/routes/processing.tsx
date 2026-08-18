@@ -12,15 +12,17 @@ import { AppShell } from '#/components/sg-dream/AppShell'
 import { DocumentRow } from '#/components/sg-dream/DocumentRow'
 import { IntakeProgressArc } from '#/components/sg-dream/IntakeProgressArc'
 import { WorkflowBanner } from '#/components/sg-dream/WorkflowBanner'
+import { Progress } from '#/components/ui/progress'
 import {
   clients,
   getClientById,
   getOpenVerification,
   getVerificationById,
+  isInternalUser,
 } from '#/lib/sg-dream'
 import { storedListToDisplay } from '#/lib/sg-dream-adapter'
 import { portalConfigQuery, verificationSnapshotQuery } from '#/lib/queries'
-import { usePortalConfig } from '#/lib/session'
+import { usePortalConfig, useSessionUser } from '#/lib/session'
 import type { StoredDocument } from '#/server/store'
 
 type ProcessingSearch = {
@@ -208,6 +210,10 @@ function deriveSteps(docs: ReadonlyArray<StoredDocument>): ReadonlyArray<Step> {
 function ProcessingPage() {
   const { client: clientId, verification: verificationId } = Route.useSearch()
   const config = usePortalConfig()
+  const user = useSessionUser()
+  // Clients get one calm progress indicator; internal users see each
+  // pipeline stage (receiving, naming, classification, extraction, dupes).
+  const internal = isInternalUser(user)
   const client = getClientById(clientId)
   const verification =
     getVerificationById(config.verifications, verificationId, clientId) ??
@@ -293,10 +299,14 @@ function ProcessingPage() {
                 : 'Checking submitted documents'}
           </h1>
           <p className="v2-lede">
-            Schedio is identifying file types, extracting cost details, and
-            comparing this submission against prior filings for {client.name}.
-            Original filenames stay visible while standardized filing names are
-            prepared.
+            {internal
+              ? `Schedio is identifying file types, extracting cost details, and
+                comparing this submission against prior filings for ${client.name}.
+                Original filenames stay visible while standardized filing names are
+                prepared.`
+              : `We're reading each document, pulling out the costs, and checking
+                for duplicates. You can leave this page — everything keeps
+                running and your dashboard updates automatically.`}
           </p>
         </div>
         {allCompleted ? (
@@ -336,15 +346,22 @@ function ProcessingPage() {
         </div>
       ) : null}
 
-      <ProgressStrip steps={steps} isStatic={allCompleted} />
+      {internal ? (
+        <ProgressStrip steps={steps} isStatic={allCompleted} />
+      ) : (
+        <SimpleProgressCard docs={docs} allCompleted={allCompleted} />
+      )}
 
       <section className="v2-card mt-4">
         <header className="v2-card-head">
           <h3>Documents · {docs.length} files</h3>
           <span className="sub">
-            Select a document to see the extraction on the page it was read
-            from, correct values, and finalize. Original upload names stay
-            visible for auditability.
+            {internal
+              ? `Select a document to see the extraction on the page it was read
+                from, correct values, and finalize. Original upload names stay
+                visible for auditability.`
+              : `Select a document to see what was read from it. Original upload
+                names stay visible next to the new filing names.`}
           </span>
         </header>
         <div>
@@ -359,6 +376,46 @@ function ProcessingPage() {
         </div>
       </section>
     </AppShell>
+  )
+}
+
+/**
+ * Client-facing progress: one number and one bar, no pipeline internals.
+ * "How we make the cake" stays behind the internal ProgressStrip.
+ */
+function SimpleProgressCard({
+  docs,
+  allCompleted,
+}: {
+  docs: ReadonlyArray<StoredDocument>
+  allCompleted: boolean
+}) {
+  const total = docs.length
+  const completed = docs.filter((d) => d.status === 'completed').length
+  const pct = total > 0 ? Math.round((completed / total) * 100) : 0
+  return (
+    <section className="v2-card">
+      <div className="v2-card-body">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="m-0 font-ops text-[14px] font-semibold text-ink">
+            {allCompleted
+              ? `All ${total} document${total === 1 ? '' : 's'} checked`
+              : `Checking your documents · ${completed} of ${total} done`}
+          </p>
+          <span className={`pill ${allCompleted ? 'pill-green' : 'pill-amber'}`}>
+            <span className="dot" />
+            {allCompleted ? 'Complete' : 'In progress'}
+          </span>
+        </div>
+        <Progress value={pct} className="mt-3" />
+        {!allCompleted ? (
+          <p className="m-0 mt-2 text-[12.5px] text-muted-1">
+            Large pay applications can take a few minutes. There&rsquo;s
+            nothing you need to do while this runs.
+          </p>
+        ) : null}
+      </div>
+    </section>
   )
 }
 

@@ -8,6 +8,7 @@ import {
 import { Loader2, Trash2 } from 'lucide-react'
 import { AppShell } from '#/components/sg-dream/AppShell'
 import { DocumentLibrary } from '#/components/sg-dream/DocumentLibrary'
+import { FinalizeSubmissionPanel } from '#/components/sg-dream/FinalizeSubmissionPanel'
 import { Button } from '#/components/ui/button'
 import {
   Dialog,
@@ -24,10 +25,12 @@ import {
   getClientById,
   getOpenVerification,
   getVerificationById,
+  isInternalUser,
+  isSubmissionLocked,
 } from '#/lib/sg-dream'
 import type { Document, DocType } from '#/lib/sg-dream'
 import { portalConfigQuery, verificationSnapshotQuery } from '#/lib/queries'
-import { usePortalConfig } from '#/lib/session'
+import { usePortalConfig, useSessionUser } from '#/lib/session'
 import { storedListToDisplay } from '#/lib/sg-dream-adapter'
 import {
   clearSubmission,
@@ -97,6 +100,8 @@ function LibraryPage() {
     libraryOpen,
   } = Route.useSearch()
   const config = usePortalConfig()
+  const user = useSessionUser()
+  const internal = isInternalUser(user)
   const client = getClientById(clientId)
   const verification =
     getVerificationById(config.verifications, verificationId, clientId) ??
@@ -108,6 +113,7 @@ function LibraryPage() {
   )
   const snapshot = snapshotQuery.data
   const docs = storedListToDisplay(snapshot?.verification.documents ?? [])
+  const locked = isSubmissionLocked(verification, docs)
 
   const [pendingDoc, setPendingDoc] = useState<Document | null>(null)
   const [confirmClear, setConfirmClear] = useState(false)
@@ -218,7 +224,7 @@ function LibraryPage() {
         </div>
       </section>
 
-      {docs.length > 0 ? (
+      {docs.length > 0 && !locked ? (
         <section className="v2-card">
           <header className="v2-card-head">
             <h3>Danger zone</h3>
@@ -261,6 +267,16 @@ function LibraryPage() {
         </p>
       </header>
 
+      {locked ? (
+        <div className="mb-4">
+          <FinalizeSubmissionPanel
+            verification={verification}
+            docs={docs}
+            variant="banner"
+          />
+        </div>
+      ) : null}
+
       <DocumentLibrary
         documents={docs}
         query={queryValue}
@@ -270,13 +286,18 @@ function LibraryPage() {
         onToggleCategory={(t) =>
           updateLibrary({ open: libraryOpen === t ? null : t })
         }
-        onDelete={(doc) => {
-          deleteDocMut.reset()
-          setPendingDoc(doc)
-        }}
+        onDelete={
+          locked
+            ? undefined
+            : (doc) => {
+                deleteDocMut.reset()
+                setPendingDoc(doc)
+              }
+        }
         pendingDeleteId={
           deleteDocMut.isPending ? (pendingDoc?.id ?? undefined) : undefined
         }
+        readOnly={!internal}
       />
 
       <Dialog

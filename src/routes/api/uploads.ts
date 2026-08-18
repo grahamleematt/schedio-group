@@ -30,6 +30,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { del } from '@vercel/blob'
 
+import { isSubmissionLocked } from '#/lib/sg-dream'
 import { assertClientAccess, authzJsonError } from '#/server/authz'
 import { buildEgnyteCredentialsForUser } from '#/server/egnyteConnections'
 import type { EgnyteCredentials } from '#/server/egnyte'
@@ -37,6 +38,7 @@ import { isIntakePipelineEnabled } from '#/server/env'
 import { resolveIntakeContext } from '#/server/intake/context'
 import { ingestDocument } from '#/server/intake/ingest'
 import type { IntakeContext } from '#/server/intake/context'
+import { getStore } from '#/server/store'
 import type { StoredDocument } from '#/server/store'
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -115,6 +117,28 @@ async function resolveTarget(
       response: jsonResponse(
         { error: `unknown verification ${verificationId}` },
         404,
+      ),
+    }
+  }
+  // A finalized (locked) submission rejects new documents until reopened.
+  // Rollover already walked past-cutoff cycles, so a non-open target here
+  // means the client finalized this cycle ahead of its cutoff. The document
+  // custody check carries the lock when no database persists status.
+  const existing = await getStore().getSnapshot(context.verification.id)
+  if (
+    isSubmissionLocked(
+      context.verification,
+      existing?.verification.documents ?? [],
+    )
+  ) {
+    return {
+      ok: false,
+      response: jsonResponse(
+        {
+          error:
+            'This submission has been finalized. Reopen it to add more documents.',
+        },
+        409,
       ),
     }
   }

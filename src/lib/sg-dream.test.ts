@@ -3,10 +3,12 @@ import { describe, expect, it } from 'vitest'
 import {
   addOneMonthISO,
   buildNextVerification,
+  canReopenSubmission,
   daysUntilCutoff,
   defaultVerifications,
   formatCutoffLabel,
   isPastCutoff,
+  isSubmissionLocked,
   lowConfidenceFields,
   payAppWaterfall,
   validatePayApp,
@@ -52,6 +54,73 @@ describe('addOneMonthISO', () => {
 
   it('passes malformed input through unchanged', () => {
     expect(addOneMonthISO('TBD')).toBe('TBD')
+  })
+})
+
+describe('isSubmissionLocked', () => {
+  const open = defaultVerifications[0]
+  const finalized = { ...open, status: 'under_review' as const }
+
+  it('locks once the verification leaves the open state', () => {
+    expect(isSubmissionLocked(finalized, [])).toBe(true)
+    expect(isSubmissionLocked(open, [])).toBe(false)
+  })
+
+  it('derives the lock from custody when status cannot persist (no database)', () => {
+    expect(
+      isSubmissionLocked(open, [
+        { custodyState: 'locked' },
+        { custodyState: 'locked' },
+      ]),
+    ).toBe(true)
+    expect(
+      isSubmissionLocked(open, [
+        { custodyState: 'locked' },
+        { custodyState: 'classified' },
+      ]),
+    ).toBe(false)
+  })
+})
+
+describe('canReopenSubmission', () => {
+  // Seeded cutoff for v1 is 2026-08-03.
+  const finalized = { ...defaultVerifications[0], status: 'under_review' as const }
+
+  it('lets clients reopen until the cutoff, but not after', () => {
+    expect(
+      canReopenSubmission({
+        verification: finalized,
+        todayISO: '2026-08-03',
+        internal: false,
+      }),
+    ).toBe(true)
+    expect(
+      canReopenSubmission({
+        verification: finalized,
+        todayISO: '2026-08-04',
+        internal: false,
+      }),
+    ).toBe(false)
+  })
+
+  it('lets internal roles reopen past the cutoff', () => {
+    expect(
+      canReopenSubmission({
+        verification: finalized,
+        todayISO: '2026-08-20',
+        internal: true,
+      }),
+    ).toBe(true)
+  })
+
+  it('never reopens an approved verification', () => {
+    expect(
+      canReopenSubmission({
+        verification: { ...finalized, status: 'approved' },
+        todayISO: '2026-08-01',
+        internal: true,
+      }),
+    ).toBe(false)
   })
 })
 

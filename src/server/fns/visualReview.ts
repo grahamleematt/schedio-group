@@ -13,7 +13,7 @@
 import { createServerFn } from '@tanstack/react-start'
 
 import { clients as configuredClients } from '#/lib/sg-dream'
-import { assertClientAccess } from '#/server/authz'
+import { assertInternalClientAccess } from '#/server/authz'
 import { createVisualReview } from '#/server/docupipe'
 import { getVerificationConfigById } from '#/server/portalConfig'
 import { getStore } from '#/server/store'
@@ -38,7 +38,7 @@ export const generateVisualReview = createServerFn({ method: 'POST' })
       (await store.getSnapshot(data.verificationId))?.verification.clientId
     if (!clientId) return null
 
-    await assertClientAccess(clientId)
+    await assertInternalClientAccess(clientId)
 
     const snapshot = await store.getSnapshot(data.verificationId)
     const doc = snapshot?.verification.documents.find(

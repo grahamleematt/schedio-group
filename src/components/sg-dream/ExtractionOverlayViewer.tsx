@@ -14,8 +14,9 @@
  * the pdf.js worker never enter the SSR bundle.
  */
 
-import { Minus, Plus, RotateCw } from 'lucide-react'
+import { Maximize, Minus, Plus, RotateCw, StretchHorizontal } from 'lucide-react'
 import { useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { Document, Page, pdfjs } from 'react-pdf'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
 import 'react-pdf/dist/Page/TextLayer.css'
@@ -41,8 +42,14 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url,
 ).toString()
 
-const MIN_SCALE = 0.5
-const MAX_SCALE = 3
+const MIN_SCALE = 0.4
+const MAX_SCALE = 4
+/** Multiplicative step for the ± buttons — smoother than the old fixed 15%. */
+const ZOOM_STEP = 1.2
+/** Rendered page width at scale 1 (the react-pdf `width` baseline). */
+const BASE_PAGE_WIDTH = 760
+/** `.ovl-scroll` padding + a little breathing room, for the fit controls. */
+const FIT_MARGIN_PX = 40
 /** Pointer must travel this many px before a press counts as a drag. */
 const DRAG_THRESHOLD_PX = 3
 
@@ -232,11 +239,103 @@ export default function ExtractionOverlayViewer({
   const [scale, setScale] = useState(0.9)
   const [extraRotation, setExtraRotation] = useState(0)
   // Inherent /Rotate per page, captured on page load so the rotate control
-  // adds to (rather than replaces) the document's own orientation.
+  // adds to (rather than replaces) the document's own orientation. Values are
+  // optional: a page's rotation is unknown until its load callback fires.
   const [inherentRotation, setInherentRotation] = useState<
-    Record<number, number>
+    Record<number, number | undefined>
   >({})
+  // First page's intrinsic (unrotated) size, captured on load — drives the
+  // fit-page control's aspect math.
+  const [pageDims, setPageDims] = useState<{ w: number; h: number } | null>(
+    null,
+  )
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
+
+  const scrollRef = useRef<HTMLDivElement | null>(null)
+  // Mirror of `scale` for the native (non-passive) wheel listener; every
+  // zoom change goes through `applyScale`, which keeps both in sync.
+  const scaleRef = useRef(scale)
+
+  /**
+   * Set the zoom level while keeping the document point under `anchor`
+   * (viewport coords, defaulting to the viewer center) stationary — the
+   * cursor-anchored zoom promised in the walkthrough. `flushSync` lets the
+   * scroll offset be corrected in the same frame the new scale paints, so
+   * the page doesn't visibly jump.
+   */
+  const applyScale = (nextRaw: number, anchor?: { x: number; y: number }) => {
+    const next = Math.min(MAX_SCALE, Math.max(MIN_SCALE, nextRaw))
+    const prev = scaleRef.current
+    if (next === prev) return
+    scaleRef.current = next
+    const scroller = scrollRef.current
+    if (!scroller) {
+      setScale(next)
+      return
+    }
+    const box = scroller.getBoundingClientRect()
+    const cx = anchor ? anchor.x - box.left : box.width / 2
+    const cy = anchor ? anchor.y - box.top : box.height / 2
+    const contentX = scroller.scrollLeft + cx
+    const contentY = scroller.scrollTop + cy
+    const ratio = next / prev
+    flushSync(() => setScale(next))
+    scroller.scrollLeft = contentX * ratio - cx
+    scroller.scrollTop = contentY * ratio - cy
+  }
+
+  // Ctrl/⌘ + wheel (and trackpad pinch, which browsers deliver as a
+  // ctrl-modified wheel) zooms at the cursor. React registers `onWheel`
+  // passively, so preventing the browser's own page zoom requires a native
+  // non-passive listener — attached via ref callback, cleaned up by React 19.
+  const attachScroller = (node: HTMLDivElement | null) => {
+    scrollRef.current = node
+    if (!node) return undefined
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return
+      e.preventDefault()
+      const deltaY = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY
+      applyScale(scaleRef.current * Math.exp(-deltaY * 0.0022), {
+        x: e.clientX,
+        y: e.clientY,
+      })
+    }
+    node.addEventListener('wheel', onWheel, { passive: false })
+    return () => {
+      node.removeEventListener('wheel', onWheel)
+      scrollRef.current = null
+    }
+  }
+
+  /** Displayed height/width ratio of page 1, given the current rotation. */
+  const displayedAspect = (): number | null => {
+    if (!pageDims || pageDims.w <= 0 || pageDims.h <= 0) return null
+    // The record may not have page 1 yet (dims and rotation land separately).
+    const inherentFirst = inherentRotation[1] ?? 0
+    const total = ((inherentFirst + extraRotation) % 360 + 360) % 360
+    return total % 180 === 90 ? pageDims.w / pageDims.h : pageDims.h / pageDims.w
+  }
+
+  const fitWidth = () => {
+    const scroller = scrollRef.current
+    if (!scroller) return
+    applyScale((scroller.clientWidth - FIT_MARGIN_PX) / BASE_PAGE_WIDTH)
+  }
+
+  const fitPage = () => {
+    const scroller = scrollRef.current
+    if (!scroller) return
+    const widthScale =
+      (scroller.clientWidth - FIT_MARGIN_PX) / BASE_PAGE_WIDTH
+    const aspect = displayedAspect()
+    if (!aspect) {
+      applyScale(widthScale)
+      return
+    }
+    const heightScale =
+      (scroller.clientHeight - FIT_MARGIN_PX) / (BASE_PAGE_WIDTH * aspect)
+    applyScale(Math.min(widthScale, heightScale))
+  }
   const [highlightKey, setHighlightKey] = useState(storedHighlightKey)
   const highlight =
     HIGHLIGHT_OPTIONS.find((o) => o.key === highlightKey) ??
@@ -446,8 +545,27 @@ export default function ExtractionOverlayViewer({
             <button
               type="button"
               className="ovl-icon-button"
+              aria-label="Fit width"
+              title="Fit width"
+              onClick={fitWidth}
+            >
+              <StretchHorizontal className="size-4" aria-hidden />
+            </button>
+            <button
+              type="button"
+              className="ovl-icon-button"
+              aria-label="Fit page"
+              title="Fit whole page"
+              onClick={fitPage}
+            >
+              <Maximize className="size-4" aria-hidden />
+            </button>
+            <button
+              type="button"
+              className="ovl-icon-button"
               aria-label="Zoom out"
-              onClick={() => setScale((v) => Math.max(MIN_SCALE, v - 0.15))}
+              title="Zoom out (⌘ + scroll also zooms)"
+              onClick={() => applyScale(scaleRef.current / ZOOM_STEP)}
             >
               <Minus className="size-4" aria-hidden />
             </button>
@@ -456,14 +574,15 @@ export default function ExtractionOverlayViewer({
               type="button"
               className="ovl-icon-button"
               aria-label="Zoom in"
-              onClick={() => setScale((v) => Math.min(MAX_SCALE, v + 0.15))}
+              title="Zoom in (⌘ + scroll also zooms)"
+              onClick={() => applyScale(scaleRef.current * ZOOM_STEP)}
             >
               <Plus className="size-4" aria-hidden />
             </button>
           </div>
         </div>
 
-        <div className="ovl-scroll">
+        <div className="ovl-scroll" ref={attachScroller}>
           {isImage ? (
             <div className="ovl-page-shell">
               <div
@@ -477,7 +596,15 @@ export default function ExtractionOverlayViewer({
                 <img
                   src={fileUrl}
                   alt="Submitted document"
-                  style={{ width: 760 * scale }}
+                  style={{ width: BASE_PAGE_WIDTH * scale }}
+                  onLoad={(e) => {
+                    const img = e.currentTarget
+                    if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+                      setPageDims((prev) =>
+                        prev ? prev : { w: img.naturalWidth, h: img.naturalHeight },
+                      )
+                    }
+                  }}
                 />
                 {localized
                   .filter((f) => f.page === 1)
@@ -506,18 +633,32 @@ export default function ExtractionOverlayViewer({
                     <div className="ovl-page">
                       <Page
                         pageNumber={pageNumber}
-                        width={760 * scale}
+                        width={BASE_PAGE_WIDTH * scale}
                         rotate={(inherent + extraRotation) % 360}
                         renderAnnotationLayer={false}
                         renderTextLayer={false}
                         loading={<div className="ovl-state">Loading page…</div>}
-                        onLoadSuccess={(page: { rotate: number }) =>
+                        onLoadSuccess={(page: {
+                          rotate: number
+                          originalWidth: number
+                          originalHeight: number
+                        }) => {
                           setInherentRotation((prev) =>
                             prev[pageNumber] === page.rotate
                               ? prev
                               : { ...prev, [pageNumber]: page.rotate },
                           )
-                        }
+                          if (pageNumber === 1) {
+                            setPageDims((prev) =>
+                              prev
+                                ? prev
+                                : {
+                                    w: page.originalWidth,
+                                    h: page.originalHeight,
+                                  },
+                            )
+                          }
+                        }}
                       />
                       {localized
                         .filter((f) => f.page === pageNumber)
