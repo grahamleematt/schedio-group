@@ -36,9 +36,8 @@ export async function resolveIntakeContext(input: {
 }): Promise<IntakeContext | null> {
   let verification = await getVerificationConfigById(input.verificationId)
   if (!verification) return null
-  const client = configuredClients.find(
-    (c) => c.id === (input.clientId || verification.clientId),
-  )
+  const requestedClientId = input.clientId || verification.clientId
+  const client = configuredClients.find((c) => c.id === requestedClientId)
   if (!client || client.id !== verification.clientId) return null
 
   let rolledFrom: IntakeContext['rolledFrom']

@@ -189,7 +189,10 @@ function ClientsPage() {
                     </span>
                   </div>
                 </div>
-                <div className="mt-3.5 grid grid-cols-3 gap-2.5">
+                {/* Content-sized columns (not equal thirds) so values like
+                    "Reimbursement cycle 01" wrap between words, never inside
+                    one. */}
+                <div className="mt-3.5 flex flex-wrap justify-between gap-x-4 gap-y-1.5">
                   <div>
                     <p className="ops-label m-0">Submission</p>
                     <p className="m-0 mt-0.5 font-mono text-[13px] font-semibold text-ink">

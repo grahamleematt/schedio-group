@@ -12,7 +12,7 @@ import {
   isWorkOsConfigured,
 } from '#/server/env'
 
-type PortalUser = User & {
+export type PortalUser = User & {
   workosUserId?: string
 }
 

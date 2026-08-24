@@ -10,18 +10,26 @@ import {
   disconnectEgnyteForUser,
   getEgnyteConnectionStatus,
 } from '#/server/egnyteConnections'
-import type { EgnyteConnectionStatus } from '#/server/egnyteConnections'
-import { isEgnyteAppConfigured } from '#/server/env'
+import { isEgnyteAppConfigured, isEgnyteConfigured } from '#/server/env'
+import type { EgnyteConnectionInfo } from '#/server/fns/getEgnyteConnection'
 
 export const disconnectEgnyte = createServerFn({ method: 'POST' }).handler(
-  async (): Promise<EgnyteConnectionStatus> => {
+  async (): Promise<EgnyteConnectionInfo> => {
     try {
       const user = await resolvePortalUser()
       await disconnectEgnyteForUser(user.id)
-      return await getEgnyteConnectionStatus(user.id)
+      const status = await getEgnyteConnectionStatus(user.id)
+      return {
+        ...status,
+        importReady: isEgnyteConfigured() || status.connected,
+      }
     } catch (err) {
       if (err instanceof AuthzError) {
-        return { connected: false, appConfigured: isEgnyteAppConfigured() }
+        return {
+          connected: false,
+          appConfigured: isEgnyteAppConfigured(),
+          importReady: isEgnyteConfigured(),
+        }
       }
       throw err
     }

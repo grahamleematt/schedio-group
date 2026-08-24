@@ -284,27 +284,38 @@ export default function ExtractionOverlayViewer({
     scroller.scrollTop = contentY * ratio - cy
   }
 
+  const attachScroller = (node: HTMLDivElement | null) => {
+    scrollRef.current = node
+  }
+
   // Ctrl/⌘ + wheel (and trackpad pinch, which browsers deliver as a
   // ctrl-modified wheel) zooms at the cursor. React registers `onWheel`
   // passively, so preventing the browser's own page zoom requires a native
   // non-passive listener — attached via ref callback, cleaned up by React 19.
-  const attachScroller = (node: HTMLDivElement | null) => {
-    scrollRef.current = node
+  // It listens on the whole viewer layout (rail and toolbar included), not
+  // just the page scroller: browser zoom is per-origin in Chrome, so a zoom
+  // gesture that slipped through anywhere over this surface would rescale
+  // every SG DREAM window at once — the main page and pop-outs together.
+  const attachLayout = (node: HTMLDivElement | null) => {
     if (!node) return undefined
     const onWheel = (e: WheelEvent) => {
       if (!e.ctrlKey && !e.metaKey) return
       e.preventDefault()
       const deltaY = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY
-      applyScale(scaleRef.current * Math.exp(-deltaY * 0.0022), {
-        x: e.clientX,
-        y: e.clientY,
-      })
+      const box = scrollRef.current?.getBoundingClientRect()
+      const overScroller =
+        box !== undefined &&
+        e.clientX >= box.left &&
+        e.clientX <= box.right &&
+        e.clientY >= box.top &&
+        e.clientY <= box.bottom
+      applyScale(
+        scaleRef.current * Math.exp(-deltaY * 0.0022),
+        overScroller ? { x: e.clientX, y: e.clientY } : undefined,
+      )
     }
     node.addEventListener('wheel', onWheel, { passive: false })
-    return () => {
-      node.removeEventListener('wheel', onWheel)
-      scrollRef.current = null
-    }
+    return () => node.removeEventListener('wheel', onWheel)
   }
 
   /** Displayed height/width ratio of page 1, given the current rotation. */
@@ -386,7 +397,7 @@ export default function ExtractionOverlayViewer({
   const sections = buildRailSections(fields)
 
   return (
-    <div className="ovl-layout" style={highlight.vars}>
+    <div className="ovl-layout" style={highlight.vars} ref={attachLayout}>
       <aside className="ovl-rail">
         <p className="ovl-rail-hint">
           {corrections

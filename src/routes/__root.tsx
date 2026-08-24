@@ -85,7 +85,11 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <head>
         <HeadContent />
       </head>
-      <body className="font-sans antialiased [overflow-wrap:anywhere] selection:bg-[rgba(0,61,166,0.18)]">
+      {/* break-word (not anywhere): long unbroken strings still wrap inside
+          fixed-width containers, but words no longer collapse a flex/grid
+          column's min-content width — which was splitting normal words like
+          "Reimbursement" mid-word in auto-sized layouts. */}
+      <body className="font-sans antialiased wrap-break-word selection:bg-[rgba(0,61,166,0.18)]">
         <QueryClientProvider client={queryClient}>
           {chrome === 'header' ? (
             <>
