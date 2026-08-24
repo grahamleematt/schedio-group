@@ -14,7 +14,16 @@
  * the pdf.js worker never enter the SSR bundle.
  */
 
-import { Maximize, Minus, Plus, RotateCw, StretchHorizontal } from 'lucide-react'
+import {
+  EyeOff,
+  Maximize,
+  Minus,
+  Plus,
+  RotateCw,
+  Square,
+  SquareDashed,
+  StretchHorizontal,
+} from 'lucide-react'
 import { useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { Document, Page, pdfjs } from 'react-pdf'
@@ -148,6 +157,36 @@ function storedHighlightKey(): string {
     // Storage unavailable (private mode) — fall back to the default.
   }
   return HIGHLIGHT_OPTIONS[0].key
+}
+
+/**
+ * Box style — Andres's ask from the feedback widget: filled highlights can
+ * be hard to read through on dense scans. `outline` keeps the anchors
+ * without tinting the text underneath; `hidden` clears the page entirely and
+ * shows only the selected field's box (hovering still reveals a box, and
+ * clicking a rail field still jumps to it). The choice sticks per browser.
+ */
+const BOX_MODE_STORAGE_KEY = 'sg-dream.overlay-box-mode'
+
+type BoxMode = 'filled' | 'outline' | 'hidden'
+
+const BOX_MODES: Array<{ key: BoxMode; label: string; icon: typeof Square }> = [
+  { key: 'filled', label: 'Filled boxes', icon: Square },
+  { key: 'outline', label: 'Outlines only', icon: SquareDashed },
+  { key: 'hidden', label: 'Hide boxes (selected field still shows)', icon: EyeOff },
+]
+
+function storedBoxMode(): BoxMode {
+  if (typeof window === 'undefined') return 'filled'
+  try {
+    const stored = window.localStorage.getItem(BOX_MODE_STORAGE_KEY)
+    if (stored && BOX_MODES.some((m) => m.key === stored)) {
+      return stored as BoxMode
+    }
+  } catch {
+    // Storage unavailable (private mode) — fall back to the default.
+  }
+  return 'filled'
 }
 
 function isLowConfidence(field: ExtractionOverlayField): boolean {
@@ -361,6 +400,17 @@ export default function ExtractionOverlayViewer({
     }
   }
 
+  const [boxMode, setBoxMode] = useState<BoxMode>(storedBoxMode)
+
+  const pickBoxMode = (mode: BoxMode) => {
+    setBoxMode(mode)
+    try {
+      window.localStorage.setItem(BOX_MODE_STORAGE_KEY, mode)
+    } catch {
+      // Storage unavailable — the choice still applies for this session.
+    }
+  }
+
   const localized = fields.filter((f) => f.page && f.rect)
 
   const selectField = (field: ExtractionOverlayField) => {
@@ -397,7 +447,12 @@ export default function ExtractionOverlayViewer({
   const sections = buildRailSections(fields)
 
   return (
-    <div className="ovl-layout" style={highlight.vars} ref={attachLayout}>
+    <div
+      className="ovl-layout"
+      style={highlight.vars}
+      data-boxes={boxMode}
+      ref={attachLayout}
+    >
       <aside className="ovl-rail">
         <p className="ovl-rail-hint">
           {corrections
@@ -536,6 +591,25 @@ export default function ExtractionOverlayViewer({
                   onClick={() => pickHighlight(option.key)}
                 />
               ))}
+            </div>
+            <span className="ovl-toolbar-divider" aria-hidden />
+            <div role="group" aria-label="Box style">
+              {BOX_MODES.map((mode) => {
+                const Icon = mode.icon
+                return (
+                  <button
+                    key={mode.key}
+                    type="button"
+                    className={`ovl-icon-button${mode.key === boxMode ? ' active' : ''}`}
+                    aria-label={mode.label}
+                    aria-pressed={mode.key === boxMode}
+                    title={mode.label}
+                    onClick={() => pickBoxMode(mode.key)}
+                  >
+                    <Icon className="size-4" aria-hidden />
+                  </button>
+                )
+              })}
             </div>
             {toolbarExtra ? (
               <>
