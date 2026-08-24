@@ -4484,6 +4484,11 @@ pre code {
   color: var(--color-muted-1);
   border-color: var(--color-line);
 }
+.ovl-icon-button.active {
+  color: var(--color-ink);
+  border-color: var(--color-ink);
+  background: var(--color-surface-muted, #f1f3f7);
+}
 .ovl-toolbar-divider {
   width: 1px;
   height: 20px;
@@ -4586,6 +4591,28 @@ pre code {
   border-style: dashed;
   border-color: var(--ovl-hl-strong-border, rgba(176, 108, 0, 0.95));
   background: var(--ovl-hl-strong-fill, rgba(255, 190, 60, 0.4));
+}
+/* Box style modes (data-boxes on .ovl-layout) — feedback: filled highlights
+   can be hard to read through on dense scans. Outline keeps every anchor
+   visible without tinting the text; hidden clears the page and shows only
+   the selected field's box, with hover still revealing a box so values stay
+   discoverable. The selected box keeps its full treatment in every mode. */
+.ovl-layout[data-boxes='outline'] .ovl-mark:not(.selected) {
+  background: transparent;
+}
+.ovl-layout[data-boxes='outline'] .ovl-mark:not(.selected):hover {
+  background: var(--ovl-hl-fill, rgba(255, 214, 90, 0.32));
+}
+.ovl-layout[data-boxes='hidden'] .ovl-mark:not(.selected) {
+  border-color: transparent;
+  background: transparent;
+}
+.ovl-layout[data-boxes='hidden'] .ovl-mark:not(.selected):hover {
+  border-color: var(--ovl-hl-border, rgba(215, 155, 0, 0.9));
+  background: transparent;
+}
+.ovl-layout[data-boxes='hidden'] .ovl-mark:not(.selected) .ovl-resize-handle {
+  display: none;
 }
 /* The corner handle only appears once the box is large enough on screen to
    have a distinct corner (zoom in to resize small boxes); on a 6px-tall
