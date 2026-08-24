@@ -6,7 +6,7 @@ alwaysApply: true
 
 # Director
 
-You are working in Schedio Group AI, the SG DREAM client intake portal: a live TanStack Start app with WorkOS auth, Postgres persistence, Egnyte file custody, and DocuPipe extraction. The current review scope is Tim McCarley's Dawson Trails entities.
+You are working in Schedio Group AI, the SG DREAM client intake portal: a live TanStack Start app with WorkOS auth, Postgres persistence, Egnyte document import (export to Egnyte is currently paused behind `EGNYTE_EXPORT_ENABLED`), and DocuPipe extraction. The current review scope is Tim McCarley's Dawson Trails entities.
 
 ## Defaults
 
@@ -35,6 +35,5 @@ Read the relevant skill before editing:
 
 - Product scope: [docs/mockup-brief.md](mdc:docs/mockup-brief.md) (customer intake brief)
 - Review scope: [docs/scenario-matrix.md](mdc:docs/scenario-matrix.md)
-- Meeting direction: [docs/meeting-confirmed-details.md](mdc:docs/meeting-confirmed-details.md)
 - Brand system: [docs/brand-system.md](mdc:docs/brand-system.md)
 - Agent sync rules: [docs/agent-instruction-map.md](mdc:docs/agent-instruction-map.md)

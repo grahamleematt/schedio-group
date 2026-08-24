@@ -14,3 +14,7 @@ todos.json
 .vercel
 .data
 .env*.local
+
+# Contributor-mode marker (written by /onboard; never committed)
+.claude/contributor
+.claude/settings.local.json
