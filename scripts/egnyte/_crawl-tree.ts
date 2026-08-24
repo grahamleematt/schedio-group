@@ -50,7 +50,7 @@ async function main() {
     console.log(`${'  '.repeat(depth)}📁 ${path}`)
     for (const file of listing.files) {
       if (ALL_FILES || CHAIN_HINT.test(file.name)) {
-        const kb = Math.round(file.sizeBytes / 1024)
+        const kb = Math.round((file.sizeBytes ?? 0) / 1024)
         console.log(`${'  '.repeat(depth + 1)}· ${file.name} (${kb} KB)`)
       }
     }

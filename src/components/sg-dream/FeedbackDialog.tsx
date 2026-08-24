@@ -385,7 +385,9 @@ export function FeedbackDialog({ client }: { client: Client }) {
         {history.data && history.data.length > 0 ? (
           <div className="border-t pt-3">
             <span className="field-label">Your recent feedback</span>
-            <ul className="m-0 mt-2 grid list-none gap-1.5 p-0">
+            {/* Column capped at the container width so the nowrap truncated
+                message can't inflate the implicit grid track. */}
+            <ul className="m-0 mt-2 grid list-none grid-cols-[minmax(0,1fr)] gap-1.5 p-0">
               {history.data.map((item) => {
                 const meta = STATUS_META[item.status]
                 return (

@@ -583,7 +583,11 @@ function UploadPage() {
               </button>
             ) : (
               <>
-                <Link to="/settings" className="v2-btn w-full justify-center">
+                <Link
+                  to="/settings"
+                  search={{ client: client.id }}
+                  className="v2-btn w-full justify-center"
+                >
                   <FolderOpen className="size-4" />
                   Connect Egnyte to import
                 </Link>
@@ -645,7 +649,11 @@ function UploadPage() {
                 Import from Egnyte
               </button>
             ) : (
-              <Link to="/settings" className="v2-btn">
+              <Link
+                to="/settings"
+                search={{ client: client.id }}
+                className="v2-btn"
+              >
                 <RefreshCw className="size-4" />
                 Connect Egnyte to import
               </Link>

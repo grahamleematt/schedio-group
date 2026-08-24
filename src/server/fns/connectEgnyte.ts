@@ -13,10 +13,11 @@ import {
   EgnyteConnectError,
   connectEgnyteForUser,
 } from '#/server/egnyteConnections'
-import type { EgnyteConnectionStatus } from '#/server/egnyteConnections'
+import { isEgnyteConfigured } from '#/server/env'
+import type { EgnyteConnectionInfo } from '#/server/fns/getEgnyteConnection'
 
 export type ConnectEgnyteResult =
-  | { ok: true; status: EgnyteConnectionStatus }
+  | { ok: true; status: EgnyteConnectionInfo }
   | { ok: false; error: string }
 
 export const connectEgnyte = createServerFn({ method: 'POST' })
@@ -39,7 +40,13 @@ export const connectEgnyte = createServerFn({ method: 'POST' })
         username: data.username,
         password: data.password,
       })
-      return { ok: true, status }
+      return {
+        ok: true,
+        status: {
+          ...status,
+          importReady: isEgnyteConfigured() || status.connected,
+        },
+      }
     } catch (err) {
       if (err instanceof EgnyteConnectError) {
         return { ok: false, error: err.message }
