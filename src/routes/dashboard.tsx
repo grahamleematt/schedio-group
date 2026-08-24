@@ -7,6 +7,7 @@ import { FinalizeSubmissionPanel } from '#/components/sg-dream/FinalizeSubmissio
 import { VerificationSummaryTable } from '#/components/sg-dream/VerificationSummaryTable'
 import { WhatHappensNext } from '#/components/sg-dream/WhatHappensNext'
 import { DashboardActions } from '#/components/sg-dream/DashboardActions'
+import { IssuedDocumentsCard } from '#/components/sg-dream/IssuedDocumentsCard'
 import {
   computeContractSummary,
   computeVendorUtilization,
@@ -318,7 +319,14 @@ function CustomerIntakeDashboard() {
           verifications={allVerifications}
           liveSubmitted={{ [activeVerification.id]: liveTotals.costsSubmitted }}
           clientId={client.id}
-          openVerificationId={activeVerification.id}
+        />
+
+        {/* Documents flowing the other direction — what Schedio has issued
+            to this entity, kept separate from the client's own submissions. */}
+        <IssuedDocumentsCard
+          client={client}
+          verifications={allVerifications}
+          internal={internal}
         />
 
         <WhatHappensNext

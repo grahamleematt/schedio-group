@@ -16,9 +16,9 @@ type VerificationSummaryTableProps = {
   /** Per-submission live overrides (e.g. current draft submitted total
    * derived from the snapshot rather than static configuration). */
   liveSubmitted?: Readonly<Record<string, number>>
-  /** When set, the open/draft row drills into the library for this entity. */
+  /** When set, rows with documents drill into that cycle's library — closed
+   * cycles included, so past submissions stay reachable after rollover. */
   clientId?: string
-  openVerificationId?: string
 }
 
 const underReviewLabel = 'Under Review'
@@ -28,7 +28,6 @@ export function VerificationSummaryTable({
   verifications,
   liveSubmitted,
   clientId,
-  openVerificationId,
 }: VerificationSummaryTableProps) {
   const config = workflowConfigs[workflow]
   const navigate = useNavigate()
@@ -114,9 +113,7 @@ export function VerificationSummaryTable({
                   ? (v.costsVerified / v.costsSubmitted) * 100
                   : null
               const drillable =
-                Boolean(clientId) &&
-                v.id === openVerificationId &&
-                submitted > 0
+                Boolean(clientId) && (submitted > 0 || v.docsCount > 0)
               return (
                 <tr
                   key={v.id}
