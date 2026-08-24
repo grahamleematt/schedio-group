@@ -23,6 +23,8 @@ import { getExtractionOverlay } from '#/server/fns/extractionOverlay'
 import type { ExtractionOverlay } from '#/server/fns/extractionOverlay'
 import { getEgnyteConnection } from '#/server/fns/getEgnyteConnection'
 import type { EgnyteConnectionInfo } from '#/server/fns/getEgnyteConnection'
+import { listIssuedDocuments } from '#/server/fns/issuedDocuments'
+import type { IssuedDocument } from '#/server/issuedDocuments'
 import { getUserDirectory } from '#/server/fns/getUserDirectory'
 import { getPendingInvites } from '#/server/fns/manageUsers'
 import type { PendingInvite } from '#/server/fns/manageUsers'
@@ -74,6 +76,21 @@ export function egnyteConnectionQuery() {
     queryKey: ['egnyte-connection'] as const,
     queryFn: () => getEgnyteConnection(),
     staleTime: 60_000,
+  })
+}
+
+export type IssuedDocumentsData = ReadonlyArray<IssuedDocument>
+
+/**
+ * Documents Schedio has issued TO this entity (cost verification reports,
+ * engineer letters) — the reverse direction from the intake snapshot. Drives
+ * the "Reports & issued documents" card on /dashboard and /verifications.
+ */
+export function issuedDocumentsQuery(clientId: string) {
+  return queryOptions({
+    queryKey: ['issued-documents', clientId] as const,
+    queryFn: () => listIssuedDocuments({ data: { clientId } }),
+    staleTime: 30_000,
   })
 }
 

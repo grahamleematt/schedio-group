@@ -108,14 +108,24 @@ export async function listVerificationConfigs(): Promise<
   const result = await dbQuery<VerificationConfigRow>(
     `
       select
-        id, client_id, number, year, period,
-        to_char(cutoff_date, 'YYYY-MM-DD') as cutoff_date,
-        status, docs_count, costs_submitted, costs_verified, ref_seq,
-        to_char(submitted_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+        v.id, v.client_id, v.number, v.year, v.period,
+        to_char(v.cutoff_date, 'YYYY-MM-DD') as cutoff_date,
+        v.status,
+        -- The config column is seeded, never maintained by intake — overlay
+        -- the live per-cycle document count so closed cycles report what was
+        -- actually submitted (drives "View N docs" on /verifications).
+        greatest(v.docs_count, coalesce(d.live_count, 0)) as docs_count,
+        v.costs_submitted, v.costs_verified, v.ref_seq,
+        to_char(v.submitted_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
           as submitted_at
-      from dream_verifications
-      where number is not null and cutoff_date is not null
-      order by client_id, number
+      from dream_verifications v
+      left join (
+        select verification_id, count(*)::int as live_count
+        from dream_documents
+        group by verification_id
+      ) d on d.verification_id = v.id
+      where v.number is not null and v.cutoff_date is not null
+      order by v.client_id, v.number
     `,
   )
   const fromDb = result.rows.map(rowToVerification)

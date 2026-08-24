@@ -21,6 +21,7 @@ import {
 } from '#/components/ui/dialog'
 import {
   clients,
+  displaySubmissionCycle,
   docTypeOrder,
   getClientById,
   getOpenVerification,
@@ -114,6 +115,10 @@ function LibraryPage() {
   const snapshot = snapshotQuery.data
   const docs = storedListToDisplay(snapshot?.verification.documents ?? [])
   const locked = isSubmissionLocked(verification, docs)
+  // Reached from Closed submissions / summary-table drill-downs: label the
+  // archive honestly instead of claiming it's the current submission.
+  const openVerification = getOpenVerification(config.verifications, clientId)
+  const isPastCycle = verification.id !== openVerification.id
 
   const [pendingDoc, setPendingDoc] = useState<Document | null>(null)
   const [confirmClear, setConfirmClear] = useState(false)
@@ -261,10 +266,36 @@ function LibraryPage() {
         <p className="v2-eyebrow">Document library</p>
         <h1 className="v2-h1">All filed documents · {client.name}</h1>
         <p className="v2-lede">
-          Grouped by document type for the current submission. Each file carries
-          its full extracted detail — vendor, amounts, dates, the pay-app
-          waterfall, and any fields flagged for review.
+          Grouped by document type for{' '}
+          {isPastCycle
+            ? `the closed ${displaySubmissionCycle(verification)} submission`
+            : 'the current submission'}
+          . Each file carries its full extracted detail — vendor, amounts,
+          dates, the pay-app waterfall, and any fields flagged for review.
         </p>
+        {isPastCycle ? (
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <span className="pill pill-gray">
+              <span className="dot" />
+              Closed cycle · read-only archive
+            </span>
+            <button
+              type="button"
+              className="v2-btn"
+              onClick={() =>
+                void navigate({
+                  to: '/library',
+                  search: {
+                    client: client.id,
+                    verification: openVerification.id,
+                  },
+                })
+              }
+            >
+              View current submission
+            </button>
+          </div>
+        ) : null}
       </header>
 
       {locked ? (

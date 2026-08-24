@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ArrowRight, UploadCloud } from 'lucide-react'
 import { AppShell } from '#/components/sg-dream/AppShell'
 import { FinalizeSubmissionPanel } from '#/components/sg-dream/FinalizeSubmissionPanel'
+import { IssuedDocumentsCard } from '#/components/sg-dream/IssuedDocumentsCard'
 import { WorkflowBanner } from '#/components/sg-dream/WorkflowBanner'
 import {
   clients,
@@ -15,11 +16,12 @@ import {
   getOpenVerification,
   getStatusLabel,
   getVerificationsByClient,
+  isInternalUser,
   isSubmissionLocked,
   liveSpendByVendor,
 } from '#/lib/sg-dream'
 import { portalConfigQuery, verificationSnapshotQuery } from '#/lib/queries'
-import { usePortalConfig } from '#/lib/session'
+import { usePortalConfig, useSessionUser } from '#/lib/session'
 import {
   liveVerificationTotals,
   storedListToDisplay,
@@ -53,6 +55,8 @@ export const Route = createFileRoute('/verifications')({
 function VerificationsPage() {
   const { client: clientId } = Route.useSearch()
   const config = usePortalConfig()
+  const user = useSessionUser()
+  const internal = isInternalUser(user)
   const client = getClientById(clientId)
   const all = getVerificationsByClient(config.verifications, client.id)
   const open = getOpenVerification(config.verifications, client.id)
@@ -274,7 +278,7 @@ function VerificationsPage() {
         </div>
       </section>
 
-      <section className="v2-card">
+      <section className="v2-card mb-4">
         <header className="v2-card-head">
           <h3>Closed submissions</h3>
           <span className="sub">
@@ -295,6 +299,7 @@ function VerificationsPage() {
                   <th>Status</th>
                   <th className="num">Submitted</th>
                   <th className="num">Verified</th>
+                  <th>Documents</th>
                 </tr>
               </thead>
               <tbody>
@@ -330,6 +335,21 @@ function VerificationsPage() {
                           ? formatCurrency(v.costsVerified)
                           : '—'}
                       </td>
+                      <td>
+                        {v.docsCount > 0 ? (
+                          <Link
+                            to="/library"
+                            search={{ client: client.id, verification: v.id }}
+                            className="v2-btn"
+                          >
+                            View {v.docsCount} doc
+                            {v.docsCount === 1 ? '' : 's'}
+                            <ArrowRight className="size-3.5" />
+                          </Link>
+                        ) : (
+                          <span className="text-muted-1">None submitted</span>
+                        )}
+                      </td>
                     </tr>
                   )
                 })}
@@ -338,6 +358,14 @@ function VerificationsPage() {
           </div>
         )}
       </section>
+
+      {/* Documents flowing the other direction — what Schedio has issued to
+          this entity (reports, letters), separate from submissions above. */}
+      <IssuedDocumentsCard
+        client={client}
+        verifications={all}
+        internal={internal}
+      />
     </AppShell>
   )
 }

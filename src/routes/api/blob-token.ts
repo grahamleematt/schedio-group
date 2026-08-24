@@ -15,6 +15,11 @@
  *    dialog. Any signed-in portal user qualifies; the blob URL then travels
  *    with the `submitFeedback` server fn into Postgres and Slack.
  *
+ * 3. `kind: 'issued'` — deliverables Schedio publishes to a client (cost
+ *    verification reports). Internal roles with access to the entity only;
+ *    the blob URL then lands in `dream_issued_documents` via `issueDocument`.
+ *    Unlike intake docs these blobs are durable — they ARE the file custody.
+ *
  * Either way the caller is authenticated inside `onBeforeGenerateToken` BEFORE
  * any token is minted — without that check the Blob store would be open to the
  * public.
@@ -26,6 +31,7 @@ import type { HandleUploadBody } from '@vercel/blob/client'
 
 import {
   assertClientAccess,
+  assertInternalClientAccess,
   authzJsonError,
   resolvePortalUser,
 } from '#/server/authz'
@@ -50,6 +56,15 @@ const FEEDBACK_CONTENT_TYPES = [
 ]
 
 const MAX_FEEDBACK_BYTES = 10 * 1024 * 1024
+
+const ISSUED_CONTENT_TYPES = [
+  'application/pdf',
+  'image/png',
+  'image/jpeg',
+  'image/tiff',
+]
+
+const MAX_ISSUED_BYTES = 50 * 1024 * 1024
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -99,6 +114,23 @@ export const Route = createFileRoute('/api/blob-token')({
                   allowedContentTypes: FEEDBACK_CONTENT_TYPES,
                   addRandomSuffix: true,
                   maximumSizeInBytes: MAX_FEEDBACK_BYTES,
+                  tokenPayload: clientPayload ?? null,
+                }
+              }
+
+              if (kind === 'issued') {
+                // Only Schedio staff with access to the entity may publish.
+                if (!clientId) {
+                  throw new Error('missing clientId in upload payload')
+                }
+                await assertInternalClientAccess(clientId)
+                if (!pathname.startsWith('issued/')) {
+                  throw new Error('issued documents must upload under issued/')
+                }
+                return {
+                  allowedContentTypes: ISSUED_CONTENT_TYPES,
+                  addRandomSuffix: true,
+                  maximumSizeInBytes: MAX_ISSUED_BYTES,
                   tokenPayload: clientPayload ?? null,
                 }
               }
