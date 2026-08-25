@@ -9,8 +9,9 @@ Route: `/determinations?client=dawson-trails-md1`
 
 Data path:
 
-1. Source corpus comes from `SG_DREAM_SOURCE_ZIP`, defaulting to
-   `/Users/matthewgraham/Downloads/____SG DREAM (1).zip`.
+1. Source corpus comes from the `SG_DREAM_SOURCE_ZIP` env var (a local path to
+   the Dawson source package zip). When unset, the workbench degrades to an
+   empty corpus with a warning.
 2. The server indexes real Dawson marked-up contracts, marked-up plats, the
    active verification workbook, and governance files directly from the zip.
 3. PDF documents stream from the zip through

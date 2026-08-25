@@ -11,8 +11,7 @@ import type {
   SourceDocumentKind,
 } from './types'
 
-const DEFAULT_SOURCE_ZIP = '/Users/matthewgraham/Downloads/____SG DREAM (1).zip'
-const SOURCE_ZIP = process.env.SG_DREAM_SOURCE_ZIP ?? DEFAULT_SOURCE_ZIP
+const SOURCE_ZIP = process.env.SG_DREAM_SOURCE_ZIP ?? ''
 const MAX_BUFFER = 128 * 1024 * 1024
 
 const MARKED_CONTRACTS_PREFIX =
@@ -335,6 +334,17 @@ async function parsePlatPpps(
 
 async function readCorpus(): Promise<CorpusRead> {
   const warnings: Array<string> = []
+  if (!SOURCE_ZIP) {
+    return {
+      sourceZipPath: SOURCE_ZIP,
+      sourceExists: false,
+      sourceWarnings: [
+        'SG_DREAM_SOURCE_ZIP is not configured on this machine.',
+      ],
+      documents: [],
+      platPpps: [],
+    }
+  }
   try {
     await fs.access(SOURCE_ZIP)
   } catch {

@@ -81,7 +81,6 @@ Every integration degrades gracefully when unconfigured (outside strict mode), s
 
 - [docs/mockup-brief.md](./docs/mockup-brief.md) — customer intake brief (current product scope)
 - [docs/scenario-matrix.md](./docs/scenario-matrix.md) — current review scope: Tim McCarley, Dawson Trails entities
-- [docs/meeting-confirmed-details.md](./docs/meeting-confirmed-details.md) — confirmed direction from the March 30 meeting
 - [docs/brand-system.md](./docs/brand-system.md) — token map and visual language
 - [docs/workos-setup.md](./docs/workos-setup.md), [docs/egnyte-setup.md](./docs/egnyte-setup.md), [docs/docupipe-setup.md](./docs/docupipe-setup.md), [docs/intelligence-setup.md](./docs/intelligence-setup.md) — integration setup
 - [docs/determination-pipeline.md](./docs/determination-pipeline.md), [docs/docupipe-alignment.md](./docs/docupipe-alignment.md) — internal pipelines

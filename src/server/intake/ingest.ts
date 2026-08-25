@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 
+import type { DocType } from '#/lib/sg-dream'
 import { postDocument } from '#/server/docupipe'
 import {
   createFolderIfMissing,
@@ -9,9 +10,13 @@ import {
   uploadFile,
 } from '#/server/egnyte'
 import type { EgnyteCredentials } from '#/server/egnyte'
-import { isEgnyteConfigured, isEgnyteExportEnabled } from '#/server/env'
+import {
+  isDocupipeConfigured,
+  isEgnyteConfigured,
+  isEgnyteExportEnabled,
+} from '#/server/env'
 import { getStore } from '#/server/store'
-import type { StoredDocument } from '#/server/store'
+import type { ExtractedFields, StoredDocument } from '#/server/store'
 
 import type { IntakeContext } from './context'
 
@@ -51,6 +56,63 @@ function canStageEgnyte(input: {
 }): boolean {
   if (!isEgnyteExportEnabled()) return false
   return Boolean(input.egnyteCredentials) || isEgnyteConfigured()
+}
+
+/**
+ * Filename-heuristic classification for simulated (no-DocuPipe) ingests.
+ * Order matters: more specific phrases first so "Application for Payment"
+ * lands on PA before the generic payment/proof patterns.
+ */
+const SIMULATED_TYPE_PATTERNS: ReadonlyArray<readonly [RegExp, DocType]> = [
+  [/pay\s*app|payapp|g\s*70[23]|application\s+(for|and certif)/i, 'PA'],
+  [/invoice|\binv\b/i, 'INV'],
+  [/change\s*order|\bco[-_ ]?\d/i, 'CO'],
+  [/task\s*order|\bto[-_ ]?\d/i, 'TO'],
+  [/contract|agreement|\bctr\b/i, 'CTR'],
+  [/proof\s*of\s*payment|\bpop\b|check|receipt|remittance/i, 'POP'],
+  [/plat|survey/i, 'LSP'],
+  [/drawing|\bcd[-_ ]?\d/i, 'CD'],
+]
+
+function simulatedDocType(filename: string): DocType {
+  for (const [pattern, docType] of SIMULATED_TYPE_PATTERNS) {
+    if (pattern.test(filename)) return docType
+  }
+  return 'UNK'
+}
+
+/**
+ * Deterministic stand-in for DocuPipe extraction, used when DocuPipe is not
+ * configured (contributor sandbox / degraded dev). Values derive from the
+ * content hash so re-uploads of the same file produce the same numbers.
+ */
+function simulatedExtraction(
+  filename: string,
+  contentHash: string,
+  docType: DocType,
+): ExtractedFields {
+  const seed = Number.parseInt(contentHash.slice(0, 8), 16)
+  const monetary = docType === 'PA' || docType === 'INV' || docType === 'POP'
+  const base = filename.replace(/\.[^.]+$/, '')
+  const vendorToken = base
+    .split(/[-_ .]+/)
+    .find(
+      (token) =>
+        /^[A-Za-z]{3,}$/.test(token) &&
+        !/^(pay|app|application|invoice|inv|contract|order|proof|payment|plat|survey|drawing|for|the|and)$/i.test(
+          token,
+        ),
+    )
+  const vendorName = vendorToken
+    ? vendorToken[0].toUpperCase() + vendorToken.slice(1)
+    : 'Sandbox Vendor'
+  return {
+    vendorName,
+    documentNumber: `${docType}-${contentHash.slice(0, 6).toUpperCase()}`,
+    amount: monetary ? ((seed % 9_000_000) + 250_000) / 100 : undefined,
+    currency: monetary ? 'USD' : undefined,
+    documentDate: new Date().toISOString().slice(0, 10),
+  }
 }
 
 export function newDocumentId(prefix = 'u'): string {
@@ -232,6 +294,26 @@ export async function ingestDocument(
       egnyteError = err instanceof Error ? err.message : 'egnyte staging failed'
       console.error('[egnyte] stage failed', err)
     }
+  }
+
+  if (!isDocupipeConfigured()) {
+    // Degraded/sandbox mode: no DocuPipe credentials on this machine. Rather
+    // than erroring the document, simulate what the extraction webhook would
+    // deliver so the upload → processing → confirmation story completes
+    // locally. Strict-mode deployments always have DocuPipe configured, so
+    // this path only runs in dev and contributor sandboxes.
+    const docType = simulatedDocType(input.filename)
+    const patched = await store.patchDocument(id, {
+      status: 'completed',
+      docType,
+      extractedFields: simulatedExtraction(input.filename, contentHash, docType),
+      errorMessage: egnyteError,
+    })
+    if (patched) return patched
+    const snapshot = await store.getSnapshot(input.context.verification.id)
+    const queued = snapshot?.verification.documents.find((doc) => doc.id === id)
+    if (queued) return queued
+    throw new Error(`ingested document ${id} disappeared before patch`)
   }
 
   try {
