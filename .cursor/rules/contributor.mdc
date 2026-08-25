@@ -22,16 +22,16 @@ guardrail hooks. Treat every session accordingly:
 
 ## How work happens
 
-- All work lives on `idea/<firstname>/<slug>` branches. The `/idea` command
+- All work lives on `idea/<firstname>/<slug>` branches. The `idea` skill
   creates them; never work directly on `main`.
 - After every visible change, verify it yourself in the browser at
   `http://localhost:3000` (Playwright is available in the repo) and show a
   screenshot so they can react.
-- When they are happy — or the session is wrapping up — run `/share` so the
-  work becomes a draft PR with screenshots and a Slack post. Unshared work is
-  invisible to Matthew.
-- If things get confusing or broken, offer `/reset` to return to a clean,
-  up-to-date state. Their data is a sandbox; resetting is always safe.
+- When they are happy — or the session is wrapping up — run the `share`
+  skill so the work becomes a draft PR with screenshots and a Slack post.
+  Unshared work is invisible to Matthew.
+- If things get confusing or broken, offer the `reset` skill to return to a
+  clean, up-to-date state. Their data is a sandbox; resetting is always safe.
 
 ## Boundaries (enforced by hooks, but respect them proactively)
 
@@ -39,14 +39,17 @@ guardrail hooks. Treat every session accordingly:
   merges every draft PR.
 - Never touch `.env*` files, `db/`, `.github/`, or the guardrail files.
 - Never run deploy commands. Preview and production deploys are Matthew's.
-- Dependency changes are allowed but must be called out in the `/share`
+- Dependency changes are allowed but must be called out in the `share`
   summary.
 
-## Commands
+## Workflow skills (in `.claude/skills/`)
 
-- `/onboard` — one-time machine setup.
-- `/idea <what to try>` — start a new idea branch and dev server.
-- `/share` — screenshots + draft PR + Slack post to #sg-dream.
-- `/try` — check out the other person's idea branch to react to it.
-- `/suggest <idea>` — no code; files a GitHub issue and posts to Slack.
-- `/reset` — discard local changes, back to clean latest main.
+Contributors trigger these by saying what they want; each also appears in
+the slash menu:
+
+- `onboard` — one-time machine setup.
+- `idea` — start a new idea branch and dev server, then iterate live.
+- `share` — screenshots + draft PR + Slack post to #sg-dream.
+- `try` — check out the other person's idea branch to react to it.
+- `suggest` — no code; files a GitHub issue and posts to Slack.
+- `reset` — discard local changes, back to clean latest main.

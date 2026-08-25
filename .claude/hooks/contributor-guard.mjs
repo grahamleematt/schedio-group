@@ -61,7 +61,7 @@ if (toolName === 'Bash') {
     if (pushesMain || bareOnMain) {
       block(
         'pushing to main is not allowed.',
-        'Work on an idea branch (run /idea) and use /share to open a draft PR.',
+        'Work on an idea branch (use the idea skill) and share it as a draft PR with the share skill.',
       )
     }
   }
@@ -69,14 +69,14 @@ if (toolName === 'Bash') {
   if (/\bgit\s+(commit|cherry-pick)\b/.test(cmd) && currentBranch() === 'main') {
     block(
       'committing directly on main is not allowed.',
-      'Run /idea first — it creates a branch for you.',
+      'Use the idea skill first — it creates a branch for you.',
     )
   }
 
   if (/\bgit\s+merge\b/.test(cmd) || /\bgh\s+pr\s+merge\b/.test(cmd)) {
     block(
       'merging is Matthew’s job.',
-      'Open a draft PR with /share and he will review and merge it.',
+      'Open a draft PR with the share skill and he will review and merge it.',
     )
   }
 
@@ -100,7 +100,7 @@ if (toolName === 'Bash') {
   if (/\brm\s+-[a-z]*r[a-z]*f|\brm\s+-[a-z]*f[a-z]*r/i.test(cmd)) {
     block(
       'recursive force-delete is not allowed.',
-      'Delete specific files instead, or run /reset to get back to a clean state.',
+      'Delete specific files instead, or use the reset skill to get back to a clean state.',
     )
   }
 

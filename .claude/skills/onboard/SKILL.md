@@ -1,6 +1,9 @@
 ---
-description: One-time machine setup for a new Schedio contributor
+name: onboard
+description: One-time machine setup for a new Schedio contributor. Use when someone says onboard, set me up, get me started on the Schedio portal project, or is clearly on a machine that has never been set up (missing .env.local or dependencies).
 ---
+
+# Onboard
 
 You are setting up this machine for a non-developer Schedio collaborator (Tim
 or Andres). Be warm, plain-spoken, and do everything for them — they should
@@ -28,10 +31,10 @@ only ever answer simple questions or paste one block. Steps:
 7. Start the app: run `yarn dev` in the background, wait for it to serve, and
    open `http://localhost:3000` in their browser. Confirm the portal loads
    (sandbox mode signs them in automatically). Take a screenshot to verify.
-8. Explain the daily loop in 4 short sentences: `/idea` to start something,
-   describe what you want in plain English and watch it appear at
-   localhost:3000, `/share` when you like it, `/reset` if you want to bail
-   out. Mention `/try` for viewing each other's ideas and `/suggest` for
+8. Explain the daily loop in 4 short sentences: use the `idea` skill to start
+   something, describe what you want in plain English and watch it appear at
+   localhost:3000, use `share` when you like it, use `reset` if you want to
+   bail out. Mention `try` for viewing each other's ideas and `suggest` for
    ideas without code.
 
 Never skip the verification in step 7. If anything fails, fix it yourself and

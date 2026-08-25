@@ -2,7 +2,7 @@
 # Contributor guardrails for Claude Code (PreToolUse hook).
 #
 # Enforced ONLY when the gitignored marker file `.claude/contributor` exists —
-# it is written once by the /onboard command on a contributor's machine.
+# it is written once by the onboard skill on a contributor's machine.
 # Without the marker (e.g. Matthew's environment) this script exits 0
 # immediately and changes nothing.
 #

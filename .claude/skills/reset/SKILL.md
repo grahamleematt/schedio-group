@@ -1,6 +1,9 @@
 ---
-description: Bail out — discard local changes and return to a clean, current app
+name: reset
+description: Bail out — discard local changes and return to a clean, current app. Use when the contributor says reset, start over, undo everything, or things feel broken or confusing and they want a clean slate.
 ---
+
+# Reset
 
 They want a clean slate.
 
@@ -14,5 +17,5 @@ They want a clean slate.
    stray untracked source files created during the session — but NEVER
    touch `.env.local`, `.claude/contributor`, `node_modules`, or `.data`.
 4. Restart `yarn dev` if needed and confirm `http://localhost:3000` loads.
-5. Tell them they are back on the latest version of the app and `/idea`
-   starts the next experiment.
+5. Tell them they are back on the latest version of the app and starting a
+   new idea is one sentence away.

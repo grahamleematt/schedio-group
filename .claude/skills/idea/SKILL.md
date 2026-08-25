@@ -1,9 +1,11 @@
 ---
-description: Start a new idea branch and iterate on it live
-argument-hint: what you want to try, in plain English
+name: idea
+description: Start a new idea branch and iterate on it live. Use when the contributor says idea, or wants to try, change, build, prototype, or experiment with anything on the portal (a screen, a button, a flow, wording, layout).
 ---
 
-The collaborator wants to try: $ARGUMENTS
+# Idea
+
+The collaborator described something they want to try on the portal.
 
 1. If there are uncommitted changes from a previous idea, ask whether to
    save them to their current idea branch (commit with a plain-language
@@ -18,7 +20,7 @@ The collaborator wants to try: $ARGUMENTS
    - show them the screenshot,
    - describe the change in one plain sentence and ask if it matches what
      they pictured.
-6. Keep iterating until they are happy. Then remind them: "run /share when
+6. Keep iterating until they are happy. Then remind them: "say share when
    you want Matthew and the team to see this."
 
 Rules: never work on `main`, never touch `.env*` / `db/` / `.github/`, keep

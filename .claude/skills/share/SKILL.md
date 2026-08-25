@@ -1,11 +1,14 @@
 ---
-description: Turn the current idea branch into a draft PR with screenshots and a Slack post
+name: share
+description: Turn the current idea branch into a draft PR with screenshots and a Slack post. Use when the contributor says share, send this to Matthew, publish my idea, or is happy with their idea and wants the team to see it.
 ---
+
+# Share
 
 Package the current idea branch so Matthew can review it.
 
 1. Confirm you are on an `idea/*` branch with changes. If on `main`, tell
-   them there is nothing to share yet and suggest `/idea`.
+   them there is nothing to share yet and suggest starting an idea first.
 2. Quality pass: run `npx tsc --noEmit` and `yarn lint`. Fix what you can;
    if something cannot be fixed quickly, note it honestly in the PR body
    instead of hiding it.
@@ -24,4 +27,4 @@ Package the current idea branch so Matthew can review it.
    `{"text":"<emoji> Idea from <Name>: <title>\n<one-line summary>\n<PR link>"}`.
 7. Tell them, in one sentence, that their idea is now visible to Matthew and
    linked in Slack, and that they can keep iterating on it or start a fresh
-   one with `/idea`.
+   one.

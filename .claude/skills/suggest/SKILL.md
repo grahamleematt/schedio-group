@@ -1,9 +1,11 @@
 ---
-description: File an idea or feedback for Matthew without writing any code
-argument-hint: the idea, in plain English
+name: suggest
+description: File an idea or feedback for Matthew without writing any code. Use when the contributor says suggest, or has an idea, request, or piece of feedback they want recorded but not built right now.
 ---
 
-They have an idea but do not want to build it now: $ARGUMENTS
+# Suggest
+
+They have an idea but do not want to build it now.
 
 1. Ask one or two clarifying questions at most, only if the idea is unclear.
    Restate it back in one crisp paragraph and confirm.

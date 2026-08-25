@@ -13,20 +13,23 @@ here can affect the real portal — Matthew reviews everything before it ships.
 3. Open Claude Code and paste:
 
    > Set me up on the Schedio portal project: clone
-   > github.com/grahamleematt/schedio-group and run /onboard
+   > github.com/grahamleematt/schedio-group and onboard me
 
    Claude walks you through the rest. It will ask you to paste the "sandbox
    key block" — Matthew DMs that to you on Slack.
 
 ## The daily loop
 
-| Command | What it does |
+Just say what you want — these are skills Claude picks up from plain
+English (they also appear in the slash menu, e.g. `/idea`):
+
+| Say something like | What happens |
 | --- | --- |
-| `/idea bigger upload button` | Starts a fresh idea. Claude branches off the latest app, builds what you describe, and shows you screenshots as it goes. Say what to change until it looks right. |
-| `/share` | Packages the idea: screenshots, a draft pull request for Matthew, and a post in #sg-dream so everyone sees it. |
-| `/try` | Loads the other person's shared idea on your machine so you can react to it. |
-| `/suggest ...` | For ideas you don't want to build — files it straight to Matthew's queue and posts to Slack. |
-| `/reset` | Bail out. Throws away the experiment and puts you back on the current app, clean. |
+| "new idea: bigger upload button" | Starts a fresh idea. Claude branches off the latest app, builds what you describe, and shows you screenshots as it goes. Say what to change until it looks right. |
+| "share this" | Packages the idea: screenshots, a draft pull request for Matthew, and a post in #sg-dream so everyone sees it. |
+| "let me try Tim's idea" | Loads the other person's shared idea on your machine so you can react to it. |
+| "suggest: export to Excel" | For ideas you don't want to build — files it straight to Matthew's queue and posts to Slack. |
+| "reset everything" | Bail out. Throws away the experiment and puts you back on the current app, clean. |
 
 ## What you're working with
 
@@ -41,7 +44,7 @@ here can affect the real portal — Matthew reviews everything before it ships.
 
 ## How ideas become real features
 
-1. You `/share` an idea → draft PR + Slack post.
+1. You share an idea → draft PR + Slack post.
 2. Matthew reviews it, polishes or rebuilds as needed, and merges.
 3. It deploys to the live portal, and the PR closes with a note about what
    shipped.

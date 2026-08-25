@@ -1,6 +1,9 @@
 ---
-description: Look at another person's shared idea, running live on this machine
+name: try
+description: Look at another person's shared idea, running live on this machine. Use when the contributor says try, or wants to see, open, or react to someone else's idea or shared work.
 ---
+
+# Try
 
 They want to see someone else's idea running locally.
 
