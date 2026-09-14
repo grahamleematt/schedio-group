@@ -1,9 +1,21 @@
-// Contributor guardrail rules. Invoked by contributor-guard.sh only when the
-// contributor marker exists; reads the PreToolUse event JSON from stdin.
-// Exit 0 allows the tool call, exit 2 blocks it (stderr goes back to Claude).
+// Contributor guardrail rules (PreToolUse hook, cross-platform: invoked as
+// `node .claude/hooks/contributor-guard.mjs` with cwd = project dir).
+//
+// Enforced ONLY when the gitignored marker file `.claude/contributor` exists —
+// it is written once by the onboard skill on a contributor's machine. Without
+// the marker (e.g. Matthew's environment) this exits 0 immediately.
+//
+// Reads the PreToolUse event JSON from stdin. Exit 0 allows the tool call,
+// exit 2 blocks it (stderr goes back to Claude).
 import { execSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 
-const repoRoot = process.argv[2] ?? process.cwd()
+const repoRoot = process.argv[2] ?? process.env.CLAUDE_PROJECT_DIR ?? process.cwd()
+
+if (!existsSync(join(repoRoot, '.claude', 'contributor'))) {
+  process.exit(0)
+}
 
 const raw = await new Promise((resolve) => {
   let buf = ''

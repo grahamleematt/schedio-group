@@ -9,13 +9,12 @@ here can affect the real portal — Matthew reviews everything before it ships.
 
 1. Create a GitHub account (github.com) and accept the repo invite Matthew
    sends you.
-2. Install the **Claude Code app on your Mac** (download from
-   `https://claude.com/product/claude-code`, or in Terminal:
-   `npm install -g @anthropic-ai/claude-code`). Important: do **not** use the
-   "Code" tab on the claude.ai website — that runs in the cloud, can't reach
-   the sandbox, and nothing it sets up survives. It must be the app on your
-   own machine.
-3. Open Claude Code on your Mac and paste:
+2. Install **Claude Code on your own computer** (Mac or Windows — download
+   from `https://claude.com/product/claude-code`). Important: do **not** use
+   the "Code" tab on the claude.ai website — that runs in the cloud, can't
+   reach the sandbox, and nothing it sets up survives. It must be installed
+   on your machine.
+3. Open Claude Code and paste:
 
    > Set me up on the Schedio portal project: clone
    > github.com/grahamleematt/schedio-group and onboard me

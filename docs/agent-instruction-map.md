@@ -29,10 +29,11 @@ Non-developer collaborators work through Claude Code. The pieces:
   skill;
   its presence switches a machine into contributor mode. No marker (e.g.
   Matthew's machines) means zero behavior change.
-- `.claude/settings.json` + `.claude/hooks/contributor-guard.{sh,mjs}` —
-  PreToolUse hooks that block pushes/commits to `main`, merges, force pushes,
-  deploys, `rm -rf`, and writes to `.env*`, `db/`, `.github/`, and the
-  guardrail files themselves. They no-op without the marker.
+- `.claude/settings.json` + `.claude/hooks/contributor-guard.mjs` —
+  cross-platform (pure Node) PreToolUse hook that blocks pushes/commits to
+  `main`, merges, force pushes, deploys, `rm -rf`, and writes to `.env*`,
+  `db/`, `.github/`, and the guardrail files themselves. It no-ops without
+  the marker.
 - `.claude/rules/contributor.md` — session behavior rule (canonical body;
   mirrored as `.cursor/rules/contributor.mdc` and symlinked into `.codex`).
 - `.claude/skills/{onboard,idea,share,try,suggest,reset}/` — the contributor

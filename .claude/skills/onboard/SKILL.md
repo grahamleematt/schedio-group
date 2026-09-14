@@ -11,16 +11,20 @@ only ever answer simple questions or paste one block. Steps:
 
 1. Ask their first name (used for branch names later). Remember it by writing
    it into the marker in step 6.
-2. Check the toolchain, installing whatever is missing (use Homebrew on
-   macOS; install Homebrew first if absent):
+2. Check the toolchain, installing whatever is missing:
    - git, Node 20+ (prefer 22), yarn (via `corepack enable` or npm), gh.
+   - macOS: use Homebrew (install Homebrew first if absent).
+   - Windows: use winget (`winget install Git.Git OpenJS.NodeJS.LTS
+     GitHub.cli`), then restart the shell so PATH updates. Prefer
+     PowerShell-friendly commands throughout the session.
 3. GitHub sign-in: run `gh auth status`; if not logged in, run
    `gh auth login --web --git-protocol https` and walk them through the
    browser device flow in plain words. Then run
    `gh auth setup-git` so pushes work over https.
 4. If this repo is not already cloned (you may be running from inside it),
    clone `https://github.com/grahamleematt/schedio-group.git` into
-   `~/Code/schedio-group` and `cd` into it. Run `yarn install`.
+   `~/Code/schedio-group` (macOS) or `%USERPROFILE%\Code\schedio-group`
+   (Windows) and `cd` into it. Run `yarn install`.
 5. Environment: ask them to paste the "sandbox key block" that Matthew sent
    them in a Slack DM. It is a ready-made `.env.local` file. Write the pasted
    content to `.env.local` exactly as given. If they cannot find it, stop and
