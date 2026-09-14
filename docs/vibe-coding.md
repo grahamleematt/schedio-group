@@ -69,6 +69,6 @@ psql "$ADMIN/vibe_sandbox?sslmode=require" -q -f /tmp/prod-dump.sql
 ```
 
 Contributor guardrails live in `.claude/settings.json` +
-`.claude/hooks/contributor-guard.{sh,mjs}`; they only activate on machines
+`.claude/hooks/contributor-guard.mjs`; they only activate on machines
 with the gitignored `.claude/contributor` marker. See
 `docs/agent-instruction-map.md` for the full instruction layout.
